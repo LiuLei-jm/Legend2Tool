@@ -1,5 +1,8 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using System.Windows;
+﻿using System.Windows;
+using Legend2Tool.WPF.Services;
+using Legend2Tool.WPF.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace Legend2Tool.WPF
 {
@@ -8,20 +11,37 @@ namespace Legend2Tool.WPF
     /// </summary>
     public partial class App : Application
     {
-        public App()
+        [STAThread]
+        static void Main(string[] args)
         {
-            Services = ConfigureServices();
+            using var host = CreateHostBuilder(args).Build();
 
-            this.InitializeComponent();
+            var app = new App();
+            app.InitializeComponent();
+            app.MainWindow = host.Services.GetRequiredService<MainWindow>();
+            app.MainWindow.Visibility = Visibility.Visible;
+            app.Run();
         }
 
-        public static new App Current => (App)Application.Current;
-        public IServiceProvider Services { get; }
-
-        private static IServiceProvider? ConfigureServices()
+        private static IHostBuilder CreateHostBuilder(string[] args)
         {
-            var services = new ServiceCollection();
-            return services.BuildServiceProvider();
+            return Host.CreateDefaultBuilder(args)
+                .ConfigureServices(
+                    (context, services) =>
+                    {
+                        // Register your services here
+                        services.AddSingleton<IDialogService, DialogService>();
+
+                        services.AddSingleton<MainViewModel>();
+                        services.AddSingleton<MenuViewModel>();
+                        services.AddSingleton<PortConfViewModel>();
+
+                        services.AddSingleton<MainWindow>(sp => new MainWindow
+                        {
+                            DataContext = sp.GetRequiredService<MainViewModel>(),
+                        });
+                    }
+                );
         }
     }
 }
