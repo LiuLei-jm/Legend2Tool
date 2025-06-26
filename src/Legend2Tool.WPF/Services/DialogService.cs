@@ -1,9 +1,16 @@
 ﻿using Microsoft.Win32;
+using Serilog;
 
 namespace Legend2Tool.WPF.Services
 {
     public class DialogService : IDialogService
     {
+        private readonly ILogger _logger;
+
+        public DialogService(ILogger logger)
+        {
+            _logger = logger;
+        }
         public string? ShowFolderBrowserDialog(string initialPath = null!)
         {
             OpenFolderDialog dialog = new();
@@ -24,7 +31,6 @@ namespace Legend2Tool.WPF.Services
 
                 return fullPathToFolder;
             }
-
             return null;
         }
     }

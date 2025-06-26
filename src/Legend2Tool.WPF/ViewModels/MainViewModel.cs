@@ -4,13 +4,13 @@ namespace Legend2Tool.WPF.ViewModels
 {
     public partial class MainViewModel
     {
-        public MenuViewModel MenuViewModel { get; } 
-        public PortConfViewModel PortConfViewModel { get; } 
+        public MenuViewModel MenuViewModel { get; }
+        public List<ViewModelBase> ViewModels { get; }
 
-        public MainViewModel(IDialogService dialogService, PortConfViewModel portConfViewModel, MenuViewModel menuViewModel)
+        public MainViewModel(IDialogService dialogService, MenuViewModel menuViewModel, PortConfViewModel portConfViewModel, ScriptOptimizationViewModel scriptOptimizationViewModel)
         {
-            PortConfViewModel = portConfViewModel;
             MenuViewModel = menuViewModel;
+            ViewModels = new List<ViewModelBase> { portConfViewModel, scriptOptimizationViewModel };
         }
     }
 }
