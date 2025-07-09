@@ -28,7 +28,7 @@ namespace Legend2Tool.WPF.ViewModels
 
         partial void OnPatchDirectoryChanged(string value)
         {
-            WeakReferenceMessenger.Default.Send(new PatchDirectoryChanedMessage(value));
+            WeakReferenceMessenger.Default.Send(new PatchDirectoryChangedMessage(value));
         }
 
         [RelayCommand]

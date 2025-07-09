@@ -6,6 +6,8 @@ namespace Legend2Tool.WPF.Services
 {
     public class EncodingService : IEncodingService
     {
+        private const int minLengthForUDE = 100;
+        private const int minConfidenceThreshold = 70;
         public void ConvertFileEncoding(string inputFilePath, string outputFilePath, Encoding inputFileEncoding, string targetEncodingName)
         {
             if (string.IsNullOrWhiteSpace(inputFilePath))
@@ -105,10 +107,10 @@ namespace Legend2Tool.WPF.Services
                 throw new FileNotFoundException($"文件未找到：{filePath}");
 
             long fileSize = new FileInfo(filePath).Length;
-            if (fileSize == 0)
+            if (fileSize <= 30)
                 return Encoding.GetEncoding("GB18030");
 
-            const int BytesToReadForDetection = 4096;
+            const int BytesToReadForDetection = 8192;
             byte[] buffer;
             try
             {
@@ -133,22 +135,83 @@ namespace Legend2Tool.WPF.Services
             if (encoding != null)
                 return encoding;
 
+            if (fileSize < minLengthForUDE)
+            {
+                if (IsPureAscii(buffer))
+                {
+                    return Encoding.UTF8;
+                }
+                foreach (var fallbackEnc in GetCommonFallbackEncodings())
+                {
+                    try
+                    {
+                        fallbackEnc.GetString(buffer);
+                        return fallbackEnc;
+                    }
+                    catch (DecoderFallbackException) { }
+                    catch (ArgumentException) { }
+                }
+                return Encoding.GetEncoding("GB18030") ?? Encoding.UTF8;
+            }
+
             // 使用UDE库检测
             var charsetDetector = new CharsetDetector();
             charsetDetector.Feed(buffer, 0, buffer.Length);
             charsetDetector.DataEnd();
             if (charsetDetector.Charset != null)
             {
-                try
+                if (charsetDetector.Confidence >= minConfidenceThreshold)
                 {
-                    return Encoding.GetEncoding(charsetDetector.Charset.ToUpper());
+                    var detected = charsetDetector.Charset.ToUpperInvariant();
+                    var safeEncoding = GetSafeEncoding(detected);
+                    if (safeEncoding != null) return safeEncoding;
                 }
-                catch
+                else
                 {
-                    return Encoding.GetEncoding("GB18030"); // 如果检测到的编码不被支持，返回GB18030
+                    foreach (var fallbackEnc in GetCommonFallbackEncodings())
+                    {
+                        try
+                        {
+                            fallbackEnc.GetString(buffer);
+                            return fallbackEnc;
+                        }
+                        catch (DecoderFallbackException) { }
+                        catch (ArgumentException) { }
+                    }
                 }
             }
-            return Encoding.GetEncoding("GB18030");
+            return Encoding.GetEncoding("GB18030") ?? Encoding.UTF8;
+        }
+
+        private IEnumerable<Encoding> GetCommonFallbackEncodings()
+        {
+            yield return Encoding.GetEncoding("GB18030");
+            yield return Encoding.UTF8;
+            yield return Encoding.Default;
+        }
+
+        private bool IsPureAscii(byte[] buffer)
+        {
+            foreach (byte b in buffer)
+            {
+                if (b > 127)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private Encoding? GetSafeEncoding(string detected)
+        {
+            try
+            {
+                return Encoding.GetEncoding(detected);
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         public Encoding GetEncodingByName(string encodingName)

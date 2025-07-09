@@ -11,5 +11,418 @@
     d:DesignHeight="450"
     d:DesignWidth="800"
     mc:Ignorable="d">
-    <StackPanel />
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="auto" />
+            <RowDefinition Height="auto" />
+            <RowDefinition Height="auto" />
+        </Grid.RowDefinitions>
+        <Grid Grid.Row="0" MinHeight="50">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <GroupBox Header="登录网关" Style="{StaticResource GroupBoxTab}">
+                <WrapPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition />
+                        </Grid.ColumnDefinitions>
+                        <CheckBox Margin="5,5,5,0" IsChecked="{Binding LoginGateGetStart}" />
+                        <TextBlock
+                            Grid.Column="1"
+                            Margin="0,5,5,0"
+                            VerticalAlignment="Center"
+                            FontWeight="Bold"
+                            Text="端口" />
+                        <TextBox
+                            Grid.Column="2"
+                            Grid.ColumnSpan="2"
+                            Width="60"
+                            Margin="0,5,0,0"
+                            VerticalAlignment="Top"
+                            Text="{Binding LoginGateGatePort, UpdateSourceTrigger=PropertyChanged, ValidatesOnDataErrors=true}" />
+                    </Grid>
+                </WrapPanel>
+            </GroupBox>
+            <GroupBox
+                Grid.Column="1"
+                Header="数据库服务器"
+                Style="{StaticResource GroupBoxTab}">
+                <WrapPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="auto" />
+                            <ColumnDefinition Width="auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <CheckBox Margin="5,5,5,0" IsChecked="{Binding DBServerGetStart}" />
+                        <TextBlock
+                            Grid.Column="1"
+                            Margin="0,5,5,0"
+                            VerticalAlignment="Center"
+                            FontWeight="Bold"
+                            Text="端口" />
+                        <TextBox
+                            Grid.Column="2"
+                            Width="60"
+                            Margin="0,5,0,0"
+                            VerticalAlignment="Center"
+                            Text="{Binding DBServerGatePort}" />
+                    </Grid>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock
+                            Margin="5,5,5,0"
+                            VerticalAlignment="Center"
+                            FontWeight="Bold"
+                            Text="通讯端口" />
+                        <TextBox
+                            Grid.Column="1"
+                            Width="60"
+                            Margin="0,5,0,0"
+                            VerticalAlignment="Center"
+                            Text="{Binding DBServerServerPort}" />
+                    </Grid>
+                </WrapPanel>
+            </GroupBox>
+            <GroupBox
+                Grid.Column="2"
+                Header="M2主服务器"
+                Style="{StaticResource GroupBoxTab}">
+                <WrapPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="auto" />
+                            <ColumnDefinition Width="auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <CheckBox Margin="5,5,5,0" IsChecked="{Binding M2ServerGetStart}" />
+                        <TextBlock
+                            Grid.Column="1"
+                            Margin="0,5,5,0"
+                            VerticalAlignment="Center"
+                            FontWeight="Bold"
+                            Text="端口" />
+                        <TextBox
+                            Grid.Column="2"
+                            Width="60"
+                            Margin="0,5,0,0"
+                            VerticalAlignment="Center"
+                            Text="{Binding M2ServerGatePort}" />
+                    </Grid>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock
+                            Margin="5,5,5,0"
+                            VerticalAlignment="Center"
+                            FontWeight="Bold"
+                            Text="通讯端口" />
+                        <TextBox
+                            Grid.Column="1"
+                            Width="60"
+                            Margin="0,5,0,0"
+                            VerticalAlignment="Center"
+                            Text="{Binding M2ServerMsgSrvPort}" />
+                    </Grid>
+                </WrapPanel>
+            </GroupBox>
+            <GroupBox
+                Grid.Column="3"
+                Header="角色网关"
+                Style="{StaticResource GroupBoxTab}">
+                <WrapPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="auto" />
+                            <ColumnDefinition Width="auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <CheckBox Margin="5,5,5,0" IsChecked="{Binding SelGateGetStart}" />
+                        <TextBlock
+                            Grid.Column="1"
+                            Margin="0,5,5,0"
+                            VerticalAlignment="Center"
+                            FontWeight="Bold"
+                            Text="端口1" />
+                        <TextBox
+                            Grid.Column="2"
+                            Width="60"
+                            Margin="0,5,0,0"
+                            Text="{Binding SelGateGatePort}" />
+                    </Grid>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="auto" />
+                            <ColumnDefinition Width="auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <CheckBox Margin="5,5,5,0" IsChecked="{Binding SelGateGetStart1}" />
+                        <TextBlock
+                            Grid.Column="1"
+                            Margin="0,5,5,0"
+                            VerticalAlignment="Center"
+                            FontWeight="Bold"
+                            Text="端口2" />
+                        <TextBox
+                            Grid.Column="2"
+                            Width="60"
+                            Margin="0,5,0,0"
+                            Text="{Binding SelGateGatePort1}" />
+                    </Grid>
+                </WrapPanel>
+            </GroupBox>
+            <GroupBox
+                Grid.Column="4"
+                Header="账号服务器"
+                Style="{StaticResource GroupBoxTab}">
+                <WrapPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <CheckBox Margin="5,5,5,0" IsChecked="{Binding LoginServerGetStart}" />
+                        <TextBlock
+                            Grid.Column="1"
+                            Margin="0,5,5,0"
+                            VerticalAlignment="Center"
+                            FontWeight="Bold"
+                            Text="端口" />
+                        <TextBox
+                            Grid.Column="2"
+                            Width="60"
+                            Margin="0,5,0,0"
+                            Text="{Binding LoginServerGatePort}" />
+                    </Grid>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock
+                            Margin="5,5,5,0"
+                            VerticalAlignment="Center"
+                            FontWeight="Bold"
+                            Text="通讯端口" />
+                        <TextBox
+                            Grid.Column="1"
+                            Width="60"
+                            Margin="0,5,0,0"
+                            Text="{Binding LoginServerServerPort}" />
+                    </Grid>
+                </WrapPanel>
+            </GroupBox>
+            <GroupBox
+                Grid.Column="5"
+                Header="日志服务器"
+                Style="{StaticResource GroupBoxTab}">
+                <WrapPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <CheckBox Margin="5,5,5,0" IsChecked="{Binding LogServerGetStart}" />
+                        <TextBlock
+                            Grid.Column="1"
+                            Margin="0,5,5,0"
+                            VerticalAlignment="Center"
+                            FontWeight="Bold"
+                            Text="端口" />
+                        <TextBox
+                            Grid.Column="2"
+                            Width="60"
+                            Margin="0,5,0,0"
+                            Text="{Binding LogServerPort}" />
+                    </Grid>
+                </WrapPanel>
+            </GroupBox>
+        </Grid>
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <GroupBox
+                Grid.Column="0"
+                Header="游戏网关"
+                Style="{StaticResource GroupBoxTab}">
+                <WrapPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock
+                            Margin="5,5,5,0"
+                            VerticalAlignment="Center"
+                            FontWeight="Bold"
+                            Text="端口1" />
+                        <TextBox
+                            Grid.Column="1"
+                            Width="60"
+                            Margin="0,5,0,0"
+                            Text="{Binding RunGateGatePort1}" />
+                    </Grid>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock
+                            Margin="5,5,5,0"
+                            VerticalAlignment="Center"
+                            FontWeight="Bold"
+                            Text="网关数量" />
+                        <hc:NumericUpDown
+                            Grid.Column="1"
+                            Width="60"
+                            Margin="0,5,0,0"
+                            Maximum="8"
+                            Minimum="1"
+                            Value="{Binding RunGateCount, UpdateSourceTrigger=PropertyChanged}" />
+                    </Grid>
+                </WrapPanel>
+            </GroupBox>
+            <GroupBox
+                Grid.Column="1"
+                Grid.ColumnSpan="5"
+                Header="服务端设置"
+                Style="{StaticResource GroupBoxTab}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <WrapPanel Grid.Row="0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock
+                                Margin="5,5,5,0"
+                                VerticalAlignment="Center"
+                                FontWeight="Bold"
+                                Text="游戏服务器名称" />
+                            <TextBox
+                                Grid.Column="1"
+                                Width="120"
+                                Margin="0,5,0,5"
+                                Text="{Binding GameName}" />
+                            <Button
+                                Grid.Column="2"
+                                Margin="5,5,0,5"
+                                Command="{Binding SetDefaultPortConfCommand}"
+                                Content="默认设置" />
+                            <Grid Grid.Column="3">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock
+                                    Margin="5,5,5,0"
+                                    VerticalAlignment="Center"
+                                    FontWeight="Bold"
+                                    Text="所有端口增加：" />
+
+                                <hc:NumericUpDown
+                                    Grid.Column="1"
+                                    Width="60"
+                                    Margin="0,5,0,2"
+                                    Maximum="99"
+                                    Minimum="-99"
+                                    Value="{Binding ModifyNumberOfPort, UpdateSourceTrigger=PropertyChanged}" />
+                            </Grid>
+                            <Button
+                                Grid.Column="4"
+                                Margin="5,5,5,0"
+                                Command="{Binding BatchEditCommand}"
+                                Content="批量修改" />
+                            <ComboBox
+                                Grid.Column="5"
+                                Margin="5,7,5,0"
+                                SelectedValue="{Binding SelectedEncoding, Mode=TwoWay}"
+                                SelectedValuePath="Content">
+                                <ComboBoxItem Content="GB18030" />
+                                <ComboBoxItem Content="UTF-8" />
+                            </ComboBox>
+                            <Button
+                                Grid.Column="6"
+                                Height="26"
+                                Margin="5,5,0,0"
+                                Padding="10,0,10,0"
+                                Command="{Binding ConvertEncodingCommand}"
+                                Content="转换编码">
+                                <Button.ToolTip>
+                                    <ToolTip Content="转换Envir下的所有文件" />
+                                </Button.ToolTip>
+                            </Button>
+                        </Grid>
+                    </WrapPanel>
+                    <WrapPanel Grid.Row="1">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock
+                                Margin="5,5,5,0"
+                                VerticalAlignment="Center"
+                                FontWeight="Bold"
+                                Text="游戏外网IP地址" />
+                            <TextBox
+                                Grid.Column="1"
+                                Width="120"
+                                Margin="0,5,0,0"
+                                Text="{Binding ExtIPAddr}" />
+                            <Button
+                                Grid.Column="2"
+                                Margin="5,5,5,0"
+                                Command="{Binding GetExtIpAddrCommand}"
+                                Content="获取外网IP" />
+                            <Button
+                                Grid.Column="3"
+                                Margin="5,5,5,0"
+                                Command="{Binding SetLocalIpCommand}"
+                                Content="设置本地IP" />
+                            <Button
+                                Grid.Column="4"
+                                Margin="5,5,5,0"
+                                Command="{Binding SaveConfigToFileCommand}"
+                                Content="保存" />
+                        </Grid>
+                    </WrapPanel>
+                </Grid>
+            </GroupBox>
+        </Grid>
+    </Grid>
 </UserControl>
