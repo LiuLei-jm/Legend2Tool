@@ -138,7 +138,6 @@ namespace Legend2Tool.WPF.Services
             }
         }
 
-
         public T ReadMultiSectionConfig<T>(string filePath, Encoding fileEncoding) where T : class, new()
         {
             var parser = new IniFileParser.IniFileParser();

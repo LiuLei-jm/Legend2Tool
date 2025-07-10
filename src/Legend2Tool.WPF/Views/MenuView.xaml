@@ -23,8 +23,7 @@
                 Text="{Binding ServerDirectory, UpdateSourceTrigger=PropertyChanged}" />
             <Button
                 Margin="5,0,0,0"
-                Command="{Binding SetDirectoryCommand}"
-                CommandParameter="server"
+                Command="{Binding SetServerDirectoryCommand}"
                 Content="浏览" />
         </StackPanel>
         <StackPanel
@@ -39,8 +38,7 @@
                 Text="{Binding PatchDirectory, UpdateSourceTrigger=PropertyChanged}" />
             <Button
                 Margin="5,0,0,0"
-                Command="{Binding SetDirectoryCommand}"
-                CommandParameter="patch"
+                Command="{Binding SetPatchDirectoryCommand}"
                 Content="浏览" />
         </StackPanel>
     </StackPanel>

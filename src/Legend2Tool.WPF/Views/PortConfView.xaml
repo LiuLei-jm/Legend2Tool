@@ -7,15 +7,15 @@
     xmlns:local="clr-namespace:Legend2Tool.WPF.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="clr-namespace:Legend2Tool.WPF.ViewModels"
+    Width="900"
     d:DataContext="{d:DesignInstance vm:PortConfViewModel}"
-    d:DesignHeight="450"
-    d:DesignWidth="800"
+    d:DesignHeight="400"
     mc:Ignorable="d">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="auto" />
             <RowDefinition Height="auto" />
-            <RowDefinition Height="auto" />
+            <RowDefinition Height="*" />
         </Grid.RowDefinitions>
         <Grid Grid.Row="0" MinHeight="50">
             <Grid.ColumnDefinitions>
@@ -299,7 +299,7 @@
                             Width="60"
                             Margin="0,5,0,0"
                             Maximum="8"
-                            Minimum="1"
+                            Minimum="0"
                             Value="{Binding RunGateCount, UpdateSourceTrigger=PropertyChanged}" />
                     </Grid>
                 </WrapPanel>
@@ -391,8 +391,8 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <TextBlock
                                 Margin="5,5,5,0"
@@ -415,11 +415,218 @@
                                 Command="{Binding SetLocalIpCommand}"
                                 Content="设置本地IP" />
                             <Button
-                                Grid.Column="4"
+                                Grid.Column="5"
                                 Margin="5,5,5,0"
                                 Command="{Binding SaveConfigToFileCommand}"
-                                Content="保存" />
+                                Content="配置完成请保存"
+                                Style="{StaticResource ButtonInfo}" />
                         </Grid>
+                    </WrapPanel>
+                </Grid>
+            </GroupBox>
+        </Grid>
+        <Grid Grid.Row="2">
+            <GroupBox Header="登陆器配置" Style="{StaticResource GroupBoxTab}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="auto" />
+                        <ColumnDefinition Width="auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <GroupBox Header="网站列表" Style="{StaticResource GroupBoxTab}">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock
+                                    Margin="5,5,5,0"
+                                    VerticalAlignment="Center"
+                                    FontWeight="Bold"
+                                    Text="配置地址" />
+                                <TextBox
+                                    Grid.Column="1"
+                                    Width="120"
+                                    Margin="0,5,0,5"
+                                    Text="{Binding MainAddress}" />
+                            </Grid>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock
+                                    Margin="5,5,5,0"
+                                    VerticalAlignment="Center"
+                                    FontWeight="Bold"
+                                    Text="备用地址" />
+                                <TextBox
+                                    Grid.Column="1"
+                                    Width="120"
+                                    Margin="0,5,0,5"
+                                    Text="{Binding BackupAddress}" />
+                            </Grid>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <GroupBox
+                        Grid.Column="1"
+                        Header="TCP列表"
+                        Style="{StaticResource GroupBoxTab}">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+
+                                <TextBlock
+                                    Margin="5,5,5,0"
+                                    VerticalAlignment="Center"
+                                    FontWeight="Bold"
+                                    Text="主TCP" />
+                                <TextBox
+                                    Grid.Column="1"
+                                    Width="120"
+                                    Margin="0,5,0,5"
+                                    Text="{Binding MainTcpListServer}" />
+
+                                <TextBlock
+                                    Grid.Column="2"
+                                    Margin="5,5,5,0"
+                                    VerticalAlignment="Center"
+                                    FontWeight="Bold"
+                                    Text="端口号" />
+                                <TextBox
+                                    Grid.Column="3"
+                                    Width="50"
+                                    Margin="0,5,0,5"
+                                    Text="{Binding MainTcpPort}" />
+
+                                <TextBlock
+                                    Grid.Column="4"
+                                    Margin="5,5,5,0"
+                                    VerticalAlignment="Center"
+                                    FontWeight="Bold"
+                                    Text="文件" />
+                                <TextBox
+                                    Grid.Column="5"
+                                    Width="70"
+                                    Margin="0,5,0,5"
+                                    Text="{Binding MainTcpConfigFile}" />
+                            </Grid>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+
+                                <TextBlock
+                                    Margin="5,5,5,0"
+                                    VerticalAlignment="Center"
+                                    FontWeight="Bold"
+                                    Text="备TCP" />
+                                <TextBox
+                                    Grid.Column="1"
+                                    Width="120"
+                                    Margin="0,5,0,5"
+                                    Text="{Binding BackupTcpListServer}" />
+
+                                <TextBlock
+                                    Grid.Column="2"
+                                    Margin="5,5,5,0"
+                                    VerticalAlignment="Center"
+                                    FontWeight="Bold"
+                                    Text="端口号" />
+                                <TextBox
+                                    Grid.Column="3"
+                                    Width="50"
+                                    Margin="0,5,0,5"
+                                    Text="{Binding BackupTcpPort}" />
+
+                                <TextBlock
+                                    Grid.Column="4"
+                                    Margin="5,5,5,0"
+                                    VerticalAlignment="Center"
+                                    FontWeight="Bold"
+                                    Text="文件" />
+                                <TextBox
+                                    Grid.Column="5"
+                                    Width="70"
+                                    Margin="0,5,0,5"
+                                    Text="{Binding BackupTcpConfigFile}" />
+                            </Grid>
+                        </StackPanel>
+                    </GroupBox>
+                    <WrapPanel Grid.Column="2">
+                        <TextBlock
+                            Margin="5,5,5,0"
+                            VerticalAlignment="Center"
+                            FontWeight="Bold"
+                            Text="快捷方式名" />
+                        <TextBox
+                            Width="100"
+                            Margin="0,5,0,5"
+                            Text="{Binding LauncherName}" />
+
+                        <Button
+                            Margin="5,0,0,0"
+                            Command="{Binding SetByServerNameCommand}"
+                            Content="按游戏服务器名称设置" />
+
+                        <TextBlock
+                            Margin="5,5,5,0"
+                            VerticalAlignment="Center"
+                            FontWeight="Bold"
+                            Text="Resource目录" />
+                        <TextBox
+                            Width="100"
+                            Margin="0,5,0,5"
+                            Text="{Binding ResourcesDir}" />
+                        <Grid>
+                            <Button
+                                Margin="5,0,0,0"
+                                Command="{Binding GenerateByGamePinyinCommand}"
+                                Content="按游戏名拼音生成" />
+                            <Grid.ToolTip>
+                                <ToolTip Content="打开补丁目录方可设置" />
+                            </Grid.ToolTip>
+                        </Grid>
+
+                        <TextBlock
+                            Margin="5,5,5,0"
+                            VerticalAlignment="Center"
+                            FontWeight="Bold"
+                            Text="微端更新密码" />
+                        <TextBox
+                            Width="80"
+                            Margin="0,5,0,5"
+                            Text="{Binding UpdatePassword}" />
+
+                        <TextBlock
+                            Margin="5,5,5,0"
+                            VerticalAlignment="Center"
+                            FontWeight="Bold"
+                            Text="多开数量" />
+                        <hc:NumericUpDown
+                            Width="60"
+                            Margin="0,5,0,0"
+                            Maximum="8"
+                            Minimum="0"
+                            Value="{Binding MultiInstanceCount, UpdateSourceTrigger=PropertyChanged}" />
                     </WrapPanel>
                 </Grid>
             </GroupBox>

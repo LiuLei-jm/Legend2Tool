@@ -3,6 +3,7 @@ using IniFileParser.Model;
 using Legend2Tool.WPF.Enums;
 using Legend2Tool.WPF.Messages;
 using Legend2Tool.WPF.Models.BackList;
+using Legend2Tool.WPF.Models.Launcher;
 using Legend2Tool.WPF.Models.M2Config;
 using Legend2Tool.WPF.Models.M2Config.M2Config;
 using Legend2Tool.WPF.Services;
@@ -10,29 +11,37 @@ using Serilog;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Text.RegularExpressions;
 using System.Windows;
+using TinyPinyin;
 
 namespace Legend2Tool.WPF.State
 {
-    public class ConfigStore : IRecipient<ServerDirectoryChangedMessage>
+    public class ConfigStore : IRecipient<ServerDirectoryChangedMessage>, IRecipient<PatchDirectoryChangedMessage>
     {
         private readonly IConfigService _configService;
         private readonly IEncodingService _encodingService;
-        private EngineType _engineType;
+        private readonly IFileService _fileService;
         private ILogger _logger;
-        private M2ConfigBase _m2Config = new M2ConfigBase();
-        private List<BackListBase> _backLists = new List<BackListBase>();
-        private Setup _setup = new Setup();
+        private EngineType _engineType;
+        private M2ConfigBase _m2Config = new();
+        private LauncherConfigBase _launcherConfig = new();
+        private List<BackListBase> _backLists = [];
+        private Setup _setup = new();
 
-        public ConfigStore(IConfigService configService, IEncodingService encodingService, ILogger logger)
+        public ConfigStore(IConfigService configService, IEncodingService encodingService, ILogger logger, IFileService fileService)
         {
             WeakReferenceMessenger.Default.Register<ServerDirectoryChangedMessage>(this);
+            WeakReferenceMessenger.Default.Register<PatchDirectoryChangedMessage>(this);
             _configService = configService;
             _encodingService = encodingService;
             _logger = logger;
+            _fileService = fileService;
         }
 
         public string ServerDirectory { get; set; } = string.Empty;
+        public string PatchDirectory { get; set; } = string.Empty;
+
         public M2ConfigBase M2Config
         {
             get => _m2Config;
@@ -45,13 +54,228 @@ namespace Legend2Tool.WPF.State
                 }
             }
         }
+
+        public LauncherConfigBase LauncherConfig
+        {
+            get => _launcherConfig;
+            set
+            {
+                if (_launcherConfig != value)
+                {
+                    _launcherConfig = value;
+                    WeakReferenceMessenger.Default.Send(new M2ConfigChangedMessage());
+                }
+            }
+        }
+
         public EngineType EngineType { get; set; }
+
         public void Receive(ServerDirectoryChangedMessage message)
         {
             if (!string.Equals(ServerDirectory, message.Value, StringComparison.OrdinalIgnoreCase))
             {
                 ServerDirectory = message.Value;
                 GetM2ConfigInfo();
+                GetLauncherConfigInfo();
+            }
+        }
+
+        public void Receive(PatchDirectoryChangedMessage message)
+        {
+            if (!string.Equals(PatchDirectory, message.Value, StringComparison.OrdinalIgnoreCase))
+            {
+                PatchDirectory = message.Value;
+            }
+        }
+
+        public string GetLauncherName()
+        {
+            string pattern = @"^(.*?)[\d一二三四五六七八九十]+区";
+            if (string.IsNullOrEmpty(M2Config.GameName)) M2Config.GameName = "热血传奇";
+            var match = Regex.Match(M2Config.GameName, pattern);
+            var launcherName = match.Groups[1].Value;
+            return launcherName;
+        }
+
+        public string GetResourcesDirByGamePinyin(string launcherName)
+        {
+            if (String.IsNullOrEmpty(launcherName))
+            {
+                _logger.Warning("GetResourcesDirByGamePinyin 被调用，但 launcherName 为空。");
+                return string.Empty;
+            }
+            var resourcesDir = PinyinHelper.GetPinyin(launcherName);
+            resourcesDir = CaptalizeFirstLetters(resourcesDir.ToLower());
+            return resourcesDir;
+        }
+
+        public async Task<string> GetExternalIpAddressAsync()
+        {
+            string ip = await _configService.GetExternalIpAddressAsync();
+            if (string.IsNullOrEmpty(ip))
+            {
+                MessageBox.Show("无法获取外部IP地址");
+                return M2Config.ExtIPaddr ?? string.Empty;
+            }
+            return ip;
+        }
+
+        public void SaveConfigFile()
+        {
+            int[] portsToCheck =
+            [
+                _m2Config.DBServerGatePort,
+                _m2Config.DBServerServerPort,
+                _m2Config.M2ServerGatePort,
+                _m2Config.M2ServerMsgSrvPort,
+               _m2Config.RunGateGatePort1,
+                _m2Config.LoginGateGatePort,
+                _m2Config.SelGateGatePort,
+                _m2Config.LoginServerGatePort,
+                _m2Config.LoginServerServerPort,
+                _m2Config.LogServerPort,
+            ];
+
+            if (M2Config is GEEConfig geeConfig)
+            {
+                portsToCheck = portsToCheck.Concat(new[]
+                {
+                    geeConfig.LoginGateGatePort1,
+                    geeConfig.RunGateDBPort1,
+                    geeConfig.RunGateDBPort2,
+                    geeConfig.RunGateDBPort3,
+                    geeConfig.RunGateDBPort4,
+                    geeConfig.RunGateDBPort5,
+                    geeConfig.RunGateDBPort6,
+                    geeConfig.RunGateDBPort7,
+                    geeConfig.RunGateDBPort8
+                }).ToArray();
+            }
+
+            if (M2Config is BLUEConfig blueConfig)
+            {
+                portsToCheck = portsToCheck.Concat(new[] { blueConfig.LoginServerMonPort }).ToArray();
+            }
+
+            if (!CheckPorts(portsToCheck))
+            {
+                return;
+            }
+
+            SaveM2ConfigToFile();
+            SaveLauncherConfigToFile();
+        }
+
+        public void RenamePatchDirectory(string resourcesDir)
+        {
+            if (string.IsNullOrEmpty(PatchDirectory))
+            {
+                MessageBox.Show("补丁目录未设置");
+                return;
+            }
+            if (!Directory.Exists(PatchDirectory))
+            {
+                MessageBox.Show($"补丁目录不存在：{PatchDirectory}");
+                return;
+            }
+            string newPatchDir = Path.Combine(Path.GetDirectoryName(PatchDirectory) ?? string.Empty, resourcesDir);
+            if (newPatchDir == PatchDirectory)
+            {
+                MessageBox.Show("补丁目录已是最新名称");
+                return;
+            }
+            try
+            {
+                Directory.Move(PatchDirectory, newPatchDir);
+                PatchDirectory = newPatchDir;
+                WeakReferenceMessenger.Default.Send(new PatchDirectoryChangedMessage(newPatchDir));
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "重命名补丁目录失败");
+                MessageBox.Show($"重命名补丁目录失败：{ex.Message}");
+            }
+        }
+
+        public void ModifyPAKPath()
+        {
+            var filePath = Path.Combine(ServerDirectory, "登录器", "pak.txt");
+            if (!File.Exists(filePath))
+            {
+                MessageBox.Show($"文件不存在：{filePath}");
+                return;
+            }
+            var fileEncoding = _encodingService.DetectFileEncoding(filePath);
+            string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            var backupPath = Path.Combine(ServerDirectory, "登录器", $"Pak_{timestamp}.bak");
+            var tempFilePath = Path.Combine(ServerDirectory, "登录器", $"Pak_temp.txt");
+
+            try
+            {
+                using (StreamReader reader = new StreamReader(filePath, fileEncoding))
+                using (StreamWriter writer = new StreamWriter(tempFilePath, false, fileEncoding))
+                {
+                    string? line;
+                    while ((line = reader.ReadLine()) != null)
+                    {
+                        var keepPart = line.Contains("data", StringComparison.OrdinalIgnoreCase) ? GetSourcePath(line, "data") : GetSourcePath(line, "Graphics");
+                        var newLine = $"{PatchDirectory}\\{keepPart}";
+                        writer.WriteLine(newLine);
+                    }
+                }
+                File.Move(filePath, backupPath);
+                File.Move(tempFilePath, filePath);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"读取或写入文件时发生错误：{ex.Message}", ex);
+            }
+        }
+
+        private string CaptalizeFirstLetters(string v)
+        {
+            var words = v.Split(' ');
+            for (int i = 0; i < words.Length; i++)
+            {
+                if (words[i].Length > 0)
+                {
+                    words[i] = char.ToUpper(words[i][0]) + words[i][1..];
+                }
+            }
+            return string.Join("", words);
+        }
+
+        private void GetLauncherConfigInfo()
+        {
+            string filePath = Path.Combine(ServerDirectory, "登录器", "config.ini");
+            if (!File.Exists(filePath))
+            {
+                MessageBox.Show($"文件不存在：{filePath}");
+                return;
+            }
+            var fileEncoding = _encodingService.DetectFileEncoding(filePath);
+            LauncherConfig = _engineType switch
+            {
+                EngineType.GOM => _configService.ReadMultiSectionConfig<LauncherConfigGOM>(filePath, fileEncoding),
+                EngineType.GEE or EngineType.GXX or EngineType.LF or EngineType.V8 => _configService.ReadMultiSectionConfig<LauncherConfigGEE>(filePath, fileEncoding),
+                _ => throw new InvalidOperationException("不支持的引擎")
+            };
+
+            if (LauncherConfig is LauncherConfigGEE geeConfig)
+            {
+                geeConfig.BackgroundImage = Path.Combine(ServerDirectory, GetSourcePath(geeConfig.BackgroundImage, "登录器"));
+                geeConfig.LauncherIcon = Path.Combine(ServerDirectory, GetSourcePath(geeConfig.LauncherIcon, "登录器"));
+                geeConfig.GameCursor = Path.Combine(ServerDirectory, GetSourcePath(geeConfig.GameCursor, "登录器"));
+                geeConfig.InlayCursor = Path.Combine(ServerDirectory, GetSourcePath(geeConfig.InlayCursor, "登录器"));
+                geeConfig.DisassembleCursor = Path.Combine(ServerDirectory, GetSourcePath(geeConfig.DisassembleCursor, "登录器"));
+            }
+            else if (LauncherConfig is LauncherConfigGOM gomConfig)
+            {
+                gomConfig.BackgroundImage = Path.Combine(ServerDirectory, GetSourcePath(gomConfig.BackgroundImage, "登录器"));
+            }
+            else
+            {
+                _logger.Warning($"尝试读取未知的 LauncherConfig 类型：{LauncherConfig?.GetType().Name ?? "null"}");
             }
         }
 
@@ -253,59 +477,27 @@ namespace Legend2Tool.WPF.State
             }
         }
 
-        public async Task<string> GetExternalIpAddressAsync()
+        private void SaveLauncherConfigToFile()
         {
-            string ip = await _configService.GetExternalIpAddressAsync();
-            if (string.IsNullOrEmpty(ip))
+            var filePath = Path.Combine(ServerDirectory, "登录器", "config.ini");
+            if (!File.Exists(filePath))
             {
-                MessageBox.Show("无法获取外部IP地址");
-                return M2Config.ExtIPaddr ?? string.Empty;
-            }
-            return ip;
-        }
-        public void SaveConfigFile()
-        {
-            int[] portsToCheck =
-            [
-                _m2Config.DBServerGatePort,
-                _m2Config.DBServerServerPort,
-                _m2Config.M2ServerGatePort,
-                _m2Config.M2ServerMsgSrvPort,
-               _m2Config.RunGateGatePort1,
-                _m2Config.LoginGateGatePort,
-                _m2Config.SelGateGatePort,
-                _m2Config.LoginServerGatePort,
-                _m2Config.LoginServerServerPort,
-                _m2Config.LogServerPort,
-            ];
-
-            if (M2Config is GEEConfig geeConfig)
-            {
-                portsToCheck = portsToCheck.Concat(new[]
-                {
-                    geeConfig.LoginGateGatePort1,
-                    geeConfig.RunGateDBPort1,
-                    geeConfig.RunGateDBPort2,
-                    geeConfig.RunGateDBPort3,
-                    geeConfig.RunGateDBPort4,
-                    geeConfig.RunGateDBPort5,
-                    geeConfig.RunGateDBPort6,
-                    geeConfig.RunGateDBPort7,
-                    geeConfig.RunGateDBPort8
-                }).ToArray();
-            }
-
-            if (M2Config is BLUEConfig blueConfig)
-            {
-                portsToCheck = portsToCheck.Concat(new[] { blueConfig.LoginServerMonPort }).ToArray();
-            }
-
-            if (!CheckPorts(portsToCheck))
-            {
+                MessageBox.Show($"文件不存在：{filePath}");
                 return;
             }
-
-            SaveM2ConfigToFile();
+            var fileEncoding = _encodingService.DetectFileEncoding(filePath);
+            if (LauncherConfig is LauncherConfigGEE geeConfig)
+            {
+                _configService.WriteMultiSectionConfig(filePath, geeConfig, fileEncoding);
+            }
+            else if (LauncherConfig is LauncherConfigGOM gomConfig)
+            {
+                _configService.WriteMultiSectionConfig(filePath, gomConfig, fileEncoding);
+            }
+            else
+            {
+                _logger.Warning($"尝试写入未知的 LauncherConfig 类型：{LauncherConfig?.GetType().Name ?? "null"}");
+            }
         }
 
         private bool CheckPorts(int[] portsToCheck)
@@ -344,5 +536,6 @@ namespace Legend2Tool.WPF.State
                 return true;
             }
         }
+
     }
 }

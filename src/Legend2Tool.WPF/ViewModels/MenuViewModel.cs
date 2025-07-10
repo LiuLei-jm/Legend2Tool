@@ -6,33 +6,26 @@ using Legend2Tool.WPF.Services;
 
 namespace Legend2Tool.WPF.ViewModels
 {
-    public partial class MenuViewModel : ViewModelBase
+    public partial class MenuViewModel : ViewModelBase, IRecipient<PatchDirectoryChangedMessage>
     {
         private readonly IDialogService _dialogService;
 
         public MenuViewModel(IDialogService dialogService)
         {
+            WeakReferenceMessenger.Default.Register<PatchDirectoryChangedMessage>(this);
             _dialogService = dialogService;
         }
 
         [ObservableProperty]
         string _serverDirectory = string.Empty;
 
-        partial void OnServerDirectoryChanged(string value)
-        {
-            WeakReferenceMessenger.Default.Send(new ServerDirectoryChangedMessage(value));
-        }
 
         [ObservableProperty]
         string _patchDirectory = string.Empty;
 
-        partial void OnPatchDirectoryChanged(string value)
-        {
-            WeakReferenceMessenger.Default.Send(new PatchDirectoryChangedMessage(value));
-        }
 
         [RelayCommand]
-        void SetDirectory(string directory)
+        void SetServerDirectory()
         {
             // 使用对话框服务显示目录选择对话框
             // 将当前的 SelectedDirectoryPath 作为初始路径传入
@@ -46,17 +39,33 @@ namespace Legend2Tool.WPF.ViewModels
             {
                 // 更新 ViewModel 中的属性
                 //ServerDirectory = selectedPath;
-                switch (directory)
-                {
-                    case "server":
-                        ServerDirectory = selectedPath;
-                        break;
-                    case "patch":
-                        PatchDirectory = selectedPath;
-                        break;
-                    default:
-                        throw new ArgumentException($"目录类型无效: {directory}");
-                }
+                ServerDirectory = selectedPath;
+                WeakReferenceMessenger.Default.Send(new ServerDirectoryChangedMessage(ServerDirectory));
+            }
+        }
+        [RelayCommand]
+        void SetPatchDirectory()
+        {
+            // 使用对话框服务显示目录选择对话框
+            // 将当前的 SelectedDirectoryPath 作为初始路径传入
+            string initialPath = string.IsNullOrEmpty(PatchDirectory)
+                ? string.Empty
+                : PatchDirectory;
+            string? selectedPath = _dialogService.ShowFolderBrowserDialog(initialPath);
+            // 如果用户选择了目录 (即返回值不为 null)
+            if (selectedPath != null)
+            {
+                // 更新 ViewModel 中的属性
+                PatchDirectory = selectedPath;
+                WeakReferenceMessenger.Default.Send(new PatchDirectoryChangedMessage(PatchDirectory));
+            }
+        }
+
+        public void Receive(PatchDirectoryChangedMessage message)
+        {
+            if (!string.Equals(PatchDirectory, message.Value, StringComparison.OrdinalIgnoreCase))
+            {
+                PatchDirectory = message.Value;
             }
         }
     }

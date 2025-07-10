@@ -13,7 +13,7 @@ using System.Text;
 
 namespace Legend2Tool.WPF.ViewModels
 {
-    public partial class PortConfViewModel : ViewModelBase, IRecipient<M2ConfigChangedMessage>
+    public partial class PortConfViewModel : ViewModelBase, IRecipient<M2ConfigChangedMessage>, IRecipient<PatchDirectoryChangedMessage>
     {
         #region Fields
         private readonly IFileService _fileService;
@@ -34,6 +34,7 @@ namespace Legend2Tool.WPF.ViewModels
         public PortConfViewModel(ConfigStore configStore, IFileService fileService, IEncodingService encodingService, ILogger logger, ProgressStore progressStore)
         {
             WeakReferenceMessenger.Default.Register<M2ConfigChangedMessage>(this);
+            WeakReferenceMessenger.Default.Register<PatchDirectoryChangedMessage>(this);
             _configStore = configStore;
             _fileService = fileService;
             _encodingService = encodingService;
@@ -205,8 +206,66 @@ namespace Legend2Tool.WPF.ViewModels
             get => _configStore.M2Config.LogServerGetStart;
             set => SetProperty(_configStore.M2Config.LogServerGetStart, value, _configStore, (m, v) => _configStore.M2Config.LogServerGetStart = v);
         }
-
-
+        public string MainAddress
+        {
+            get => _configStore.LauncherConfig.MainAddress ?? string.Empty;
+            set => SetProperty(_configStore.LauncherConfig.MainAddress, value, _configStore.LauncherConfig, (m, v) => _configStore.LauncherConfig.MainAddress = v);
+        }
+        public string BackupAddress
+        {
+            get => _configStore.LauncherConfig.BackupAddress ?? string.Empty;
+            set => SetProperty(_configStore.LauncherConfig.BackupAddress, value, _configStore.LauncherConfig, (m, v) => _configStore.LauncherConfig.BackupAddress = v);
+        }
+        public string MainTcpListServer
+        {
+            get => _configStore.LauncherConfig.MainTcpListServer ?? string.Empty;
+            set => SetProperty(_configStore.LauncherConfig.MainTcpListServer, value, _configStore.LauncherConfig, (m, v) => _configStore.LauncherConfig.MainTcpListServer = v);
+        }
+        public string BackupTcpListServer
+        {
+            get => _configStore.LauncherConfig.BackupTcpListServer ?? string.Empty;
+            set => SetProperty(_configStore.LauncherConfig.BackupTcpListServer, value, _configStore.LauncherConfig, (m, v) => _configStore.LauncherConfig.BackupTcpListServer = v);
+        }
+        public int MainTcpPort
+        {
+            get => _configStore.LauncherConfig.MainTcpPort;
+            set => SetProperty(_configStore.LauncherConfig.MainTcpPort, value, _configStore.LauncherConfig, (m, v) => _configStore.LauncherConfig.MainTcpPort = v);
+        }
+        public int BackupTcpPort
+        {
+            get => _configStore.LauncherConfig.BackupTcpPort;
+            set => SetProperty(_configStore.LauncherConfig.BackupTcpPort, value, _configStore.LauncherConfig, (m, v) => _configStore.LauncherConfig.BackupTcpPort = v);
+        }
+        public string MainTcpConfigFile
+        {
+            get => _configStore.LauncherConfig.MainTcpConfigFile ?? string.Empty;
+            set => SetProperty(_configStore.LauncherConfig.MainTcpConfigFile, value, _configStore.LauncherConfig, (m, v) => _configStore.LauncherConfig.MainTcpConfigFile = v);
+        }
+        public string BackupTcpConfigFile
+        {
+            get => _configStore.LauncherConfig.BackupTcpConfigFile ?? string.Empty;
+            set => SetProperty(_configStore.LauncherConfig.BackupTcpConfigFile, value, _configStore.LauncherConfig, (m, v) => _configStore.LauncherConfig.BackupTcpConfigFile = v);
+        }
+        public string LauncherName
+        {
+            get => _configStore.LauncherConfig.LauncherName ?? string.Empty;
+            set => SetProperty(_configStore.LauncherConfig.LauncherName, value, _configStore.LauncherConfig, (m, v) => _configStore.LauncherConfig.LauncherName = v);
+        }
+        public string ResourcesDir
+        {
+            get => _configStore.LauncherConfig.ResourcesDir ?? string.Empty;
+            set => SetProperty(_configStore.LauncherConfig.ResourcesDir, value, _configStore.LauncherConfig, (m, v) => _configStore.LauncherConfig.ResourcesDir = v);
+        }
+        public string UpdatePassword
+        {
+            get => _configStore.LauncherConfig.UpdatePassword ?? string.Empty;
+            set => SetProperty(_configStore.LauncherConfig.UpdatePassword, value, _configStore.LauncherConfig, (m, v) => _configStore.LauncherConfig.UpdatePassword = v);
+        }
+        public int MultiInstanceCount
+        {
+            get => _configStore.LauncherConfig.MultiInstanceCount;
+            set => SetProperty(_configStore.LauncherConfig.MultiInstanceCount, value, _configStore.LauncherConfig, (m, v) => _configStore.LauncherConfig.MultiInstanceCount = v);
+        }
         #endregion
 
         #region Functions
@@ -220,8 +279,13 @@ namespace Legend2Tool.WPF.ViewModels
             SaveConfigToFileCommand.NotifyCanExecuteChanged();
             GetExtIpAddrCommand.NotifyCanExecuteChanged();
             SetLocalIpCommand.NotifyCanExecuteChanged();
+            SetByServerNameCommand.NotifyCanExecuteChanged();
         }
-
+        public void Receive(PatchDirectoryChangedMessage message)
+        {
+            OnPropertyChanged(string.Empty);
+            GenerateByGamePinyinCommand.NotifyCanExecuteChanged();
+        }
         #endregion
 
         #region Commands
@@ -311,6 +375,7 @@ namespace Legend2Tool.WPF.ViewModels
             {
                 blueConfig.LoginServerMonPort += ModifyNumberOfPort;
             }
+            Growl.Success("批量编辑端口成功");
         }
 
         [RelayCommand(CanExecute = nameof(CanExecuteConfigCommands))]
@@ -361,6 +426,7 @@ namespace Legend2Tool.WPF.ViewModels
             }
             _progressStore.ProgressText = $"转换完成，处理了{progressCount}个文件.";
             progress.Report(_progressStore);
+            Growl.Success($"转换完成，处理了{progressCount}个文件.");
         }
 
         [RelayCommand(CanExecute = nameof(CanExecuteConfigCommands))]
@@ -368,6 +434,8 @@ namespace Legend2Tool.WPF.ViewModels
         {
             ValidateAllProperties();
 
+            _configStore.RenamePatchDirectory(ResourcesDir);
+            _configStore.ModifyPAKPath();
             _configStore.SaveConfigFile();
             Growl.Success("保存成功");
         }
@@ -383,12 +451,29 @@ namespace Legend2Tool.WPF.ViewModels
             {
                 _logger.Error($"获取外网IP地址失败:{ex.Message}", ex);
             }
+            Growl.Success("获取外网IP地址成功");
         }
+
         [RelayCommand(CanExecute = nameof(CanExecuteConfigCommands))]
         private void SetLocalIp()
         {
             ExtIPAddr = "127.0.0.1";
+            Growl.Success("设置本地IP地址成功");
         }
+        [RelayCommand(CanExecute = nameof(CanExecuteConfigCommands))]
+        private void SetByServerName()
+        {
+            LauncherName = _configStore.GetLauncherName();
+            Growl.Success("客户端名称设置成功!");
+        }
+        [RelayCommand(CanExecute =nameof(CanExecuteConfigCommands))]
+        private void GenerateByGamePinyin()
+        {
+            ResourcesDir = _configStore.GetResourcesDirByGamePinyin(LauncherName);
+            Growl.Success("资源目录设置成功!");
+        }
+
+
         #endregion
     }
 }
