@@ -1,4 +1,10 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using Legend2Tool.WPF.Services;
+using Legend2Tool.WPF.State;
+using Legend2Tool.WPF.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Serilog;
 using System.Windows;
 
 namespace Legend2Tool.WPF
@@ -8,20 +14,56 @@ namespace Legend2Tool.WPF
     /// </summary>
     public partial class App : Application
     {
-        public App()
-        {
-            Services = ConfigureServices();
 
-            this.InitializeComponent();
+        [STAThread]
+        static void Main(string[] args)
+        {
+            using var host = CreateHostBuilder(args).Build();
+            host.Start();
+            System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+
+            var app = new App();
+            app.InitializeComponent();
+            app.MainWindow = host.Services.GetRequiredService<MainWindow>();
+            app.MainWindow.Visibility = Visibility.Visible;
+            app.Run();
         }
 
-        public static new App Current => (App)Application.Current;
-        public IServiceProvider Services { get; }
-
-        private static IServiceProvider? ConfigureServices()
+        private static IHostBuilder CreateHostBuilder(string[] args)
         {
-            var services = new ServiceCollection();
-            return services.BuildServiceProvider();
+            return Host.CreateDefaultBuilder(args)
+                .ConfigureServices(
+                    (context, services) =>
+                    {
+                        // Register your services here
+                        services.AddSingleton<IFileService, FileService>();
+                        services.AddSingleton<IDialogService, DialogService>();
+                        services.AddSingleton<IConfigService, ConfigService>();
+                        services.AddSingleton<IEncodingService, EncodingService>();
+
+                        services.AddSingleton<ConfigStore>();
+                        services.AddSingleton<ProgressStore>();
+
+                        services.AddSingleton<MainViewModel>();
+                        services.AddSingleton<MenuViewModel>();
+                        services.AddSingleton<PortConfViewModel>();
+                        services.AddSingleton<ScriptOptimizationViewModel>();
+
+                        services.AddSingleton<MainWindow>(sp => new MainWindow
+                        {
+                            DataContext = sp.GetRequiredService<MainViewModel>(),
+                        });
+                    }
+                ).ConfigureLogging(logging =>
+                {
+                    logging.ClearProviders();
+                    Log.Logger = new LoggerConfiguration()
+                                        .WriteTo.File("log.txt", rollingInterval: RollingInterval.Day)
+                                        .MinimumLevel.Error()
+                                        .CreateLogger();
+                    //logging.AddSerilog(Log.Logger, dispose: true);
+                    logging.Services.AddSingleton(Log.Logger);
+                });
         }
     }
 }
