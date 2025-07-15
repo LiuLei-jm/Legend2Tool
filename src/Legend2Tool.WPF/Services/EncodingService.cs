@@ -7,7 +7,7 @@ namespace Legend2Tool.WPF.Services
     public class EncodingService : IEncodingService
     {
         private const int minLengthForUDE = 100;
-        private const int minConfidenceThreshold = 70;
+        private const double minConfidenceThreshold = 0.7;
         public void ConvertFileEncoding(string inputFilePath, string outputFilePath, Encoding inputFileEncoding, string targetEncodingName)
         {
             if (string.IsNullOrWhiteSpace(inputFilePath))
@@ -29,7 +29,14 @@ namespace Legend2Tool.WPF.Services
             Encoding targetEncoding;
             try
             {
-                targetEncoding = GetEncodingByName(targetEncodingName);
+                if (targetEncodingName.Equals("UTF-8", StringComparison.OrdinalIgnoreCase))
+                {
+                    targetEncoding = new UTF8Encoding(false); // 不带BOM的UTF-8
+                }
+                else
+                {
+                    targetEncoding = GetEncodingByName(targetEncodingName);
+                }
             }
             catch (ArgumentException ex)
             {

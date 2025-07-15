@@ -1,4 +1,5 @@
 ﻿using CommunityToolkit.Mvvm.Messaging;
+using HandyControl.Controls;
 using IniFileParser.Model;
 using Legend2Tool.WPF.Enums;
 using Legend2Tool.WPF.Messages;
@@ -14,6 +15,7 @@ using System.Net.Sockets;
 using System.Text.RegularExpressions;
 using System.Windows;
 using TinyPinyin;
+using MessageBox = HandyControl.Controls.MessageBox;
 
 namespace Legend2Tool.WPF.State
 {
@@ -22,7 +24,7 @@ namespace Legend2Tool.WPF.State
         private readonly IConfigService _configService;
         private readonly IEncodingService _encodingService;
         private readonly IFileService _fileService;
-        private ILogger _logger;
+        private readonly ILogger _logger;
         private EngineType _engineType;
         private M2ConfigBase _m2Config = new();
         private LauncherConfigBase _launcherConfig = new();
@@ -181,7 +183,7 @@ namespace Legend2Tool.WPF.State
             string newPatchDir = Path.Combine(Path.GetDirectoryName(PatchDirectory) ?? string.Empty, resourcesDir);
             if (newPatchDir == PatchDirectory)
             {
-                MessageBox.Show("补丁目录已是最新名称");
+                Growl.Info("补丁目录已是最新名称");
                 return;
             }
             try
@@ -192,8 +194,7 @@ namespace Legend2Tool.WPF.State
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "重命名补丁目录失败");
-                MessageBox.Show($"重命名补丁目录失败：{ex.Message}");
+                throw new Exception($"重命名补丁目录失败：{ex.Message}", ex);
             }
         }
 
@@ -220,7 +221,7 @@ namespace Legend2Tool.WPF.State
                     {
                         var keepPart = line.Contains("data", StringComparison.OrdinalIgnoreCase) ? GetSourcePath(line, "data") : GetSourcePath(line, "Graphics");
                         var newLine = $"{PatchDirectory}\\{keepPart}";
-                        writer.WriteLine(newLine);
+                        writer.WriteLine();
                     }
                 }
                 File.Move(filePath, backupPath);

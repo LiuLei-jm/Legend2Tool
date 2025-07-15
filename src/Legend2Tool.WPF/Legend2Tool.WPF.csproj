@@ -29,6 +29,7 @@
 		<PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
 		<PackageReference Include="TinyPinyin" Version="1.1.0" />
 		<PackageReference Include="Ude.NetStandard" Version="1.2.0" />
+		<PackageReference Include="WpfAutoGrid.Core" Version="1.5.1" />
 	</ItemGroup>
 
 	<ItemGroup>

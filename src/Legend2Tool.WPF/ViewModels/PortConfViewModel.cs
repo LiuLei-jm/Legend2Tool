@@ -292,90 +292,109 @@ namespace Legend2Tool.WPF.ViewModels
         [RelayCommand(CanExecute = nameof(CanExecuteConfigCommands))]
         private void SetDefaultPortConf()
         {
-            M2ServerGatePort = 5000;
-            M2ServerMsgSrvPort = 4900;
-            _configStore.M2Config.DynamicIPMode = 0;
-            DBServerGatePort = 5100;
-            DBServerServerPort = 6000;
-            RunGateCount = 1;
-            RunGateGatePort1 = 7200;
-            RunGateGatePort2 = 7300;
-            RunGateGatePort3 = 7400;
-            RunGateGatePort4 = 7500;
-            RunGateGatePort5 = 7600;
-            RunGateGatePort6 = 7700;
-            RunGateGatePort7 = 7800;
-            RunGateGatePort8 = 7900;
-            _configStore.M2Config.LoginGateGetStart = 1;
-            LoginGateGatePort = 7000;
-            SelGateGetStart = 1;
-            SelGateGatePort = 7100;
-            SelGateGetStart1 = 0;
-            SelGateGatePort1 = 6200;
-            LoginServerGatePort = 5500;
-            LoginServerServerPort = 5600;
-            LogServerPort = 10000;
-            if (_configStore.M2Config is GEEConfig geeConfig
-                )
+            try
             {
-                geeConfig.LoginGateGetStart1 = 0;
-                geeConfig.LoginGateGatePort1 = 6100;
-                geeConfig.RunGateGetMultiThread = 0;
-                geeConfig.RunGateDBPort1 = 27200;
-                geeConfig.RunGateDBPort2 = 27300;
-                geeConfig.RunGateDBPort3 = 27400;
-                geeConfig.RunGateDBPort4 = 27500;
-                geeConfig.RunGateDBPort5 = 27600;
-                geeConfig.RunGateDBPort6 = 27700;
-                geeConfig.RunGateDBPort7 = 27800;
-                geeConfig.RunGateDBPort8 = 27900;
+                M2ServerGatePort = 5000;
+                M2ServerMsgSrvPort = 4900;
+                _configStore.M2Config.DynamicIPMode = 0;
+                DBServerGatePort = 5100;
+                DBServerServerPort = 6000;
+                RunGateCount = 1;
+                RunGateGatePort1 = 7200;
+                RunGateGatePort2 = 7300;
+                RunGateGatePort3 = 7400;
+                RunGateGatePort4 = 7500;
+                RunGateGatePort5 = 7600;
+                RunGateGatePort6 = 7700;
+                RunGateGatePort7 = 7800;
+                RunGateGatePort8 = 7900;
+                _configStore.M2Config.LoginGateGetStart = 1;
+                LoginGateGatePort = 7000;
+                SelGateGetStart = 1;
+                SelGateGatePort = 7100;
+                SelGateGetStart1 = 0;
+                SelGateGatePort1 = 6200;
+                LoginServerGatePort = 5500;
+                LoginServerServerPort = 5600;
+                LogServerPort = 10000;
+                if (_configStore.M2Config is GEEConfig geeConfig
+                    )
+                {
+                    geeConfig.LoginGateGetStart1 = 0;
+                    geeConfig.LoginGateGatePort1 = 6100;
+                    geeConfig.RunGateGetMultiThread = 0;
+                    geeConfig.RunGateDBPort1 = 27200;
+                    geeConfig.RunGateDBPort2 = 27300;
+                    geeConfig.RunGateDBPort3 = 27400;
+                    geeConfig.RunGateDBPort4 = 27500;
+                    geeConfig.RunGateDBPort5 = 27600;
+                    geeConfig.RunGateDBPort6 = 27700;
+                    geeConfig.RunGateDBPort7 = 27800;
+                    geeConfig.RunGateDBPort8 = 27900;
+                }
+                if (_configStore.M2Config is BLUEConfig blueConfig)
+                {
+                    blueConfig.LoginServerMonPort = 3000;
+                }
+                Growl.Success("默认配置载入成功");
+
             }
-            if (_configStore.M2Config is BLUEConfig blueConfig)
+            catch (Exception ex)
             {
-                blueConfig.LoginServerMonPort = 3000;
+                Growl.Error("载入默认配置失败，详细信息请查看日志。");
+                _logger.Error($"载入默认配置失败：{ex.Message}");
             }
-            Growl.Success("默认配置载入成功");
         }
 
         [RelayCommand(CanExecute = nameof(CanExecuteConfigCommands))]
         private void BatchEdit()
         {
-            M2ServerGatePort += ModifyNumberOfPort;
-            M2ServerMsgSrvPort += ModifyNumberOfPort;
-            DBServerGatePort += ModifyNumberOfPort;
-            DBServerServerPort += ModifyNumberOfPort;
-            RunGateGatePort1 += ModifyNumberOfPort;
-            RunGateGatePort2 += ModifyNumberOfPort;
-            RunGateGatePort3 += ModifyNumberOfPort;
-            RunGateGatePort4 += ModifyNumberOfPort;
-            RunGateGatePort5 += ModifyNumberOfPort;
-            RunGateGatePort6 += ModifyNumberOfPort;
-            RunGateGatePort7 += ModifyNumberOfPort;
-            RunGateGatePort8 += ModifyNumberOfPort;
-            LoginGateGatePort += ModifyNumberOfPort;
-            SelGateGatePort += ModifyNumberOfPort;
-            SelGateGatePort1 += ModifyNumberOfPort;
-            LoginServerGatePort += ModifyNumberOfPort;
-            LoginServerServerPort += ModifyNumberOfPort;
-            LogServerPort += ModifyNumberOfPort;
-            if (_configStore.M2Config is GEEConfig geeConfig
-                )
+            try
             {
-                geeConfig.LoginGateGatePort1 += ModifyNumberOfPort;
-                geeConfig.RunGateDBPort1 += ModifyNumberOfPort;
-                geeConfig.RunGateDBPort2 += ModifyNumberOfPort;
-                geeConfig.RunGateDBPort3 += ModifyNumberOfPort;
-                geeConfig.RunGateDBPort4 += ModifyNumberOfPort;
-                geeConfig.RunGateDBPort5 += ModifyNumberOfPort;
-                geeConfig.RunGateDBPort6 += ModifyNumberOfPort;
-                geeConfig.RunGateDBPort7 += ModifyNumberOfPort;
-                geeConfig.RunGateDBPort8 += ModifyNumberOfPort;
+                M2ServerGatePort += ModifyNumberOfPort;
+                M2ServerMsgSrvPort += ModifyNumberOfPort;
+                DBServerGatePort += ModifyNumberOfPort;
+                DBServerServerPort += ModifyNumberOfPort;
+                RunGateGatePort1 += ModifyNumberOfPort;
+                RunGateGatePort2 += ModifyNumberOfPort;
+                RunGateGatePort3 += ModifyNumberOfPort;
+                RunGateGatePort4 += ModifyNumberOfPort;
+                RunGateGatePort5 += ModifyNumberOfPort;
+                RunGateGatePort6 += ModifyNumberOfPort;
+                RunGateGatePort7 += ModifyNumberOfPort;
+                RunGateGatePort8 += ModifyNumberOfPort;
+                LoginGateGatePort += ModifyNumberOfPort;
+                SelGateGatePort += ModifyNumberOfPort;
+                SelGateGatePort1 += ModifyNumberOfPort;
+                LoginServerGatePort += ModifyNumberOfPort;
+                LoginServerServerPort += ModifyNumberOfPort;
+                LogServerPort += ModifyNumberOfPort;
+                if (_configStore.M2Config is GEEConfig geeConfig
+                    )
+                {
+                    geeConfig.LoginGateGatePort1 += ModifyNumberOfPort;
+                    geeConfig.RunGateDBPort1 += ModifyNumberOfPort;
+                    geeConfig.RunGateDBPort2 += ModifyNumberOfPort;
+                    geeConfig.RunGateDBPort3 += ModifyNumberOfPort;
+                    geeConfig.RunGateDBPort4 += ModifyNumberOfPort;
+                    geeConfig.RunGateDBPort5 += ModifyNumberOfPort;
+                    geeConfig.RunGateDBPort6 += ModifyNumberOfPort;
+                    geeConfig.RunGateDBPort7 += ModifyNumberOfPort;
+                    geeConfig.RunGateDBPort8 += ModifyNumberOfPort;
+                }
+                if (_configStore.M2Config is BLUEConfig blueConfig)
+                {
+                    blueConfig.LoginServerMonPort += ModifyNumberOfPort;
+                }
+                Growl.Success("批量编辑端口成功");
+
             }
-            if (_configStore.M2Config is BLUEConfig blueConfig)
+            catch (Exception ex)
             {
-                blueConfig.LoginServerMonPort += ModifyNumberOfPort;
+                Growl.Error("批量修改端口失败！");
+                _logger.Error($"批量修改端口失败:{ex.Message}");
+
             }
-            Growl.Success("批量编辑端口成功");
         }
 
         [RelayCommand(CanExecute = nameof(CanExecuteConfigCommands))]
@@ -409,18 +428,16 @@ namespace Legend2Tool.WPF.ViewModels
                     _progressStore.ProgressPercentage = (int)((++currentProgress / (double)files.Count) * 100);
                     _progressStore.ProgressText = $"{currentProgress}/{files.Count}：{fileName}";
                     progress.Report(_progressStore);
-                    if (fileInfo.Length > 50)
+                    Encoding fileEncoding = _encodingService.DetectFileEncoding(file);
+                    if (fileEncoding != _encodingService.GetEncodingByName(SelectedEncoding))
                     {
-                        Encoding fileEncoding = _encodingService.DetectFileEncoding(file);
-                        if (fileEncoding != _encodingService.GetEncodingByName(SelectedEncoding))
-                        {
-                            ++progressCount;
-                            await Task.Run(() => _encodingService.ConvertFileEncoding(file, file, fileEncoding, SelectedEncoding));
-                        }
+                        ++progressCount;
+                        await Task.Run(() => _encodingService.ConvertFileEncoding(file, file, fileEncoding, SelectedEncoding));
                     }
                 }
                 catch (Exception ex)
                 {
+                    Growl.Error($"转换文件编码失败：{file}");
                     _logger.Error($"转换文件编码失败：{file}，错误信息：{ex.Message}");
                 }
             }
@@ -432,12 +449,21 @@ namespace Legend2Tool.WPF.ViewModels
         [RelayCommand(CanExecute = nameof(CanExecuteConfigCommands))]
         private void SaveConfigToFile()
         {
-            ValidateAllProperties();
+            try
+            {
+                ValidateAllProperties();
 
-            _configStore.RenamePatchDirectory(ResourcesDir);
-            _configStore.ModifyPAKPath();
-            _configStore.SaveConfigFile();
-            Growl.Success("保存成功");
+                _configStore.RenamePatchDirectory(ResourcesDir);
+                _configStore.ModifyPAKPath();
+                _configStore.SaveConfigFile();
+                Growl.Success("保存成功");
+
+            }
+            catch (Exception ex)
+            {
+                Growl.Error("保存配置文件失败，请检查日志获取详细信息。");
+                _logger.Error($"保存配置文件失败：{ex.Message}", ex);
+            }
         }
 
         [RelayCommand(CanExecute = nameof(CanExecuteConfigCommands))]
@@ -446,12 +472,13 @@ namespace Legend2Tool.WPF.ViewModels
             try
             {
                 ExtIPAddr = await _configStore.GetExternalIpAddressAsync();
+                Growl.Success("获取外网IP地址成功");
             }
             catch (Exception ex)
             {
+                Growl.Error("获取外网IP地址失败，请检查日志获取详细信息。");
                 _logger.Error($"获取外网IP地址失败:{ex.Message}", ex);
             }
-            Growl.Success("获取外网IP地址成功");
         }
 
         [RelayCommand(CanExecute = nameof(CanExecuteConfigCommands))]
@@ -463,14 +490,34 @@ namespace Legend2Tool.WPF.ViewModels
         [RelayCommand(CanExecute = nameof(CanExecuteConfigCommands))]
         private void SetByServerName()
         {
-            LauncherName = _configStore.GetLauncherName();
-            Growl.Success("客户端名称设置成功!");
+            try
+            {
+                LauncherName = _configStore.GetLauncherName();
+                Growl.Success("客户端名称设置成功!");
+
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"设置客户端名称失败：{ex.Message}", ex);
+                Growl.Error("设置客户端名称失败，请检查日志获取详细信息。");
+            }
         }
-        [RelayCommand(CanExecute =nameof(CanExecuteConfigCommands))]
+
+        [RelayCommand(CanExecute = nameof(CanExecuteConfigCommands))]
         private void GenerateByGamePinyin()
         {
-            ResourcesDir = _configStore.GetResourcesDirByGamePinyin(LauncherName);
-            Growl.Success("资源目录设置成功!");
+            try
+            {
+                ResourcesDir = _configStore.GetResourcesDirByGamePinyin(LauncherName);
+                Growl.Success("资源目录设置成功!");
+
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"设置资源目录失败：{ex.Message}", ex);
+                Growl.Error("设置资源目录失败，请检查日志获取详细信息。");
+                throw;
+            }
         }
 
 

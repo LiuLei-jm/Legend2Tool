@@ -8,9 +8,9 @@
         xmlns:views="clr-namespace:Legend2Tool.WPF.Views"
         xmlns:vm="clr-namespace:Legend2Tool.WPF.ViewModels"
         Title="传奇配置工具"
-        Width="920"
+        Width="1070"
         Height="500"
-        MinWidth="920"
+        MinWidth="1070"
         MinHeight="500"
         d:DataContext="{d:DesignInstance vm:MainViewModel}"
         hc:Growl.GrowlParent="True"
@@ -62,6 +62,7 @@
                        Margin="10,0,10,0"
                        VerticalAlignment="Center"
                        Foreground="Blue"
+                       MinWidth="200"
                        Text="{Binding ProgressText}" />
         </Grid>
     </Grid>
