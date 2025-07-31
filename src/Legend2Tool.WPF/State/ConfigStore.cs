@@ -25,7 +25,6 @@ namespace Legend2Tool.WPF.State
         private readonly IEncodingService _encodingService;
         private readonly IFileService _fileService;
         private readonly ILogger _logger;
-        private EngineType _engineType;
         private M2ConfigBase _m2Config = new();
         private LauncherConfigBase _launcherConfig = new();
         private List<BackListBase> _backLists = [];
@@ -77,8 +76,16 @@ namespace Legend2Tool.WPF.State
             if (!string.Equals(ServerDirectory, message.Value, StringComparison.OrdinalIgnoreCase))
             {
                 ServerDirectory = message.Value;
-                GetM2ConfigInfo();
-                GetLauncherConfigInfo();
+                try
+                {
+                    GetM2ConfigInfo();
+                    GetLauncherConfigInfo();
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, "获取配置文件信息时发生错误");
+                    MessageBox.Show($"获取配置文件信息时发生错误：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
             }
         }
 
@@ -208,7 +215,7 @@ namespace Legend2Tool.WPF.State
             }
             var fileEncoding = _encodingService.DetectFileEncoding(filePath);
             string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-            var backupPath = Path.Combine(ServerDirectory, "登录器", $"Pak_{timestamp}.bak");
+            var backupPath = Path.Combine(ServerDirectory, "登录器", $"Pak_{timestamp}.txt");
             var tempFilePath = Path.Combine(ServerDirectory, "登录器", $"Pak_temp.txt");
 
             try
@@ -221,7 +228,7 @@ namespace Legend2Tool.WPF.State
                     {
                         var keepPart = line.Contains("data", StringComparison.OrdinalIgnoreCase) ? GetSourcePath(line, "data") : GetSourcePath(line, "Graphics");
                         var newLine = $"{PatchDirectory}\\{keepPart}";
-                        writer.WriteLine();
+                        writer.WriteLine(newLine);
                     }
                 }
                 File.Move(filePath, backupPath);
@@ -255,7 +262,7 @@ namespace Legend2Tool.WPF.State
                 return;
             }
             var fileEncoding = _encodingService.DetectFileEncoding(filePath);
-            LauncherConfig = _engineType switch
+            LauncherConfig = EngineType switch
             {
                 EngineType.GOM => _configService.ReadMultiSectionConfig<LauncherConfigGOM>(filePath, fileEncoding),
                 EngineType.GEE or EngineType.GXX or EngineType.LF or EngineType.V8 => _configService.ReadMultiSectionConfig<LauncherConfigGEE>(filePath, fileEncoding),
@@ -289,8 +296,8 @@ namespace Legend2Tool.WPF.State
                 return;
             }
             var fileEncoding = _encodingService.DetectFileEncoding(filePath);
-            _engineType = _configService.CheckEngineType(ServerDirectory);
-            M2Config = _engineType switch
+            EngineType = _configService.CheckEngineType(ServerDirectory);
+            M2Config = EngineType switch
             {
                 EngineType.GOM => _configService.ReadMultiSectionConfig<GOMConfig>(filePath, fileEncoding),
                 EngineType.GEE or EngineType.GXX or EngineType.LF or EngineType.V8 => _configService.ReadMultiSectionConfig<GEEConfig>(filePath, fileEncoding),
@@ -410,7 +417,7 @@ namespace Legend2Tool.WPF.State
                 if (int.TryParse(section.SectionName, out _))
                 {
                     var backList = new BackListBase();
-                    backList = _engineType switch
+                    backList = EngineType switch
                     {
                         EngineType.GOM => _configService.ReadSectionConfig<BackListBase>(filePath, fileEncoding, section.SectionName),
                         EngineType.GEE or EngineType.GXX or EngineType.LF or EngineType.V8 => _configService.ReadSectionConfig<GEEBackList>(filePath, fileEncoding, section.SectionName),
@@ -441,12 +448,20 @@ namespace Legend2Tool.WPF.State
 
         private string GetSourcePath(string? oldPath, string match)
         {
-            int startIndex = oldPath!.IndexOf(match, StringComparison.OrdinalIgnoreCase);
-            if (startIndex != -1)
+            try
             {
-                return oldPath[startIndex..];
+                if (string.IsNullOrEmpty(oldPath)) return match;
+                int startIndex = oldPath!.IndexOf(match, StringComparison.OrdinalIgnoreCase);
+                if (startIndex != -1)
+                {
+                    return oldPath[startIndex..];
+                }
+                return oldPath ?? string.Empty;
             }
-            return oldPath ?? string.Empty;
+            catch (Exception ex)
+            {
+                throw new Exception($"处理路径时发生错误：{ex.Message}", ex);
+            }
         }
 
         private void SaveM2ConfigToFile()

@@ -17,7 +17,7 @@ namespace Legend2Tool.WPF.Services
             var files = new List<string>();
             foreach (var pattern in searchPatterns)
             {
-                files.AddRange(Directory.GetFiles(directory, pattern, searchOption));
+                files.AddRange(Directory.EnumerateFiles(directory, pattern, searchOption));
             }
             return files;
         }

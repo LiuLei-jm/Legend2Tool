@@ -3,14 +3,11 @@ using Legend2Tool.WPF.Attributes;
 using Legend2Tool.WPF.Enums;
 using Legend2Tool.WPF.Models.M2Config.M2Config;
 using Serilog;
-using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace Legend2Tool.WPF.Services
 {

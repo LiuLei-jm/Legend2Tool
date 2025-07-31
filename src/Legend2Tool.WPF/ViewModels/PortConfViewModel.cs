@@ -2,6 +2,7 @@
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using HandyControl.Controls;
+using Legend2Tool.WPF.Enums;
 using Legend2Tool.WPF.Messages;
 using Legend2Tool.WPF.Models.M2Config.M2Config;
 using Legend2Tool.WPF.Services;
@@ -48,6 +49,11 @@ namespace Legend2Tool.WPF.ViewModels
         public string Head { get; } = "服务器端口设置";
         private bool CanExecuteConfigCommands => _configStore.ServerDirectory != string.Empty;
 
+        public EngineType EngineType
+        {
+            get => _configStore.EngineType;
+            set => SetProperty(_configStore.EngineType, value, _configStore, (m, v) => _configStore.EngineType = v);
+        }
         public string? GameName
         {
             get => _configStore.M2Config.GameName;
@@ -342,7 +348,7 @@ namespace Legend2Tool.WPF.ViewModels
             catch (Exception ex)
             {
                 Growl.Error("载入默认配置失败，详细信息请查看日志。");
-                _logger.Error($"载入默认配置失败：{ex.Message}");
+                _logger.Error(ex, $"载入默认配置失败：{ex.Message}");
             }
         }
 
@@ -392,20 +398,16 @@ namespace Legend2Tool.WPF.ViewModels
             catch (Exception ex)
             {
                 Growl.Error("批量修改端口失败！");
-                _logger.Error($"批量修改端口失败:{ex.Message}");
+                _logger.Error(ex, $"批量修改端口失败:{ex.Message}");
 
             }
         }
 
         [RelayCommand(CanExecute = nameof(CanExecuteConfigCommands))]
-        private async Task ConvertEncodingAsync()
+        private async Task ConvertEncodingAsync(CancellationToken cancellationToken = default)
         {
-            string convertDirectory = Path.Combine(_configStore.ServerDirectory, @"Mir200\Envir");
-            if (!Path.Exists(convertDirectory))
-            {
-                Growl.Error($"目录不存在：{convertDirectory}");
-                return;
-            }
+            const string EnvirRelativePath = @"Mir200\Envir";
+
             IProgress<ProgressStore> progress = new Progress<ProgressStore>(report =>
             {
                 _progressStore.ProgressPercentage = report.ProgressPercentage;
@@ -414,45 +416,111 @@ namespace Legend2Tool.WPF.ViewModels
             _progressStore.ProgressPercentage = 0;
             _progressStore.ProgressText = string.Empty;
 
-            int currentProgress = 0;
-            int progressCount = 0;
-
-            var files = _fileService.GetFiles(convertDirectory, new List<string> { "*.txt", "*.ini" }, SearchOption.AllDirectories);
-
-            foreach (var file in files)
+            try
             {
-                try
+                string convertDirectory = Path.Combine(_configStore.ServerDirectory, EnvirRelativePath);
+                if (!Directory.Exists(convertDirectory))
                 {
-                    FileInfo fileInfo = new FileInfo(file);
-                    var fileName = Path.GetFileName(file);
-                    _progressStore.ProgressPercentage = (int)((++currentProgress / (double)files.Count) * 100);
-                    _progressStore.ProgressText = $"{currentProgress}/{files.Count}：{fileName}";
+                    Growl.Error($"目录不存在：{convertDirectory}");
+                    return;
+                }
+
+                var files = _fileService.GetFiles(convertDirectory, new List<string> { "*.txt", "*.ini" }, SearchOption.AllDirectories);
+
+                if (files.Count == 0)
+                {
+                    Growl.Info("指定目录下没有找到需要转换编码的文件。");
+                    _progressStore.ProgressText = "没有找到文件。";
                     progress.Report(_progressStore);
-                    Encoding fileEncoding = _encodingService.DetectFileEncoding(file);
-                    if (fileEncoding != _encodingService.GetEncodingByName(SelectedEncoding))
-                    {
-                        ++progressCount;
-                        await Task.Run(() => _encodingService.ConvertFileEncoding(file, file, fileEncoding, SelectedEncoding));
-                    }
+                    return;
                 }
-                catch (Exception ex)
+
+                int totalFiles = files.Count;
+                int currentProgress = 0;
+                int filesConvertedSuccessfully = 0;
+                int filesFailedToConvert = 0;
+
+
+                await Task.Run(() => Parallel.ForEach(files, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount, CancellationToken = cancellationToken }, (file) =>
                 {
-                    Growl.Error($"转换文件编码失败：{file}");
-                    _logger.Error($"转换文件编码失败：{file}，错误信息：{ex.Message}");
+                    try
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+
+                        Encoding fileEncoding = _encodingService.DetectFileEncoding(file);
+                        if (fileEncoding != _encodingService.GetEncodingByName(SelectedEncoding))
+                        {
+                            _encodingService.ConvertFileEncoding(file, file, fileEncoding, SelectedEncoding);
+                            Interlocked.Increment(ref filesConvertedSuccessfully);
+                        }
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        _logger.Information($"文件编码转换已取消: {file}");
+                        Growl.Warning($"文件 {Path.GetFileName(file)} 转换被取消。");
+                    }
+                    catch (IOException ex)
+                    {
+                        Interlocked.Increment(ref filesFailedToConvert);
+                        _logger.Error(ex, $"转换文件编码失败 (I/O Error)：{file}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Interlocked.Increment(ref filesFailedToConvert);
+                        _logger.Error(ex, $"转换文件编码失败 (未知错误)：{file}");
+                    }
+                    finally
+                    {
+                        int updatedProgress = Interlocked.Increment(ref currentProgress);
+                        _progressStore.ProgressPercentage = (int)((updatedProgress / (double)totalFiles) * 100);
+                        _progressStore.ProgressText = $"{updatedProgress}/{totalFiles}：{Path.GetFileName(file)}";
+                        progress.Report(_progressStore);
+                    }
+                }), cancellationToken);
+
+                string finalMessage = $"转换完成。成功处理了{filesConvertedSuccessfully}个文件。";
+                if (filesFailedToConvert > 0)
+                {
+                    finalMessage += $"有 {filesFailedToConvert} 个文件未能成功转换，请查看日志获取详情。";
+                    Growl.Warning(finalMessage);
                 }
+                else
+                {
+                    Growl.Success(finalMessage);
+                }
+                _progressStore.ProgressText = finalMessage;
+                progress.Report(_progressStore);
             }
-            _progressStore.ProgressText = $"转换完成，处理了{progressCount}个文件.";
-            progress.Report(_progressStore);
-            Growl.Success($"转换完成，处理了{progressCount}个文件.");
+            catch (OperationCanceledException)
+            {
+                _logger.Information("文件编码转换操作被用户取消。");
+                Growl.Info("文件编码转换操作已取消。");
+                _progressStore.ProgressText = "操作已取消。";
+                _progressStore.ProgressPercentage = 0;
+                progress.Report(_progressStore);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, $"编码转换操作失败：{ex.Message}");
+                Growl.Error("编码转换操作失败！请查看应用程序日志获取详细信息。");
+                _progressStore.ProgressText = "操作失败。";
+                _progressStore.ProgressPercentage = 0;
+                progress.Report(_progressStore);
+            }
         }
 
         [RelayCommand(CanExecute = nameof(CanExecuteConfigCommands))]
         private void SaveConfigToFile()
         {
+            ValidateAllProperties();
+            if (HasErrors)
+            {
+                Growl.Error("请检查输入参数是否正确。");
+                return;
+            }
+
             try
             {
-                ValidateAllProperties();
-
                 _configStore.RenamePatchDirectory(ResourcesDir);
                 _configStore.ModifyPAKPath();
                 _configStore.SaveConfigFile();
@@ -462,7 +530,7 @@ namespace Legend2Tool.WPF.ViewModels
             catch (Exception ex)
             {
                 Growl.Error("保存配置文件失败，请检查日志获取详细信息。");
-                _logger.Error($"保存配置文件失败：{ex.Message}", ex);
+                _logger.Error(ex, $"保存配置文件失败：{ex.Message}", ex);
             }
         }
 
@@ -477,7 +545,7 @@ namespace Legend2Tool.WPF.ViewModels
             catch (Exception ex)
             {
                 Growl.Error("获取外网IP地址失败，请检查日志获取详细信息。");
-                _logger.Error($"获取外网IP地址失败:{ex.Message}", ex);
+                _logger.Error(ex, $"获取外网IP地址失败:{ex.Message}", ex);
             }
         }
 

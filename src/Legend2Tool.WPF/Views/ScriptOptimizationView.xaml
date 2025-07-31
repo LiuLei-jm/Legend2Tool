@@ -1,20 +1,26 @@
-﻿<UserControl x:Class="Legend2Tool.WPF.Views.ScriptOptimizationView"
-             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:autogrid="clr-namespace:WpfAutoGrid;assembly=WpfAutoGrid.Core"
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:hc="https://handyorg.github.io/handycontrol"
-             xmlns:local="clr-namespace:Legend2Tool.WPF.Views"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:vm="clr-namespace:Legend2Tool.WPF.ViewModels"
-             d:DataContext="{d:DesignInstance Type=vm:ScriptOptimizationViewModel}"
-             d:DesignHeight="400"
-             d:DesignWidth="900"
-             mc:Ignorable="d">
+﻿<UserControl
+    x:Class="Legend2Tool.WPF.Views.ScriptOptimizationView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:autogrid="clr-namespace:WpfAutoGrid;assembly=WpfAutoGrid.Core"
+    xmlns:cv="clr-namespace:Legend2Tool.WPF.Converters"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:hc="https://handyorg.github.io/handycontrol"
+    xmlns:local="clr-namespace:Legend2Tool.WPF.Views"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="clr-namespace:Legend2Tool.WPF.ViewModels"
+    d:DataContext="{d:DesignInstance Type=vm:ScriptOptimizationViewModel}"
+    d:DesignHeight="700"
+    d:DesignWidth="1070"
+    mc:Ignorable="d">
+    <UserControl.Resources>
+        <cv:BoolToTextConverter x:Key="BoolToTextConverter" />
+    </UserControl.Resources>
     <StackPanel>
-        <GroupBox MinHeight="150"
-                  Header="智能刷怪配置"
-                  Style="{StaticResource GroupBoxTab}">
+        <GroupBox
+            MinHeight="150"
+            Header="智能刷怪配置"
+            Style="{StaticResource GroupBoxTab}">
             <StackPanel Orientation="Horizontal">
 
                 <StackPanel>
@@ -22,28 +28,18 @@
                     <autogrid:AutoGrid ColumnCount="5">
                         <autogrid:AutoGrid.Resources>
                             <Style TargetType="DockPanel">
-                                <Setter Property="Height"
-                                        Value="110" />
-                                <Setter Property="Width"
-                                        Value="80" />
+                                <Setter Property="Height" Value="110" />
+                                <Setter Property="Width" Value="80" />
                             </Style>
-                            <Style BasedOn="{StaticResource {x:Type TextBlock}}"
-                                   TargetType="TextBlock">
-                                <Setter Property="DockPanel.Dock"
-                                        Value="Top" />
-                                <Setter Property="HorizontalAlignment"
-                                        Value="Center" />
+                            <Style BasedOn="{StaticResource {x:Type TextBlock}}" TargetType="TextBlock">
+                                <Setter Property="DockPanel.Dock" Value="Top" />
+                                <Setter Property="HorizontalAlignment" Value="Center" />
                             </Style>
-                            <Style BasedOn="{StaticResource {x:Type TextBox}}"
-                                   TargetType="TextBox">
-                                <Setter Property="AcceptsReturn"
-                                        Value="True" />
-                                <Setter Property="VerticalScrollBarVisibility"
-                                        Value="Auto" />
-                                <Setter Property="HorizontalScrollBarVisibility"
-                                        Value="Auto" />
-                                <Setter Property="VerticalContentAlignment"
-                                        Value="Top" />
+                            <Style BasedOn="{StaticResource {x:Type TextBox}}" TargetType="TextBox">
+                                <Setter Property="AcceptsReturn" Value="True" />
+                                <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+                                <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
+                                <Setter Property="VerticalContentAlignment" Value="Top" />
                             </Style>
                         </autogrid:AutoGrid.Resources>
                         <DockPanel>
@@ -70,72 +66,60 @@
                 </StackPanel>
 
                 <StackPanel>
-                    <autogrid:AutoGrid ColumnCount="2"
-                                       RowCount="5">
+                    <autogrid:AutoGrid ColumnCount="2" RowCount="5">
                         <autogrid:AutoGrid.Resources>
-                            <Style BasedOn="{StaticResource {x:Type TextBlock}}"
-                                   TargetType="TextBlock">
-                                <Setter Property="VerticalAlignment"
-                                        Value="Center" />
-                                <Setter Property="Margin"
-                                        Value="5" />
+                            <Style BasedOn="{StaticResource {x:Type TextBlock}}" TargetType="TextBlock">
+                                <Setter Property="VerticalAlignment" Value="Center" />
+                                <Setter Property="Margin" Value="5" />
                             </Style>
-                            <Style BasedOn="{StaticResource {x:Type hc:NumericUpDown}}"
-                                   TargetType="hc:NumericUpDown">
-                                <Setter Property="Margin"
-                                        Value="2" />
+                            <Style BasedOn="{StaticResource {x:Type hc:NumericUpDown}}" TargetType="hc:NumericUpDown">
+                                <Setter Property="Margin" Value="2" />
                             </Style>
                         </autogrid:AutoGrid.Resources>
                         <TextBlock Text="时间单位" />
-                        <ComboBox Margin="2"
-                                  SelectedValue="{Binding SelectedTimeUnit}"
-                                  SelectedValuePath="Content">
+                        <ComboBox
+                            Margin="2"
+                            SelectedValue="{Binding SelectedTimeUnit}"
+                            SelectedValuePath="Content">
                             <ComboBoxItem Content="分" />
                             <ComboBoxItem Content="秒" />
                         </ComboBox>
 
                         <TextBlock Text="刷怪间隔" />
-                        <hc:NumericUpDown Maximum="60"
-                                          Minimum="0"
-                                          Value="{Binding RefreshMonInterval}" />
+                        <hc:NumericUpDown
+                            Maximum="60"
+                            Minimum="0"
+                            Value="{Binding RefreshMonInterval}" />
 
                         <TextBlock Text="清怪间隔" />
-                        <hc:NumericUpDown Maximum="60"
-                                          Minimum="0"
-                                          Value="{Binding ClearMonInterval}" />
+                        <hc:NumericUpDown
+                            Maximum="60"
+                            Minimum="0"
+                            Value="{Binding ClearMonInterval}" />
 
                         <TextBlock Text="刷怪倍数" />
-                        <hc:NumericUpDown Maximum="10"
-                                          Minimum="1"
-                                          Value="{Binding RefreshMonMultiplier}" />
+                        <hc:NumericUpDown
+                            Maximum="10"
+                            Minimum="1"
+                            Value="{Binding RefreshMonMultiplier}" />
                     </autogrid:AutoGrid>
                 </StackPanel>
 
                 <StackPanel>
-                    <autogrid:AutoGrid ColumnCount="2"
-                                       RowCount="4">
+                    <autogrid:AutoGrid ColumnCount="2" RowCount="4">
                         <autogrid:AutoGrid.Resources>
-                            <Style BasedOn="{StaticResource {x:Type TextBlock}}"
-                                   TargetType="TextBlock">
-                                <Setter Property="VerticalAlignment"
-                                        Value="Center" />
-                                <Setter Property="Margin"
-                                        Value="5" />
+                            <Style BasedOn="{StaticResource {x:Type TextBlock}}" TargetType="TextBlock">
+                                <Setter Property="VerticalAlignment" Value="Center" />
+                                <Setter Property="Margin" Value="5" />
                             </Style>
-                            <Style BasedOn="{StaticResource {x:Type TextBox}}"
-                                   TargetType="TextBox">
-                                <Setter Property="Margin"
-                                        Value="2" />
-                                <Setter Property="MinWidth"
-                                        Value="100" />
-                                <Setter Property="Height"
-                                        Value="28" />
+                            <Style BasedOn="{StaticResource {x:Type TextBox}}" TargetType="TextBox">
+                                <Setter Property="Margin" Value="2" />
+                                <Setter Property="MinWidth" Value="100" />
+                                <Setter Property="Height" Value="28" />
 
                             </Style>
-                            <Style BasedOn="{StaticResource {x:Type CheckBox}}"
-                                   TargetType="CheckBox">
-                                <Setter Property="Margin"
-                                        Value="5,8,5,8" />
+                            <Style BasedOn="{StaticResource {x:Type CheckBox}}" TargetType="CheckBox">
+                                <Setter Property="Margin" Value="5,8,5,8" />
                             </Style>
                         </autogrid:AutoGrid.Resources>
 
@@ -155,26 +139,88 @@
 
                 <StackPanel>
                     <StackPanel.Resources>
-                        <Style BasedOn="{StaticResource {x:Type Button}}"
-                               TargetType="Button">
-                            <Setter Property="Margin"
-                                    Value="2" />
-                            <Setter Property="Width"
-                                    Value="120" />
-                            <Setter Property="Height"
-                                    Value="28" />
+                        <Style BasedOn="{StaticResource {x:Type Button}}" TargetType="Button">
+                            <Setter Property="Margin" Value="2" />
+                            <Setter Property="Width" Value="120" />
+                            <Setter Property="Height" Value="28" />
                         </Style>
                     </StackPanel.Resources>
 
-                    <Button Command="{Binding GenerateRefreshMonScriptCommand}"
-                            Content="生成动态刷怪脚本" />
-                    <Button Command="{Binding ClearRefreshMonScriptCommand}"
-                            Content="清除动态刷怪脚本" />
+                    <Button Command="{Binding GenerateRefreshMonScriptCommand}" Content="生成动态刷怪脚本" />
+                    <Button Command="{Binding ClearRefreshMonScriptCommand}" Content="清除动态刷怪脚本" />
                 </StackPanel>
             </StackPanel>
         </GroupBox>
 
-        <GroupBox Header="脚本优化配置"
-                  Style="{StaticResource GroupBoxTab}" />
+        <GroupBox Header="脚本优化配置" Style="{StaticResource GroupBoxTab}">
+            <StackPanel Orientation="Horizontal">
+                <Grid>
+                    <ListView Height="350" ItemsSource="{Binding DuplicatedTriggersView}">
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Width="150" DisplayMemberBinding="{Binding TriggerField}">
+                                    <GridViewColumn.Header>
+                                        <GridViewColumnHeader
+                                            Command="{Binding SortDuplicatedTriggersCommand}"
+                                            CommandParameter="TriggerField"
+                                            Content="触发字段" />
+                                    </GridViewColumn.Header>
+                                </GridViewColumn>
+                                <GridViewColumn Width="150" DisplayMemberBinding="{Binding FileName}">
+                                    <GridViewColumn.Header>
+                                        <GridViewColumnHeader
+                                            Command="{Binding SortDuplicatedTriggersCommand}"
+                                            CommandParameter="FileName"
+                                            Content="文件名" />
+                                    </GridViewColumn.Header>
+                                </GridViewColumn>
+                                <GridViewColumn Width="100" DisplayMemberBinding="{Binding LineNumber}">
+                                    <GridViewColumn.Header>
+                                        <GridViewColumnHeader
+                                            Command="{Binding SortDuplicatedTriggersCommand}"
+                                            CommandParameter="LineNumber"
+                                            Content="行号" />
+                                    </GridViewColumn.Header>
+                                </GridViewColumn>
+                                <GridViewColumn Width="100" DisplayMemberBinding="{Binding IsRecursion, Converter={StaticResource BoolToTextConverter}}">
+                                    <GridViewColumn.Header>
+                                        <GridViewColumnHeader
+                                            Command="{Binding SortDuplicatedTriggersCommand}"
+                                            CommandParameter="IsRecursion"
+                                            Content="死循环" />
+                                    </GridViewColumn.Header>
+                                </GridViewColumn>
+                            </GridView>
+                        </ListView.View>
+                        <ListView.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem
+                                    Command="{Binding OpenFileCommand}"
+                                    CommandParameter="{Binding Path=PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                    Header="打开文件" />
+                                <MenuItem
+                                    Command="{Binding CopyTriggerFieldCommand}"
+                                    CommandParameter="{Binding Path=PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                    Header="复制触发字段" />
+                            </ContextMenu>
+                        </ListView.ContextMenu>
+                    </ListView>
+                </Grid>
+
+                <StackPanel>
+                    <StackPanel.Resources>
+                        <Style BasedOn="{StaticResource {x:Type Button}}" TargetType="Button">
+                            <Setter Property="Margin" Value="5" />
+                            <Setter Property="Width" Value="100" />
+                            <Setter Property="Height" Value="28" />
+                        </Style>
+                    </StackPanel.Resources>
+                    <Button Command="{Binding DetectDuplicatedTriggerCommand}" Content="查询重复调用" />
+                    <Button Command="{Binding OptimizingCallsCommand}" Content="优化CALL调用" />
+                    <Button Command="{Binding DropRateCalculatorCommand}" Content="生成爆率查询" />
+                </StackPanel>
+
+            </StackPanel>
+        </GroupBox>
     </StackPanel>
 </UserControl>
