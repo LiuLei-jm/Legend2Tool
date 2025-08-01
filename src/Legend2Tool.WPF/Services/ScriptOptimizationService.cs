@@ -907,12 +907,12 @@ namespace Legend2Tool.WPF.Services
                 fileEncoding = _encodingService.DetectFileEncoding(file);
                 await foreach (var line in File.ReadLinesAsync(file, fileEncoding))
                 {
-                    var trimedLine = line.Trim();
-                    if (string.IsNullOrEmpty(trimedLine) || trimedLine.StartsWith(';'))
+                    var trimmedLine = line.Trim();
+                    if (string.IsNullOrEmpty(trimmedLine) || trimmedLine.StartsWith(';'))
                     {
                         continue;
                     }
-                    ProcessAddMapGate(trimedLine);
+                    ProcessAddMapGate(trimmedLine);
                 }
             }
 
@@ -930,6 +930,7 @@ namespace Legend2Tool.WPF.Services
             _visited.Clear();
 
         }
+
 
         public void GetBestPath(MapData currentMap)
         {
@@ -972,10 +973,16 @@ namespace Legend2Tool.WPF.Services
                 foreach (var currentMapPath in currentMap.Path)
                 {
                     var (currentMapPathFromCode, currentMapPathToCode) = GetMapCodeForPath(currentMapPath);
-                    if (endPathToCode.Equals(currentMapPathFromCode) && !path.Contains(currentMapPath))
+                    if (endPathToCode.Equals(currentMapPathFromCode))
+                    {
+                        if (path.Contains(currentMapPath))
+                        {
+                            path.Remove(currentMapPath);
+                        }
                         path.Add(currentMapPath); // 加上当前地图的路径（从前一个地图来的路径）
+                    }
                 }
-                if (bestPath.Count == 0 && firstFromMapData.Id < currentMap.Id) // 根据你对“最佳”的定义调整逻辑
+                if (bestPath.Count == 0) // 根据你对“最佳”的定义调整逻辑
                 {
                     bestPath = path;
                     currentMap.BestPath = bestPath;
@@ -1033,20 +1040,36 @@ namespace Legend2Tool.WPF.Services
             }
         }
 
-        private void ProcessAddMapGate(string trimedLine)
+        private void ProcessMapMoveScript(string trimmedLine)
         {
-            if (trimedLine.StartsWith("addmapgate", StringComparison.OrdinalIgnoreCase))
+            if(trimmedLine.StartsWith("map",StringComparison.OrdinalIgnoreCase)
+                || trimmedLine.StartsWith("mapmove",StringComparison.OrdinalIgnoreCase))
             {
-                var parts = trimedLine.Split(_emptySeparator, StringSplitOptions.RemoveEmptyEntries);
+                var parts = trimmedLine.Split(_emptySeparator, StringSplitOptions.RemoveEmptyEntries);
+                var map = parts[1];
+                if (map.Contains("<$")) return;
+                if(!_mapDatas.TryGetValue(map, out var mapData))
+                {
+                    _logger.Warning($"地图代码 '{map}' 未找到，跳过mapmove: {trimmedLine}");
+                    return;
+                }
+                mapData.IsMainCity = true;
+            }
+        }
+        private void ProcessAddMapGate(string trimmedLine)
+        {
+            if (trimmedLine.StartsWith("addmapgate", StringComparison.OrdinalIgnoreCase))
+            {
+                var parts = trimmedLine.Split(_emptySeparator, StringSplitOptions.RemoveEmptyEntries);
                 if (parts.Length < 9)
                 {
-                    _logger.Warning($"addmapgate格式错误: {trimedLine}");
+                    _logger.Warning($"addmapgate格式错误: {trimmedLine}");
                     return;
                 }
                 var fromMapCode = parts[2];
                 if (!_mapDatas.TryGetValue(fromMapCode, out var fromMap))
                 {
-                    _logger.Warning($"地图代码 '{fromMapCode}' 未找到，跳过addmapgate: {trimedLine}");
+                    _logger.Warning($"地图代码 '{fromMapCode}' 未找到，跳过addmapgate: {trimmedLine}");
                     return;
                 }
                 if (!int.TryParse(parts[3], out _)) parts[3] = "-1";
@@ -1056,7 +1079,7 @@ namespace Legend2Tool.WPF.Services
                 var toMapCode = parts[6];
                 if (!_mapDatas.TryGetValue(toMapCode, out var toMap))
                 {
-                    _logger.Warning($"地图代码 '{toMapCode}' 未找到，跳过addmapgate: {trimedLine}");
+                    _logger.Warning($"地图代码 '{toMapCode}' 未找到，跳过addmapgate: {trimmedLine}");
                     return;
                 }
                 if (!int.TryParse(parts[7], out _)) parts[7] = "-1";
