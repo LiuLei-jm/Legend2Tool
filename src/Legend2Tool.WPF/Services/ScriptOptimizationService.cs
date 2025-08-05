@@ -7,8 +7,10 @@ using Serilog;
 using SQLitePCL;
 using System.Data.OleDb;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using System.Windows;
 
 namespace Legend2Tool.WPF.Services
@@ -23,9 +25,10 @@ namespace Legend2Tool.WPF.Services
 
         private static readonly char[] _emptySeparator = [' ', '\t'];
         private static readonly string[] _lineSeparator = ["\r", "\n", "\r\n"];
+        private static readonly char[] _merchantSeparator = ['\\', '/'];
         private const string _defaultPointRange = "50";
-        private const string _startWriteTitle = ";XGD_动态刷怪生成开始";
-        private const string _endWriteTitle = ";XGD_动态刷怪生成结束";
+        private const string _startWriteTitle = ";---------------由小疙瘩制作QQ14699396,生成开始";
+        private const string _endWriteTitle = ";---------------由小疙瘩制作QQ14699396,生成结束";
 
         private static readonly HashSet<string> _excludedTriggers = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -40,6 +43,25 @@ namespace Legend2Tool.WPF.Services
             "[@upgradenow]",
             "[@getbackupgnow]"
         };
+
+        private static readonly HashSet<string> _mainCityLists = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "0","1","2","3","4","5","6","11","12"
+        };
+        private static readonly HashSet<string> _giveCommands = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "give","giveex", "giveonitem", "givestateitem", "givegamepet", "givefenghao", "confertitle"
+        };
+        private static readonly HashSet<string> _takeCommands = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
+            "take","takew", "recycfenghao", "deprivetitle"
+        };
+        private static readonly HashSet<string> _mapCommands = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "map","mapmove","groupmapmove"
+        };
+        private static readonly Regex _burstSymbolRegex = new Regex(@"^(;|\(|\)|{|}|\#child)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex _skipFieldRegex = new Regex(@"^(;|\#|\[|\<)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex _variableRegex = new Regex(@"\<\$STR\((.*?)\)\>", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         private Dictionary<string, StdMode> _stdModes = new(StringComparer.OrdinalIgnoreCase);
         private Dictionary<string, Monster> _monsters = new(StringComparer.OrdinalIgnoreCase);
@@ -229,8 +251,8 @@ namespace Legend2Tool.WPF.Services
 
                 string mongenexScript = _configStore.EngineType switch
                 {
-                    EngineType.GOM => $"Mongenex {mapCode} {pointX} {pointY} {monName} {range} {monCount} 0 {monNameColor}",
-                    _ => $"Mongenex {mapCode} {pointX} {pointY} {monName} {range} {monCount} {monNameColor}"
+                    EngineType.GOM => $"MonGenEX {mapCode} {pointX} {pointY} {monName} {range} {monCount} 0 {monNameColor}",
+                    _ => $"MonGenEX {mapCode} {pointX} {pointY} {monName} {range} {monCount} {monNameColor}"
                 };
 
                 if (!mapMonsters.TryGetValue(mapCode, out _))
@@ -316,15 +338,12 @@ namespace Legend2Tool.WPF.Services
 
             using (var noClearMonListWriter = new StreamWriter(noClearMonListPath, true, mongenEncoding))
             {
-                await noClearMonListWriter.WriteLineAsync();
-                await noClearMonListWriter.WriteLineAsync(_startWriteTitle);
-
                 foreach (var monName in noClearMonLists)
                 {
+                    if (string.IsNullOrEmpty(monName)) continue;
                     await noClearMonListWriter.WriteLineAsync(monName);
                 }
 
-                await noClearMonListWriter.WriteLineAsync(_endWriteTitle);
             }
 
             using (var robotManageWriter = new StreamWriter(robotManagePath, true, robotManageEncoding))
@@ -425,23 +444,24 @@ namespace Legend2Tool.WPF.Services
             File.Delete(clearMonScriptPath);
             await ClearScriptContentAsync(robotManagePath, robotManageEncoding);
             await ClearScriptContentAsync(autoRunRobotPath, autoRunRobotEncoding);
-            await ClearScriptContentAsync(noClearMonListPath, noClearMonListEncoding);
+            //await ClearScriptContentAsync(noClearMonListPath, noClearMonListEncoding);
+            await File.WriteAllTextAsync(noClearMonListPath, string.Empty);
         }
 
         private static async Task ClearScriptContentAsync(string path, Encoding encoding)
         {
             var isDeleteContent = false;
             var content = new List<string>();
-            foreach (var line in File.ReadLines(path, encoding))
+            await foreach (var line in File.ReadLinesAsync(path, encoding))
             {
                 if (line.Contains(_startWriteTitle))
                 {
                     isDeleteContent = true;
-                    break;
                 }
                 if (line.Contains(_endWriteTitle))
                 {
                     isDeleteContent = false;
+                    continue;
                 }
                 if (isDeleteContent)
                 {
@@ -750,8 +770,553 @@ namespace Legend2Tool.WPF.Services
 
         public async Task DropRateCalculatorAsync()
         {
+            IProgress<ProgressStore> progress = new Progress<ProgressStore>(report =>
+            {
+                _progressStore.ProgressPercentage = report.ProgressPercentage;
+                _progressStore.ProgressText = report.ProgressText;
+            });
+            _progressStore.ProgressPercentage = 0;
+            _progressStore.ProgressText = string.Empty;
+
+            _stdModes.Clear();
+            _mapDatas.Clear();
+            _monsters.Clear();
+            _npcDatas.Clear();
+            _mapDescList.Clear();
+            _visited.Clear();
             await ProcessDBDataAsync();
+            _progressStore.ProgressPercentage = (int)((0 / 7.0) * 100);
+            _progressStore.ProgressText = $"获取数据库信息";
+            progress.Report(_progressStore);
+            _progressStore.ProgressPercentage = (int)((1 / 7.0) * 100);
+            _progressStore.ProgressText = $"获取地图信息";
+            progress.Report(_progressStore);
             await ProcessMapInfoAsync();
+            _progressStore.ProgressPercentage = (int)((2 / 7.0) * 100);
+            _progressStore.ProgressText = $"获取NPC信息";
+            progress.Report(_progressStore);
+            await ProcessMerChantAsync();
+            _progressStore.ProgressPercentage = (int)((3 / 7.0) * 100);
+            _progressStore.ProgressText = $"获取怪物信息";
+            progress.Report(_progressStore);
+            await ProcessMongenAsync();
+            _progressStore.ProgressPercentage = (int)((4 / 7.0) * 100);
+            _progressStore.ProgressText = $"获取怪物信息";
+            progress.Report(_progressStore);
+            await ProcessMonItemsAsync();
+            _progressStore.ProgressPercentage = (int)((5 / 7.0) * 100);
+            _progressStore.ProgressText = $"获取NPC内容信息";
+            progress.Report(_progressStore);
+            await ProcessNpcFileAsync();
+            _progressStore.ProgressPercentage = (int)((6 / 7.0) * 100);
+            _progressStore.ProgressText = $"写入文件";
+            progress.Report(_progressStore);
+            await ProcessDataWriteFileAsync();
+            _progressStore.ProgressPercentage = (int)((7 / 7.0) * 100);
+            _progressStore.ProgressText = $"处理完成";
+            progress.Report(_progressStore);
+        }
+
+        private async Task ProcessDataWriteFileAsync()
+        {
+            if (string.IsNullOrEmpty(_configStore.LauncherConfig.LauncherName)) _configStore.LauncherConfig.LauncherName = "热血传奇";
+            var versionName = _configStore.LauncherConfig.LauncherName;
+            var versionNamePinYin = _configStore.LauncherConfig.ResourcesDir;
+
+            StringBuilder customBuilder = new StringBuilder();
+            customBuilder.AppendLine("{");
+            customBuilder.AppendLine($"  name: \"{versionName}\",");
+            customBuilder.AppendLine($"  data: \"{versionNamePinYin}\",");
+            customBuilder.AppendLine($"  gllink: \"\",");
+            customBuilder.AppendLine("}");
+
+            var folderPath = Path.Combine(_configStore.ServerDirectory, versionName);
+            if (!Directory.Exists(folderPath)) Directory.CreateDirectory(folderPath);
+            string filePath = Path.Combine(folderPath, "custom.js");
+            await File.WriteAllTextAsync(filePath, customBuilder.ToString());
+
+            filePath = Path.Combine(folderPath, $"{versionNamePinYin}.js");
+            var dataBuilder = new StringBuilder();
+            dataBuilder.AppendLine($"var DataName = \"{versionName}\";");
+            dataBuilder.AppendLine($"var Stdlist = [");
+            foreach (var stdmode in _stdModes.Values)
+            {
+                string mons = string.Join(",", stdmode.Mons);
+                string npcs = string.Join(",", stdmode.Npcs);
+                string line = $@"{{ name: ""{stdmode.Name}"", type: ""{stdmode.Type}"", mon: ""{mons}"", npc: ""{npcs}"" }},";
+                dataBuilder.AppendLine(line);
+            }
+            dataBuilder.AppendLine("];");
+            dataBuilder.AppendLine("var Monlist = [");
+            foreach (var monster in _monsters.Values)
+            {
+                string stds = string.Join(",", monster.Stds);
+                string maps = string.Join(",", monster.Maps);
+                string npcs = string.Join(",", monster.Npcs);
+                string bots = string.Join(",", monster.Bots);
+                string line = $@"{{ name: ""{monster.Name}"", std: ""{stds}"", map: ""{maps}"", npc: ""{npcs}"", bot: ""{bots}"" }},";
+                dataBuilder.AppendLine(line);
+            }
+            dataBuilder.AppendLine("];");
+            dataBuilder.AppendLine("var Maplist = [");
+            foreach (var mapData in _mapDatas.Values)
+            {
+                string mapName = $"{mapData.Name}({mapData.Code})";
+                string mons = string.Join(",", mapData.Mons);
+                string npcs = string.Join(",", mapData.Npcs);
+                string paths = mapData.BestPaths.Count > 0 ? string.Join(",", mapData.BestPaths) : "没有找到";
+                string line = $@"{{ name: ""{mapName}"", code: ""{mapData.Code}"", mon: ""{mons}"", npc: ""{npcs}"", path: ""{paths}"" }},";
+                dataBuilder.AppendLine(line);
+            }
+            dataBuilder.AppendLine("];");
+            dataBuilder.AppendLine("var Npclist = [");
+            foreach (var npcdata in _npcDatas)
+            {
+                string name = npcdata.Name!;
+                string gives = string.Join(",", npcdata.Gives);
+                string takes = string.Join(",", npcdata.Takes);
+                string moves = string.Join(",", npcdata.Moves);
+                string line = $@"{{ name: ""{name}"", mname: ""{npcdata.Mname}"", mxy: ""{npcdata.Mxy}"", give: ""{gives}"", take: ""{takes}"", move: ""{moves}"" }},";
+                dataBuilder.AppendLine(line);
+            }
+            dataBuilder.AppendLine("];");
+            await File.WriteAllTextAsync(filePath, dataBuilder.ToString());
+
+            filePath = Path.Combine(folderPath, "MapDesc1.dat");
+            var mapDescBuilder = new StringBuilder();
+            foreach (var mapDesc in _mapDescList)
+            {
+                mapDescBuilder.AppendLine($@"{mapDesc}$33FFFF,0");
+                mapDescBuilder.AppendLine($@"{mapDesc}$33FFFF,1");
+            }
+            await File.WriteAllTextAsync(filePath, mapDescBuilder.ToString(), Encoding.GetEncoding("GB18030"));
+        }
+
+        private async Task ProcessNpcFileAsync()
+        {
+            var variables = new Dictionary<string, string>();
+            HashSet<string> processedField = [];
+            string filePath;
+            Encoding fileEncoding;
+            foreach (var npcData in _npcDatas)
+            {
+                if (string.IsNullOrEmpty(npcData.FilePath)) continue;
+                var npcFilePath = npcData.FilePath.Replace('/', '\\');
+                filePath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "Market_Def", $"{npcFilePath}-{npcData.Code}.txt");
+                fileEncoding = _encodingService.DetectFileEncoding(filePath);
+                await foreach (var line in File.ReadLinesAsync(filePath, fileEncoding))
+                {
+                    var trimmedLine = line.Trim();
+                    if (trimmedLine.StartsWith("#call", StringComparison.OrdinalIgnoreCase))
+                    {
+                        ExtractCallPathAndField(trimmedLine, out var callPath, out var callField);
+                        if (string.IsNullOrEmpty(callPath) || string.IsNullOrEmpty(callField)) continue;
+                        var fullCallPath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "QuestDiary", callPath);
+                        var callFileEncoding = _encodingService.DetectFileEncoding(fullCallPath);
+                        await foreach (var callLine in File.ReadLinesAsync(fullCallPath, callFileEncoding))
+                        {
+                            //if (callLine.StartsWith("#call", StringComparison.OrdinalIgnoreCase))
+                            //{
+                            //    await ProcessNpcFileCallAsync(callLine, npcData, variables);
+                            //}
+                            //else
+                            //{
+                            ProcessNpcFileContent(callLine, npcData, variables);
+                            //}
+                        }
+                    }
+                    else
+                    {
+                        ProcessNpcFileContent(trimmedLine, npcData, variables);
+                    }
+                }
+            }
+        }
+
+        private async Task ProcessNpcFileCallAsync(string line, NpcData npcData, Dictionary<string, string> variables)
+        {
+            await GeneralProcessCallScript(line,
+                 callLine => ProcessNpcFileContent(callLine, npcData, variables),
+                async callLine => await ProcessNpcFileCallAsync(callLine, npcData, variables));
+        }
+
+        private void ProcessNpcFileContent(string trimmedLine, NpcData npcData, Dictionary<string, string> variables)
+        {
+            if (string.IsNullOrEmpty(trimmedLine) || _skipFieldRegex.IsMatch(trimmedLine)) return;
+            var parts = trimmedLine.Split(_emptySeparator, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length < 2) return;
+
+            var command = parts[0];
+
+            if (command.Equals("mov", StringComparison.OrdinalIgnoreCase))
+            {
+                var variable = parts[1];
+                var value = parts.Length > 2 ? parts[2] : string.Empty;
+                variables[variable] = value;
+                return;
+            }
+
+            if (command.Equals("mongenex", StringComparison.OrdinalIgnoreCase))
+            {
+                var mapCode = parts[1];
+                if (mapCode.StartsWith("<$")) mapCode = GetVariableValue(mapCode, variables);
+                var monName = parts[4];
+                if (monName.StartsWith("<$")) monName = GetVariableValue(monName, variables);
+                if (!_mapDatas.TryGetValue(mapCode, out var mapData))
+                {
+                    _logger.Warning($"无法对{trimmedLine}进行关联.");
+                    return;
+                }
+                if (!_monsters.TryGetValue(monName, out var monster))
+                {
+                    _logger.Warning($"无法对{trimmedLine}进行关联.");
+                    return;
+                }
+                MonsterMapAssociation(monster, mapData);
+            }
+
+            if (_giveCommands.Contains(command))
+            {
+                var item = parts[1];
+                if (item.Equals("金币")) return;
+                if (item.StartsWith("<$")) item = GetVariableValue(item, variables);
+                if (!_stdModes.TryGetValue(item, out var stdMode))
+                {
+                    _logger.Warning($"无法获取物品：{trimmedLine}.");
+                    return;
+                }
+                NpcGiveStdmodeAssociation(npcData, stdMode);
+            }
+
+            if (_takeCommands.Contains(command))
+            {
+                var item = parts[1];
+                if (item.Equals("金币")) return;
+                if (item.StartsWith("<$")) item = GetVariableValue(item, variables);
+                if (!_stdModes.TryGetValue(item, out var stdMode))
+                {
+                    _logger.Warning($"无法获取物品：{trimmedLine}.");
+                    return;
+                }
+                NpcTakeStdModeAssociation(npcData, stdMode);
+            }
+
+            if (_mapCommands.Contains(command))
+            {
+                var mapCode = parts[1];
+                if (mapCode.StartsWith("<$")) mapCode = GetVariableValue(mapCode, variables);
+                if (!_mapDatas.TryGetValue(mapCode, out var mapData))
+                {
+                    _logger.Warning($"无法获取地图：{trimmedLine}.");
+                    return;
+                }
+                MapNpcAssociation(mapData, npcData);
+            }
+        }
+
+        private string GetVariableValue(string variable, Dictionary<string, string> variables)
+        {
+            var match = _variableRegex.Match(variable);
+            if (match.Success)
+            {
+                var temp = match.Groups[1].Value;
+                if (variables.TryGetValue(temp, out var value))
+                {
+                    return value;
+                }
+            }
+            int startIndex = variable.IndexOf('(') + 1;
+            int endIndex = variable.LastIndexOf(')');
+            int length = endIndex - startIndex;
+            return variable.Substring(startIndex, length);
+        }
+
+        private async Task ProcessMonItemsAsync()
+        {
+            var directory = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "MonItems");
+            var destinationFolder = Path.Combine(_configStore.ServerDirectory, "UnusedMonItems");
+            if (!Directory.Exists(directory))
+            {
+                _logger.Error($"目录不存在{directory}.");
+                return;
+            }
+            var files = _fileService.GetFiles(directory, ["*.txt"], SearchOption.AllDirectories);
+            foreach (var filePath in files)
+            {
+                var monName = Path.GetFileNameWithoutExtension(filePath);
+                var processedItems = new HashSet<string>();
+                if (!_monsters.TryGetValue(monName, out var monster))
+                {
+                    MovFileToUnused(filePath, destinationFolder);
+                    continue;
+                }
+                Encoding fileEncoding = _encodingService.DetectFileEncoding(filePath);
+                await foreach (var line in File.ReadLinesAsync(filePath, fileEncoding))
+                {
+                    var trimmedLine = line.Trim();
+                    if (string.IsNullOrWhiteSpace(trimmedLine) ||
+                        _burstSymbolRegex.IsMatch(trimmedLine)
+                        ) continue;
+                    if (trimmedLine.StartsWith("#call", StringComparison.OrdinalIgnoreCase))
+                    {
+                        await ProcessCallBurstRateAsync(trimmedLine, processedItems, monster);
+                    }
+                    else
+                    {
+                        ProcessBurstRateContent(trimmedLine, processedItems, monster);
+                    }
+                }
+            }
+        }
+
+        private async Task ProcessCallBurstRateAsync(string trimmedLine, HashSet<string> processedItems, Monster monster)
+        {
+            await GeneralProcessCallScript(trimmedLine,
+                callLine => ProcessBurstRateContent(callLine, processedItems, monster),
+               async callLine => await ProcessCallBurstRateAsync(callLine, processedItems, monster));
+        }
+
+        private async Task GeneralProcessCallScript(string trimmedLine, Action<string> processContent, Action<string> processCall)
+        {
+            ExtractCallPathAndField(trimmedLine, out var callPath, out var callField);
+            if (string.IsNullOrEmpty(callPath) || string.IsNullOrEmpty(callField)) return;
+            var fullCallPath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "QuestDiary", callPath);
+            var fullCallPathEncoding = _encodingService.DetectFileEncoding(fullCallPath);
+            bool isInSection = false;
+            await foreach (var callLine in File.ReadLinesAsync(fullCallPath, fullCallPathEncoding))
+            {
+                var trimmedCallLine = callLine.Trim();
+                if (string.IsNullOrWhiteSpace(trimmedCallLine) ||
+                    _burstSymbolRegex.IsMatch(trimmedCallLine)
+                    ) continue;
+                if (trimmedCallLine.StartsWith("#call", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (trimmedCallLine.Contains(callPath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _logger.Warning($"产生循环Call,路径：{callPath}");
+                    }
+                    processCall(trimmedLine);
+                }
+                if (!trimmedCallLine.Contains(callField) && trimmedCallLine.StartsWith('[') && isInSection)
+                {
+                    break;
+                }
+                if (isInSection)
+                {
+                    processContent(trimmedCallLine);
+                }
+                if (trimmedCallLine.Contains(callField))
+                {
+                    isInSection = true;
+                }
+            }
+        }
+
+        private void ProcessBurstRateContent(string trimmedLine, HashSet<string> processedItems, Monster monster)
+        {
+            var parts = trimmedLine.Split(_emptySeparator, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length < 2) return;
+
+            var itemName = parts[1];
+            if (itemName.Contains("|@"))
+            {
+                itemName = itemName.Split('|')[0];
+            }
+            if (!processedItems.Add(itemName)) return;
+            if (_stdModes.TryGetValue(itemName, out var stdMode))
+            {
+                StdModeMonsterAssociation(stdMode, monster);
+            }
+        }
+
+        private void MovFileToUnused(string filePath, string destinationFolder)
+        {
+            if (!Directory.Exists(destinationFolder))
+            {
+                Directory.CreateDirectory(destinationFolder);
+            }
+            string fileName = Path.GetFileName(filePath);
+            string destinationFile = Path.Combine(destinationFolder, fileName);
+            File.Move(filePath, destinationFile);
+        }
+
+        private async Task ProcessMongenAsync()
+        {
+            var filePath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "Mongen.txt");
+            Encoding fileEncoding = _encodingService.DetectFileEncoding(filePath);
+            if (!File.Exists(filePath)) throw new FileNotFoundException($"没有找到文件：{filePath}");
+
+            await foreach (var line in File.ReadLinesAsync(filePath, fileEncoding))
+            {
+                var trimmedLine = line.Trim();
+                if (string.IsNullOrEmpty(trimmedLine) || trimmedLine.StartsWith(';'))
+                {
+                    continue;
+                }
+
+                var parts = trimmedLine.Split(_emptySeparator, StringSplitOptions.RemoveEmptyEntries);
+
+                if (parts.Length < 7)
+                {
+                    continue;
+                }
+
+                var mapCode = parts[0];
+                var x = parts[1];
+                var y = parts[2];
+                var monName = parts[3];
+                var range = parts[4];
+                var count = parts[5];
+                var interval = parts[6];
+
+                if (!_mapDatas.TryGetValue(mapCode, out var mapData))
+                {
+                    _logger.Warning($"地图代码 '{mapCode}' 不存在,请检测脚本.");
+                    continue;
+                }
+                if (!_monsters.TryGetValue(monName, out var monster))
+                {
+                    _logger.Warning($"怪物名称 '{monName}' 不存在,请检测数据库.");
+                    continue;
+                }
+                var monBot = $"每 {interval} 分钟 刷新{count} 个 【{mapData.Name}({x}:{y})范围{range}】";
+                MonsterMapAssociation(monster, mapData);
+                if (monster.Bots.Contains("-1"))
+                {
+                    monster.Bots.Remove("-1");
+                    monster.Bots.Add(monBot);
+                }
+                else
+                {
+                    monster.Bots.Add(monBot);
+                }
+            }
+        }
+
+        private void MapNpcAssociation(MapData mapData, NpcData npcData)
+        {
+            string npcdataId = npcData.Id.ToString();
+            if (npcData.Moves.Contains("没有"))
+            {
+                npcData.Moves.Remove("没有");
+            }
+            npcData.Moves.Add(mapData.Name!);
+
+            if (mapData.Npcs.Contains("-1"))
+            {
+                mapData.Npcs.Remove("-1");
+            }
+            mapData.Npcs.Add(npcdataId);
+        }
+
+        private void NpcTakeStdModeAssociation(NpcData npcData, StdMode stdMode)
+        {
+            string stdmodeId = stdMode.Id.ToString();
+            string npcdataId = npcData.Id.ToString();
+            if (npcData.Takes.Contains("没有"))
+            {
+                npcData.Takes.Remove("没有");
+            }
+            npcData.Takes.Add(stdmodeId);
+
+            if (stdMode.Npcs.Contains("-1"))
+            {
+                stdMode.Npcs.Remove("-1");
+            }
+            stdMode.Npcs.Add(npcdataId);
+        }
+        private void NpcGiveStdmodeAssociation(NpcData npcData, StdMode stdMode)
+        {
+            string stdmodeId = stdMode.Id.ToString();
+            string npcdataId = npcData.Id.ToString();
+            if (npcData.Gives.Contains("没有"))
+            {
+                npcData.Gives.Remove("没有");
+            }
+            npcData.Gives.Add(stdmodeId);
+
+            if (stdMode.Npcs.Contains("-1"))
+            {
+                stdMode.Npcs.Remove("-1");
+            }
+            stdMode.Npcs.Add(npcdataId);
+        }
+        private void StdModeMonsterAssociation(StdMode stdMode, Monster monster)
+        {
+            string monsterId = monster.Id.ToString();
+            string stdmodeId = stdMode.Id.ToString();
+            if (stdMode.Mons.Contains("-1"))
+            {
+                stdMode.Mons.Remove("-1");
+            }
+            stdMode.Mons.Add(monsterId);
+
+            if (monster.Stds.Contains("-1"))
+            {
+                monster.Stds.Remove("-1");
+            }
+            monster.Stds.Add(stdmodeId);
+        }
+
+        private void MonsterMapAssociation(Monster monster, MapData mapData)
+        {
+            string monsterId = monster.Id.ToString();
+            string mapDataId = mapData.Id.ToString();
+            if (mapData.Mons.Contains("-1"))
+            {
+                mapData.Mons.Remove("-1");
+            }
+            mapData.Mons.Add(monsterId);
+
+            if (monster.Maps.Contains("-1"))
+            {
+                monster.Maps.Remove("-1");
+            }
+            monster.Maps.Add(mapDataId);
+        }
+
+        private async Task ProcessMerChantAsync()
+        {
+            var filePath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "MerChant.txt");
+            Encoding fileEncoding = _encodingService.DetectFileEncoding(filePath);
+            if (!File.Exists(filePath))
+            {
+                throw new FileNotFoundException($"没有找到文件：{filePath}");
+            }
+
+            int index = 0;
+            await foreach (var line in File.ReadLinesAsync(filePath, fileEncoding))
+            {
+                var trimmedLine = line.Trim();
+                if (string.IsNullOrWhiteSpace(trimmedLine) || trimmedLine.StartsWith(';'))
+                {
+                    continue;
+                }
+                var parts = trimmedLine.Split(_emptySeparator, StringSplitOptions.RemoveEmptyEntries);
+
+                if (parts.Length >= 5 && _mapDatas.TryGetValue(parts[1], out var mapData))
+                {
+                    var npcName = parts[4];
+                    if (int.TryParse(npcName, out _) || string.IsNullOrWhiteSpace(npcName))
+                    {
+                        var fileParts = parts[0].Split(_merchantSeparator, StringSplitOptions.None);
+                        npcName = fileParts.LastOrDefault();
+                    }
+
+                    var coordinate = $"{parts[2]}:{parts[3]}";
+
+                    var npc = new NpcData()
+                    {
+                        Id = index++,
+                        FilePath = parts[0],
+                        Name = npcName,
+                        Code = parts[1],
+                        Mname = mapData.Name,
+                        Mxy = coordinate
+                    };
+                    _npcDatas.Add(npc);
+                }
+            }
         }
 
         private async Task ProcessMapInfoAsync()
@@ -760,7 +1325,8 @@ namespace Legend2Tool.WPF.Services
             Encoding fileEncoding = _encodingService.DetectFileEncoding(filePath);
             if (!File.Exists(filePath))
             {
-                throw new FileNotFoundException($"文件 '{filePath}' 未找到。请检查服务器目录设置。");
+                _logger.Error($"文件 '{filePath}' 未找到。请检查服务器目录设置。");
+                return;
             }
 
             HashSet<string> UsedMaps = [];
@@ -780,7 +1346,8 @@ namespace Legend2Tool.WPF.Services
                 {
                     if (!trimmedLine.Contains("]"))
                     {
-                        throw new ArgumentException($"无效的地图信息格式: {trimmedLine}");
+                        _logger.Warning($"无效的地图信息格式: {trimmedLine}");
+                        continue;
                     }
 
                     string mapString = trimmedLine.Substring(1, trimmedLine.IndexOf(']') - 1).Trim();
@@ -789,10 +1356,12 @@ namespace Legend2Tool.WPF.Services
 
                     if (mapParts.Length < 2)
                     {
-                        throw new ArgumentException($"地图信息格式错误: {trimmedLine}");
+                        _logger.Warning($"地图信息格式错误: {trimmedLine}");
+                        continue;
                     }
 
                     string mapCode = mapParts[0].Trim();
+                    if (string.IsNullOrEmpty(mapCode)) continue;
                     string mapName = mapParts[1].Trim();
                     if (trimmedLine.Contains("FB")) mapCode = $"FB-{mapCode}";
 
@@ -809,7 +1378,8 @@ namespace Legend2Tool.WPF.Services
 
                     if (string.IsNullOrEmpty(mapCode) || string.IsNullOrEmpty(mapName))
                     {
-                        throw new ArgumentException($"地图代码或名称不能为空: {trimmedLine}");
+                        _logger.Warning($"地图代码或名称不能为空: {trimmedLine}");
+                        continue;
                     }
                     var mapData = new MapData
                     {
@@ -931,46 +1501,46 @@ namespace Legend2Tool.WPF.Services
 
         }
 
-
         public void GetBestPath(MapData currentMap)
         {
             // 起点地图（没有来源）
-            if (currentMap.FromMapList.Count == 0 || currentMap.IsMainCity || !_visited.Add(currentMap.Code!)) return;
+            if (currentMap.FromMapLists.Count == 0 || currentMap.IsMainCity || !_visited.Add(currentMap.Code!)) return;
 
             // 如果有多个来源地图，递归每一个，取最优路径
             List<string> bestPath = [];
             bool isMainCityFrom = false;
 
-            foreach (var fromMapCode in currentMap.FromMapList)
+            foreach (var fromMapCode in currentMap.FromMapLists)
             {
                 if (!_mapDatas.TryGetValue(fromMapCode, out var fromMapData)) { continue; }
                 GetBestPath(fromMapData);
                 if (fromMapData.IsMainCity)
                 {
-                    foreach (var currentMapPath in currentMap.Path)
+                    foreach (var currentMapPath in currentMap.Paths)
                     {
                         var (currentMapPathFromCode, currentMapPathToCode) = GetMapCodeForPath(currentMapPath);
                         if (fromMapData.Code!.Equals(currentMapPathFromCode))
                         {
                             bestPath = [currentMapPath];
-                            currentMap.BestPath = bestPath;
+                            currentMap.BestPaths = bestPath;
                         }
                     }
                     break;
                 }
-                var path = fromMapData.BestPath.Count > 0 ? fromMapData.BestPath.ToList() : fromMapData.Path.ToList();
+                var path = fromMapData.BestPaths.Count > 0 ? fromMapData.BestPaths.ToList() : fromMapData.Paths.ToList();
                 var firstPath = path.FirstOrDefault();
                 if (string.IsNullOrEmpty(firstPath)) continue;
                 var endPath = path.LastOrDefault();
                 if (string.IsNullOrEmpty(endPath)) continue;
                 var (firstPathFromCode, firstPathToCode) = GetMapCodeForPath(firstPath);
+                if (firstPathFromCode.Equals("没有找到")) continue;
                 var (endPathFromCode, endPathToCode) = GetMapCodeForPath(endPath);
                 if (!_mapDatas.TryGetValue(firstPathFromCode, out var firstFromMapData))
                 {
                     _logger.Warning($"地图代码 '{firstPathFromCode}' 未找到，跳过路径: {firstPath}");
                     continue;
                 }
-                foreach (var currentMapPath in currentMap.Path)
+                foreach (var currentMapPath in currentMap.Paths)
                 {
                     var (currentMapPathFromCode, currentMapPathToCode) = GetMapCodeForPath(currentMapPath);
                     if (endPathToCode.Equals(currentMapPathFromCode))
@@ -985,24 +1555,24 @@ namespace Legend2Tool.WPF.Services
                 if (bestPath.Count == 0) // 根据你对“最佳”的定义调整逻辑
                 {
                     bestPath = path;
-                    currentMap.BestPath = bestPath;
+                    currentMap.BestPaths = bestPath;
                     if (firstFromMapData.IsMainCity) isMainCityFrom = true;
                 }
                 else if (firstFromMapData.IsMainCity && path.Count < bestPath.Count)
                 {
                     bestPath = path;
-                    currentMap.BestPath = bestPath;
+                    currentMap.BestPaths = bestPath;
                 }
                 else if (!isMainCityFrom && firstFromMapData.IsMainCity)
                 {
                     bestPath = path;
-                    currentMap.BestPath = bestPath;
+                    currentMap.BestPaths = bestPath;
                     isMainCityFrom = true;
                 }
-                else if(!isMainCityFrom && firstFromMapData.Id < currentMap.Id)
+                else if (!isMainCityFrom && firstFromMapData.Id < currentMap.Id)
                 {
                     bestPath = path;
-                    currentMap.BestPath = bestPath;
+                    currentMap.BestPaths = bestPath;
                     if (firstFromMapData.IsMainCity) isMainCityFrom = true;
                 }
             }
@@ -1025,14 +1595,14 @@ namespace Legend2Tool.WPF.Services
 
         private void AddPathFromPreviousMap(MapData mapData, HashSet<string> visited)
         {
-            if (mapData.FromMapList.Count == 0 || mapData.IsMainCity || !visited.Add(mapData.Code!)) return;
+            if (mapData.FromMapLists.Count == 0 || mapData.IsMainCity || !visited.Add(mapData.Code!)) return;
 
-            foreach (var fromMapCode in mapData.FromMapList)
+            foreach (var fromMapCode in mapData.FromMapLists)
             {
                 if (!_mapDatas.TryGetValue(fromMapCode, out var fromMapData)) continue;
                 AddPathFromPreviousMap(fromMapData, visited);
                 if (fromMapData.IsMainCity) continue;
-                var pathList = fromMapData.Path.ToList();
+                var pathList = fromMapData.Paths.ToList();
                 if (pathList[0] == "没有找到")
                 {
                     continue;
@@ -1042,13 +1612,13 @@ namespace Legend2Tool.WPF.Services
 
         private void ProcessMapMoveScript(string trimmedLine)
         {
-            if(trimmedLine.StartsWith("map",StringComparison.OrdinalIgnoreCase)
-                || trimmedLine.StartsWith("mapmove",StringComparison.OrdinalIgnoreCase))
+            if (trimmedLine.StartsWith("map", StringComparison.OrdinalIgnoreCase)
+                || trimmedLine.StartsWith("mapmove", StringComparison.OrdinalIgnoreCase))
             {
                 var parts = trimmedLine.Split(_emptySeparator, StringSplitOptions.RemoveEmptyEntries);
                 var map = parts[1];
                 if (map.Contains("<$")) return;
-                if(!_mapDatas.TryGetValue(map, out var mapData))
+                if (!_mapDatas.TryGetValue(map, out var mapData))
                 {
                     _logger.Warning($"地图代码 '{map}' 未找到，跳过mapmove: {trimmedLine}");
                     return;
@@ -1095,16 +1665,17 @@ namespace Legend2Tool.WPF.Services
 
         private void AddPathToMapData(string fromMapCode, MapData toMap, string path, string pathFlag, string mapDesc)
         {
-            toMap.FromMapList.Add(fromMapCode);
-            if (!toMap.AddedPath.Add(pathFlag)) return;
-            if (toMap.Path[0] == "没有找到")
+            toMap.FromMapLists.Add(fromMapCode);
+            if (!toMap.AddedPaths.Add(pathFlag)) return;
+            if (toMap.Paths.Contains("没有找到"))
             {
-                toMap.Path[0] = path;
+                toMap.Paths.Remove("没有找到");
+                toMap.Paths.Add(path);
             }
-            else if (!toMap.Path.Contains(path))
+            else
             {
-                toMap.Path.Add(path);
-                if (toMap.Path.Count > 9) toMap.IsMainCity = true;
+                toMap.Paths.Add(path);
+                if (_mainCityLists.Contains(toMap.Code!) || toMap.Paths.Count > 9) toMap.IsMainCity = true;
             }
             _mapDescList.Add(mapDesc);
         }

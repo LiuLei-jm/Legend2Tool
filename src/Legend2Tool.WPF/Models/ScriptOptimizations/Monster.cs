@@ -10,9 +10,9 @@ namespace Legend2Tool.WPF.Models.ScriptOptimizations
     {
         public int Id { get; set; }
         public string? Name { get; set; }
-        public List<string> Std { get; set; } = ["-1"];
-        public List<string> Map { get; set; } = ["-1"];
-        public List<string> Npc { get; set; } = ["-1"];
-        public List<string> Bot { get; set; } = ["-1"];
+        public HashSet<string> Stds { get; set; } = ["-1"];
+        public HashSet<string> Maps { get; set; } = ["-1"];
+        public HashSet<string> Npcs { get; set; } = ["-1"];
+        public HashSet<string> Bots { get; set; } = ["-1"];
     }
 }

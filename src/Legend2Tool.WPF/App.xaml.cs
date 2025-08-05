@@ -60,7 +60,7 @@ namespace Legend2Tool.WPF
                     logging.ClearProviders();
                     Log.Logger = new LoggerConfiguration()
                                         .WriteTo.File("log.txt", rollingInterval: RollingInterval.Day)
-                                        .MinimumLevel.Error()
+                                        .MinimumLevel.Warning()
                                         .CreateLogger();
                     //logging.AddSerilog(Log.Logger, dispose: true);
                     logging.Services.AddSingleton(Log.Logger);

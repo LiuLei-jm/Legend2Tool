@@ -14,8 +14,8 @@ namespace Legend2Tool.WPF.Models.ScriptOptimizations
         public string? Code { get; set; }
         public string? Mname { get; set; }
         public string? Mxy { get; set; }
-        public List<string> Give { get; set; } = ["没有"];
-        public List<string> Take { get; set; } = ["没有"];
-        public List<string> Move { get; set; } = ["没有"];
+        public HashSet<string> Gives { get; set; } = ["没有"];
+        public HashSet<string> Takes { get; set; } = ["没有"];
+        public HashSet<string> Moves { get; set; } = ["没有"];
     }
 }

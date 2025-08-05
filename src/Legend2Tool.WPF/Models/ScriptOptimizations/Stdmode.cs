@@ -11,7 +11,7 @@ namespace Legend2Tool.WPF.Models.ScriptOptimizations
         public int Id { get; set; }
         public string? Name { get; set; }
         public string? Type { get; set; }
-        public List<string> Mon { get; set; } = ["-1"];
-        public List<string> Npc { get; set; } = ["-1"];
+        public HashSet<string> Mons { get; set; } = ["-1"];
+        public HashSet<string> Npcs { get; set; } = ["-1"];
     }
 }

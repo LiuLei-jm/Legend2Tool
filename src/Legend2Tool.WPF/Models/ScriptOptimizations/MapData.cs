@@ -11,12 +11,12 @@ namespace Legend2Tool.WPF.Models.ScriptOptimizations
         public int Id { get; set; }
         public string? Name { get; set; }
         public string? Code { get; set; }
-        public List<string> Mon { get; set; } = ["-1"];
-        public List<string> Npc { get; set; } = ["-1"];
-        public List<string> Path { get; set; } = ["没有找到"];
-        public List<string> BestPath { get; set; } = [];
-        public HashSet<string> FromMapList { get; set; } = [];
-        public HashSet<string> AddedPath { get; set; } = [];
+        public HashSet<string> Mons { get; set; } = ["-1"];
+        public HashSet<string> Npcs { get; set; } = ["-1"];
+        public List<string> Paths { get; set; } = ["没有找到"];
+        public List<string> BestPaths { get; set; } = [];
+        public HashSet<string> FromMapLists { get; set; } = [];
+        public HashSet<string> AddedPaths { get; set; } = [];
         public bool IsMainCity ;
 
     }
