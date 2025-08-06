@@ -884,12 +884,42 @@ namespace Legend2Tool.WPF.Services
 
             filePath = Path.Combine(folderPath, "MapDesc1.dat");
             var mapDescBuilder = new StringBuilder();
+            await ProcessMapEventAsync();
             foreach (var mapDesc in _mapDescList)
             {
                 mapDescBuilder.AppendLine($@"{mapDesc}$33FFFF,0");
                 mapDescBuilder.AppendLine($@"{mapDesc}$33FFFF,1");
             }
             await File.WriteAllTextAsync(filePath, mapDescBuilder.ToString(), Encoding.GetEncoding("GB18030"));
+        }
+
+        private async Task ProcessMapEventAsync()
+        {
+            var filePath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "MapEvent.txt");
+            if (!Path.Exists(filePath))
+            {
+                _logger.Warning($"找不到文件：{filePath}.");
+                return;
+            }
+            Encoding fileEncoding = _encodingService.DetectFileEncoding(filePath);
+            await foreach (var line in File.ReadLinesAsync(filePath, fileEncoding))
+            {
+                var trimmedLine = line.Trim();
+                if (string.IsNullOrEmpty(trimmedLine) || _skipFieldRegex.IsMatch(trimmedLine)) continue;
+                var parts = trimmedLine.Split(_emptySeparator, StringSplitOptions.RemoveEmptyEntries);
+                if (!parts[5].StartsWith('4') && !parts[5].StartsWith('5')) continue;
+                var mapCode = parts[0];
+                if (!_mapDatas.TryGetValue(mapCode, out var mapData))
+                {
+                    _logger.Warning($"不存在的地图：{mapCode}, 出至：{trimmedLine}");
+                    continue;
+                }
+                var mapName = mapData.Name;
+                var coordinate = $"{parts[1]},{parts[2]}";
+                var toMapName = parts[7].Substring(parts[7].IndexOf('@') + 1);
+                var mapDesc = $"{mapName},{coordinate},{toMapName},";
+                _mapDescList.Add(mapDesc);
+            }
         }
 
         private async Task ProcessNpcFileAsync()
@@ -1025,8 +1055,11 @@ namespace Legend2Tool.WPF.Services
                     return value;
                 }
             }
-            int startIndex = variable.IndexOf('(') + 1;
+            int startIndex = variable.IndexOf('(');
+            if (startIndex == -1) return string.Empty;
+            startIndex++;
             int endIndex = variable.LastIndexOf(')');
+            if (endIndex == -1) return string.Empty;
             int length = endIndex - startIndex;
             return variable.Substring(startIndex, length);
         }
@@ -1403,8 +1436,8 @@ namespace Legend2Tool.WPF.Services
             // 将基础路径添加到地图对象
             foreach (var mapPath in mapPaths)
             {
-                var parts = mapPath.Split(_emptySeparator, StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length < 5)
+                var parts = mapPath.Split("->", StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length < 2)
                 {
                     _logger.Warning($"地图路径格式错误: {mapPath}");
                     continue;
@@ -1420,46 +1453,52 @@ namespace Legend2Tool.WPF.Services
                 MapData fromMap;
                 MapData toMap;
 
-                if (parts.Length > 6)
+                var fromPart = parts[0];
+                var fromParts = fromPart.Split(_emptySeparator, StringSplitOptions.RemoveEmptyEntries);
+                if (fromParts.Length < 2) {
+                    _logger.Warning($"fromPart内容不正确：{fromPart}");
+                    continue;}
+                fromMapCode = fromParts[0];
+                if (!_mapDatas.TryGetValue(fromMapCode, out fromMap!))
                 {
-                    fromMapCode = parts[0];
-                    if (!_mapDatas.TryGetValue(fromMapCode, out fromMap!))
-                    {
-                        _logger.Warning($"地图代码 '{fromMapCode}' 未找到，跳过路径: {mapPath}");
-                        continue;
-                    }
-                    fromMapName = fromMap.Name!;
-                    fromMapCoordinate = $"{parts[1]}:{parts[2]}";
-                    symbol = parts[3];
-                    toMapCode = parts[4];
-                    if (!_mapDatas.TryGetValue(toMapCode, out toMap!))
-                    {
-                        _logger.Warning($"地图代码 '{toMapCode}' 未找到，跳过路径: {mapPath}");
-                        continue;
-                    }
-                    toMapName = toMap.Name!;
-                    toMapCoordinate = $"{parts[5]}:{parts[6]}";
+                    _logger.Warning($"fromMapCode地图代码 '{fromMapCode}' 未找到，跳过路径：{mapPath}");
+                    continue;
+                }
+                fromMapName = fromMap.Name!;
+                fromMapCoordinate = fromParts[1];
+                if (!fromMapCoordinate.Contains(','))
+                {
+                    fromMapCoordinate = $"{fromParts[1]}:{fromParts[2]}";
                 }
                 else
                 {
-                    fromMapCode = parts[0];
-                    if (!_mapDatas.TryGetValue(fromMapCode, out fromMap!))
-                    {
-                        _logger.Warning($"地图代码 '{fromMapCode}' 未找到，跳过路径: {mapPath}");
-                        continue;
-                    }
-                    fromMapName = fromMap.Name!;
-                    fromMapCoordinate = parts[1].Replace(',', ':');
-                    symbol = parts[2];
-                    toMapCode = parts[3];
-                    if (!_mapDatas.TryGetValue(toMapCode, out toMap!))
-                    {
-                        _logger.Warning($"地图代码 '{toMapCode}' 未找到，跳过路径: {mapPath}");
-                        continue;
-                    }
-                    toMapName = toMap.Name!;
-                    toMapCoordinate = parts[4].Replace(',', ':');
+                    fromMapCoordinate = fromMapCoordinate.Replace(',', ':');
                 }
+
+                symbol = "->";
+
+                var toPart = parts[1];
+                var toParts = toPart.Split(_emptySeparator, StringSplitOptions.RemoveEmptyEntries);
+                if (toParts.Length < 2) {
+                    _logger.Warning($"toParts内容不正确：{toPart},");
+                    continue;}
+                toMapCode = toParts[0];
+                if (!_mapDatas.TryGetValue(toMapCode, out toMap!))
+                {
+                    _logger.Warning($"toMapCode地图代码 '{toMapCode}' 未找到，跳过路径： {mapPath}");
+                    continue;
+                }
+                toMapName = toMap.Name!;
+                toMapCoordinate = toParts[1];
+                if (!toMapCoordinate.Contains(','))
+                {
+                    toMapCoordinate = $"{toParts[1]}:{toParts[2]}";
+                }
+                else
+                {
+                    toMapCoordinate = toMapCoordinate.Replace(',', ':');
+                }
+
 
                 string path = $"{fromMapName}({fromMapCode}:{fromMapCoordinate}){symbol}{toMapName}({toMapCode}:{toMapCoordinate})";
 
@@ -1529,15 +1568,14 @@ namespace Legend2Tool.WPF.Services
                 }
                 var path = fromMapData.BestPaths.Count > 0 ? fromMapData.BestPaths.ToList() : fromMapData.Paths.ToList();
                 var firstPath = path.FirstOrDefault();
-                if (string.IsNullOrEmpty(firstPath)) continue;
+                if (string.IsNullOrEmpty(firstPath)|| firstPath.Equals("没有找到")) continue;
                 var endPath = path.LastOrDefault();
                 if (string.IsNullOrEmpty(endPath)) continue;
                 var (firstPathFromCode, firstPathToCode) = GetMapCodeForPath(firstPath);
-                if (firstPathFromCode.Equals("没有找到")) continue;
                 var (endPathFromCode, endPathToCode) = GetMapCodeForPath(endPath);
                 if (!_mapDatas.TryGetValue(firstPathFromCode, out var firstFromMapData))
                 {
-                    _logger.Warning($"地图代码 '{firstPathFromCode}' 未找到，跳过路径: {firstPath}");
+                    _logger.Warning($"fristPathFromCode地图代码 '{firstPathFromCode}' 未找到，跳过路径: {firstPath}");
                     continue;
                 }
                 foreach (var currentMapPath in currentMap.Paths)
@@ -1610,22 +1648,6 @@ namespace Legend2Tool.WPF.Services
             }
         }
 
-        private void ProcessMapMoveScript(string trimmedLine)
-        {
-            if (trimmedLine.StartsWith("map", StringComparison.OrdinalIgnoreCase)
-                || trimmedLine.StartsWith("mapmove", StringComparison.OrdinalIgnoreCase))
-            {
-                var parts = trimmedLine.Split(_emptySeparator, StringSplitOptions.RemoveEmptyEntries);
-                var map = parts[1];
-                if (map.Contains("<$")) return;
-                if (!_mapDatas.TryGetValue(map, out var mapData))
-                {
-                    _logger.Warning($"地图代码 '{map}' 未找到，跳过mapmove: {trimmedLine}");
-                    return;
-                }
-                mapData.IsMainCity = true;
-            }
-        }
         private void ProcessAddMapGate(string trimmedLine)
         {
             if (trimmedLine.StartsWith("addmapgate", StringComparison.OrdinalIgnoreCase))
