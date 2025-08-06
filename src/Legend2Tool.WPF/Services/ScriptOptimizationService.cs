@@ -1544,7 +1544,7 @@ namespace Legend2Tool.WPF.Services
             foreach(string file in Directory.GetFiles(sourceDirectory))
             {
                 string fileName = Path.GetFileNameWithoutExtension(file);
-                if (!UsedMaps.Contains(fileName, StringComparer.OrdinalIgnoreCase){
+                if (!UsedMaps.Contains(fileName, StringComparer.OrdinalIgnoreCase)){
                     MovFileToUnused(file, destinationDirectory);
                 }
             }
