@@ -1538,6 +1538,16 @@ namespace Legend2Tool.WPF.Services
             }
             _visited.Clear();
 
+            string sourceDirectory = Path.Combine(_configStore.ServerDirectory, "Mir200", "Map");
+            string destinationDirectory = Path.Combine(_configStore.ServerDirectory, "UnusedMap");
+
+            foreach(string file in Directory.GetFiles(sourceDirectory))
+            {
+                string fileName = Path.GetFileNameWithoutExtension(file);
+                if (!UsedMaps.Contains(fileName, StringComparer.OrdinalIgnoreCase){
+                    MovFileToUnused(file, destinationDirectory);
+                }
+            }
         }
 
         public void GetBestPath(MapData currentMap)
@@ -1851,7 +1861,7 @@ namespace Legend2Tool.WPF.Services
                 {
                     Id = index,
                     Name = reader.IsDBNull(1) ? string.Empty : reader.GetString(1).Trim(),
-                    Type = reader.IsDBNull(2) ? "0" : reader.GetString(2).Trim()
+                    Type = reader.IsDBNull(2) ? "0" : reader.GetInt32(2).ToString().Trim()
                 };
                 if (string.IsNullOrEmpty(std.Name) || stdmodes.ContainsKey(std.Name))
                 {
