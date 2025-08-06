@@ -1455,9 +1455,11 @@ namespace Legend2Tool.WPF.Services
 
                 var fromPart = parts[0];
                 var fromParts = fromPart.Split(_emptySeparator, StringSplitOptions.RemoveEmptyEntries);
-                if (fromParts.Length < 2) {
+                if (fromParts.Length < 2)
+                {
                     _logger.Warning($"fromPart内容不正确：{fromPart}");
-                    continue;}
+                    continue;
+                }
                 fromMapCode = fromParts[0];
                 if (!_mapDatas.TryGetValue(fromMapCode, out fromMap!))
                 {
@@ -1479,9 +1481,11 @@ namespace Legend2Tool.WPF.Services
 
                 var toPart = parts[1];
                 var toParts = toPart.Split(_emptySeparator, StringSplitOptions.RemoveEmptyEntries);
-                if (toParts.Length < 2) {
+                if (toParts.Length < 2)
+                {
                     _logger.Warning($"toParts内容不正确：{toPart},");
-                    continue;}
+                    continue;
+                }
                 toMapCode = toParts[0];
                 if (!_mapDatas.TryGetValue(toMapCode, out toMap!))
                 {
@@ -1541,10 +1545,11 @@ namespace Legend2Tool.WPF.Services
             string sourceDirectory = Path.Combine(_configStore.ServerDirectory, "Mir200", "Map");
             string destinationDirectory = Path.Combine(_configStore.ServerDirectory, "UnusedMap");
 
-            foreach(string file in Directory.GetFiles(sourceDirectory))
+            foreach (string file in Directory.GetFiles(sourceDirectory))
             {
                 string fileName = Path.GetFileNameWithoutExtension(file);
-                if (!UsedMaps.Contains(fileName, StringComparer.OrdinalIgnoreCase)){
+                if (!UsedMaps.Contains(fileName, StringComparer.OrdinalIgnoreCase))
+                {
                     MovFileToUnused(file, destinationDirectory);
                 }
             }
@@ -1553,7 +1558,13 @@ namespace Legend2Tool.WPF.Services
         public void GetBestPath(MapData currentMap)
         {
             // 起点地图（没有来源）
-            if (currentMap.FromMapLists.Count == 0 || currentMap.IsMainCity || !_visited.Add(currentMap.Code!)) return;
+            if (currentMap.FromMapLists.Count == 0 || !_visited.Add(currentMap.Code!)) return;
+
+            if (currentMap.IsMainCity && !currentMap.Paths.Contains("没有找到"))
+            {
+                currentMap.BestPaths = currentMap.Paths;
+                return;
+            }
 
             // 如果有多个来源地图，递归每一个，取最优路径
             List<string> bestPath = [];
@@ -1578,7 +1589,7 @@ namespace Legend2Tool.WPF.Services
                 }
                 var path = fromMapData.BestPaths.Count > 0 ? fromMapData.BestPaths.ToList() : fromMapData.Paths.ToList();
                 var firstPath = path.FirstOrDefault();
-                if (string.IsNullOrEmpty(firstPath)|| firstPath.Equals("没有找到")) continue;
+                if (string.IsNullOrEmpty(firstPath) || firstPath.Equals("没有找到")) continue;
                 var endPath = path.LastOrDefault();
                 if (string.IsNullOrEmpty(endPath)) continue;
                 var (firstPathFromCode, firstPathToCode) = GetMapCodeForPath(firstPath);
@@ -1707,7 +1718,10 @@ namespace Legend2Tool.WPF.Services
             else
             {
                 toMap.Paths.Add(path);
-                if (_mainCityLists.Contains(toMap.Code!) || toMap.Paths.Count > 9) toMap.IsMainCity = true;
+                if (_mainCityLists.Contains(toMap.Code!) || toMap.Paths.Count > 9)
+                {
+                    toMap.IsMainCity = true;
+                }
             }
             _mapDescList.Add(mapDesc);
         }
