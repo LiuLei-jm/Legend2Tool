@@ -33,6 +33,11 @@ namespace Legend2Tool.WPF.ViewModels
 
         [ObservableProperty]
         string _filterMapCode = DefaultFilterMapCode;
+        partial void OnFilterMapCodeChanged(string? oldValue, string newValue)
+        {
+            var mapCodes = newValue.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            _scriptOptimizationService.UpdateMainCityLists(mapCodes);
+        }
         [ObservableProperty]
         string _filterMonName = DefaultFilterMonName;
         [ObservableProperty]
@@ -133,6 +138,7 @@ namespace Legend2Tool.WPF.ViewModels
         {
             try
             {
+                DuplicatedTriggers.Clear();
                 var results = await Task.Run(() => _scriptOptimizationService.DetectDuplicatedTriggerAsync());
                 if (results.Any())
                 {
@@ -178,8 +184,18 @@ namespace Legend2Tool.WPF.ViewModels
         {
             if (entry != null)
             {
-                System.Windows.Clipboard.SetText(entry.TriggerField);
-                Growl.Success("触发器名称已复制到剪贴板");
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    try
+                    {
+                        System.Windows.Clipboard.SetText(entry.TriggerField);
+                        Growl.Success("触发器名称已复制到剪贴板");
+                    }
+                    catch (System.Runtime.InteropServices.COMException ex)
+                    {
+                        Growl.Error($"无法复制到剪贴板: {ex.Message}");
+                    }
+                });
             }
         }
 
@@ -198,7 +214,8 @@ namespace Legend2Tool.WPF.ViewModels
             }
         }
         [RelayCommand(CanExecute = nameof(CanExecuteOptimization))]
-        private async Task DropRateCalculatorAsync() {
+        private async Task DropRateCalculatorAsync()
+        {
             try
             {
                 await Task.Run(() => _scriptOptimizationService.DropRateCalculatorAsync());

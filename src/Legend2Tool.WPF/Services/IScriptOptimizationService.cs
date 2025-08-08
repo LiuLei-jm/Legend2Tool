@@ -10,5 +10,6 @@ namespace Legend2Tool.WPF.Services
         Task OptimizingCallsAsync();
         Task DropRateCalculatorAsync();
         void OpenFile(DuplicatedTriggerEntry entry);
+        void UpdateMainCityLists(IEnumerable<string> mapCodes);
     }
 }

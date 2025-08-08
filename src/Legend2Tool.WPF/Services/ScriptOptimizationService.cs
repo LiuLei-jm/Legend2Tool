@@ -816,7 +816,14 @@ namespace Legend2Tool.WPF.Services
             _progressStore.ProgressText = $"处理完成";
             progress.Report(_progressStore);
         }
-
+        public void UpdateMainCityLists(IEnumerable<string> mapCodes)
+        {
+            _mainCityLists.Clear();
+            foreach (var code in mapCodes)
+            {
+                _mainCityLists.Add(code);
+            }
+        }
         private async Task ProcessDataWriteFileAsync()
         {
             if (string.IsNullOrEmpty(_configStore.LauncherConfig.LauncherName)) _configStore.LauncherConfig.LauncherName = "热血传奇";
@@ -1470,6 +1477,11 @@ namespace Legend2Tool.WPF.Services
                 fromMapCoordinate = fromParts[1];
                 if (!fromMapCoordinate.Contains(','))
                 {
+                    if (fromParts.Length < 3)
+                    {
+                        _logger.Warning($"fromPart内容不正确：{fromPart}");
+                        continue;
+                    }
                     fromMapCoordinate = $"{fromParts[1]}:{fromParts[2]}";
                 }
                 else
@@ -1496,6 +1508,11 @@ namespace Legend2Tool.WPF.Services
                 toMapCoordinate = toParts[1];
                 if (!toMapCoordinate.Contains(','))
                 {
+                    if (toParts.Length < 3)
+                    {
+                        _logger.Warning($"toParts内容不正确：{toPart},");
+                        continue;
+                    }
                     toMapCoordinate = $"{toParts[1]}:{toParts[2]}";
                 }
                 else
@@ -1647,8 +1664,12 @@ namespace Legend2Tool.WPF.Services
             var pathFrom = pathSegments[0];
             var pathTo = pathSegments[1];
 
-            var pathFromMapCode = pathFrom.Substring(pathFrom.IndexOf('(') + 1, pathFrom.IndexOf(':') - pathFrom.IndexOf('(') - 1);
-            var pathToMapCode = pathTo.Substring(pathTo.IndexOf('(') + 1, pathTo.IndexOf(':') - pathTo.IndexOf('(') - 1);
+            string pattern = @".*\(([^)]*)\)";
+
+            var pathFromMapCode = Regex.Match(pathFrom, pattern).Groups[1].Value;
+            var pathToMapCode = Regex.Match(pathTo, pattern).Groups[1].Value;
+            pathFromMapCode = pathFromMapCode.Split(':')[0];
+            pathToMapCode = pathToMapCode.Split(':')[0];
             return (pathFromMapCode, pathToMapCode);
         }
 
