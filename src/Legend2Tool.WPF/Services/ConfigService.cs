@@ -42,7 +42,7 @@ namespace Legend2Tool.WPF.Services
                 : Path.Combine(serverDirectory, "GameCenter.exe");
             if (!File.Exists(filePath))
             {
-                throw new FileNotFoundException("The specified file does not exist.", filePath);
+                throw new FileNotFoundException("指定的文件不存在", filePath);
             }
             FileVersionInfo fileVersionInfo = FileVersionInfo.GetVersionInfo(filePath);
 
@@ -51,6 +51,7 @@ namespace Legend2Tool.WPF.Services
                 var indicators = new (string Keyword, EngineType EngineType)[]
                 {
                      ("gameofmir", EngineType.GOM),
+                     ("gamecenter", EngineType.NEWGOM),
                      ("gee", EngineType.GEE),
                      ("gxx", EngineType.GXX),
                      ("hao", EngineType.LF),

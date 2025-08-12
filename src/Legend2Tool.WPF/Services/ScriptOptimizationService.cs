@@ -70,6 +70,7 @@ namespace Legend2Tool.WPF.Services
         private List<NpcData> _npcDatas = [];
         private HashSet<string> _mapDescList = [];
         private HashSet<string> _visited = [];
+        private Dictionary<string, string> _variables = [];
 
 
         public ScriptOptimizationService(ConfigStore configStore, IEncodingService encodingService, IFileService fileService, ProgressStore progressStore, ILogger logger)
@@ -582,32 +583,45 @@ namespace Legend2Tool.WPF.Services
                     bool isStart = !filePath.Contains("QFunction", StringComparison.OrdinalIgnoreCase)
                         && !filePath.Contains("QManage", StringComparison.OrdinalIgnoreCase)
                         && !filePath.Contains("RobotManage", StringComparison.OrdinalIgnoreCase);
-
+                    bool isInAct = false;
                     if (isStart)
                     {
                         await foreach (var line in File.ReadLinesAsync(filePath, fileEncoding))
                         {
-                            var trimedLine = line.TrimStart();
+                            var trimmedLine = line.TrimStart();
 
-                            if (trimedLine.StartsWith("#Call", StringComparison.OrdinalIgnoreCase))
+                            if (trimmedLine.StartsWith("[@") || trimmedLine.StartsWith("#if", StringComparison.OrdinalIgnoreCase))
                             {
-                                ExtractCallPathAndField(trimedLine, out string callPath, out string callField);
+                                isInAct = false;
+                            }
+                            else if (trimmedLine.StartsWith("#act", StringComparison.OrdinalIgnoreCase) || trimmedLine.StartsWith("#elseact", StringComparison.OrdinalIgnoreCase))
+                            {
+                                isInAct = true;
+                            }
+
+                            if (trimmedLine.StartsWith("#Call", StringComparison.OrdinalIgnoreCase))
+                            {
+                                ExtractCallPathAndField(trimmedLine, out string callPath, out string callField);
                                 var callLine = $"{callPath}{callField}";
                                 if (callLines.Add(callLine))
                                 {
-                                    newFileContent.Add(trimedLine);
+                                    newFileContent.Add(trimmedLine);
                                 }
                                 else
                                 {
-                                    string oldLine = $";{trimedLine}";
+                                    string oldLine = $";{trimmedLine}";
                                     newFileContent.Add(oldLine);
+                                    if (!isInAct)
+                                    {
+                                        newFileContent.Add($"#Act");
+                                    }
                                     string newLine = $"Goto {callField}";
                                     newFileContent.Add(newLine);
                                 }
                             }
                             else
                             {
-                                newFileContent.Add(trimedLine);
+                                newFileContent.Add(trimmedLine);
                             }
                         }
                     }
@@ -615,36 +629,49 @@ namespace Legend2Tool.WPF.Services
                     {
                         await foreach (var line in File.ReadLinesAsync(filePath, fileEncoding))
                         {
-                            var trimedLine = line.TrimStart();
+                            var trimmedLine = line.TrimStart();
                             if (!isStart)
                             {
-                                if (trimedLine.StartsWith("[@", StringComparison.OrdinalIgnoreCase))
+                                if (trimmedLine.StartsWith("[@", StringComparison.OrdinalIgnoreCase))
                                 {
                                     isStart = true;
                                 }
                                 else
                                 {
-                                    newFileContent.Add(trimedLine);
+                                    newFileContent.Add(trimmedLine);
                                     continue;
                                 }
                             }
 
-                            if (trimedLine.StartsWith("#call", StringComparison.OrdinalIgnoreCase))
+                            if (trimmedLine.StartsWith("[@") || trimmedLine.StartsWith("#if", StringComparison.OrdinalIgnoreCase))
                             {
-                                ExtractCallPathAndField(trimedLine, out string callPath, out string callField);
+                                isInAct = false;
+                            }
+                            else if (trimmedLine.StartsWith("#act", StringComparison.OrdinalIgnoreCase) || trimmedLine.StartsWith("#elseact", StringComparison.OrdinalIgnoreCase))
+                            {
+                                isInAct = true;
+                            }
+
+                            if (trimmedLine.StartsWith("#call", StringComparison.OrdinalIgnoreCase))
+                            {
+                                ExtractCallPathAndField(trimmedLine, out string callPath, out string callField);
                                 var callLine = $"{callPath}{callField}";
                                 if (callLines.Add(callLine))
                                 {
-                                    linesToPrepend.Add(trimedLine);
+                                    linesToPrepend.Add(trimmedLine);
                                 }
-                                string oldLine = $";{trimedLine}";
+                                string oldLine = $";{trimmedLine}";
                                 newFileContent.Add(oldLine);
+                                if (!isInAct)
+                                {
+                                    newFileContent.Add($"#Act");
+                                }
                                 string newLine = $"Goto {callField}";
                                 newFileContent.Add(newLine);
                             }
                             else
                             {
-                                newFileContent.Add(trimedLine);
+                                newFileContent.Add(trimmedLine);
                             }
                         }
                     }
@@ -778,12 +805,6 @@ namespace Legend2Tool.WPF.Services
             _progressStore.ProgressPercentage = 0;
             _progressStore.ProgressText = string.Empty;
 
-            _stdModes.Clear();
-            _mapDatas.Clear();
-            _monsters.Clear();
-            _npcDatas.Clear();
-            _mapDescList.Clear();
-            _visited.Clear();
             await ProcessDBDataAsync();
             _progressStore.ProgressPercentage = (int)((0 / 7.0) * 100);
             _progressStore.ProgressText = $"获取数据库信息";
@@ -815,6 +836,14 @@ namespace Legend2Tool.WPF.Services
             _progressStore.ProgressPercentage = (int)((7 / 7.0) * 100);
             _progressStore.ProgressText = $"处理完成";
             progress.Report(_progressStore);
+
+            _stdModes.Clear();
+            _mapDatas.Clear();
+            _monsters.Clear();
+            _npcDatas.Clear();
+            _mapDescList.Clear();
+            _visited.Clear();
+            _variables.Clear();
         }
         public void UpdateMainCityLists(IEnumerable<string> mapCodes)
         {
@@ -931,7 +960,6 @@ namespace Legend2Tool.WPF.Services
 
         private async Task ProcessNpcFileAsync()
         {
-            var variables = new Dictionary<string, string>();
             HashSet<string> processedField = [];
             string filePath;
             Encoding fileEncoding;
@@ -958,26 +986,26 @@ namespace Legend2Tool.WPF.Services
                             //}
                             //else
                             //{
-                            ProcessNpcFileContent(callLine, npcData, variables);
+                            ProcessNpcFileContent(callLine, npcData);
                             //}
                         }
                     }
                     else
                     {
-                        ProcessNpcFileContent(trimmedLine, npcData, variables);
+                        ProcessNpcFileContent(trimmedLine, npcData);
                     }
                 }
             }
         }
 
-        private async Task ProcessNpcFileCallAsync(string line, NpcData npcData, Dictionary<string, string> variables)
+        private async Task ProcessNpcFileCallAsync(string line, NpcData npcData)
         {
             await GeneralProcessCallScript(line,
-                 callLine => ProcessNpcFileContent(callLine, npcData, variables),
-                async callLine => await ProcessNpcFileCallAsync(callLine, npcData, variables));
+                 callLine => ProcessNpcFileContent(callLine, npcData),
+                async callLine => await ProcessNpcFileCallAsync(callLine, npcData));
         }
 
-        private void ProcessNpcFileContent(string trimmedLine, NpcData npcData, Dictionary<string, string> variables)
+        private void ProcessNpcFileContent(string trimmedLine, NpcData npcData)
         {
             if (string.IsNullOrEmpty(trimmedLine) || _skipFieldRegex.IsMatch(trimmedLine)) return;
             var parts = trimmedLine.Split(_emptySeparator, StringSplitOptions.RemoveEmptyEntries);
@@ -987,36 +1015,17 @@ namespace Legend2Tool.WPF.Services
 
             if (command.Equals("mov", StringComparison.OrdinalIgnoreCase))
             {
-                var variable = parts[1];
+                var variable = parts.Length > 1 ? parts[1] : string.Empty;
                 var value = parts.Length > 2 ? parts[2] : string.Empty;
-                variables[variable] = value;
+                _variables[variable] = value;
                 return;
-            }
-
-            if (command.Equals("mongenex", StringComparison.OrdinalIgnoreCase))
-            {
-                var mapCode = parts[1];
-                if (mapCode.StartsWith("<$")) mapCode = GetVariableValue(mapCode, variables);
-                var monName = parts[4];
-                if (monName.StartsWith("<$")) monName = GetVariableValue(monName, variables);
-                if (!_mapDatas.TryGetValue(mapCode, out var mapData))
-                {
-                    _logger.Warning($"无法对{trimmedLine}进行关联.");
-                    return;
-                }
-                if (!_monsters.TryGetValue(monName, out var monster))
-                {
-                    _logger.Warning($"无法对{trimmedLine}进行关联.");
-                    return;
-                }
-                MonsterMapAssociation(monster, mapData);
             }
 
             if (_giveCommands.Contains(command))
             {
                 var item = parts[1];
                 if (item.Equals("金币")) return;
-                if (item.StartsWith("<$")) item = GetVariableValue(item, variables);
+                if (item.StartsWith("<$")) item = GetVariableValue(item);
                 if (!_stdModes.TryGetValue(item, out var stdMode))
                 {
                     _logger.Warning($"无法获取物品：{trimmedLine}.");
@@ -1029,7 +1038,7 @@ namespace Legend2Tool.WPF.Services
             {
                 var item = parts[1];
                 if (item.Equals("金币")) return;
-                if (item.StartsWith("<$")) item = GetVariableValue(item, variables);
+                if (item.StartsWith("<$")) item = GetVariableValue(item);
                 if (!_stdModes.TryGetValue(item, out var stdMode))
                 {
                     _logger.Warning($"无法获取物品：{trimmedLine}.");
@@ -1041,7 +1050,7 @@ namespace Legend2Tool.WPF.Services
             if (_mapCommands.Contains(command))
             {
                 var mapCode = parts[1];
-                if (mapCode.StartsWith("<$")) mapCode = GetVariableValue(mapCode, variables);
+                if (mapCode.StartsWith("<$")) mapCode = GetVariableValue(mapCode);
                 if (!_mapDatas.TryGetValue(mapCode, out var mapData))
                 {
                     _logger.Warning($"无法获取地图：{trimmedLine}.");
@@ -1051,13 +1060,13 @@ namespace Legend2Tool.WPF.Services
             }
         }
 
-        private string GetVariableValue(string variable, Dictionary<string, string> variables)
+        private string GetVariableValue(string variable)
         {
             var match = _variableRegex.Match(variable);
             if (match.Success)
             {
                 var temp = match.Groups[1].Value;
-                if (variables.TryGetValue(temp, out var value))
+                if (_variables.TryGetValue(temp, out var value))
                 {
                     return value;
                 }
@@ -1177,7 +1186,29 @@ namespace Legend2Tool.WPF.Services
             }
             string fileName = Path.GetFileName(filePath);
             string destinationFile = Path.Combine(destinationFolder, fileName);
-            File.Move(filePath, destinationFile);
+            if (File.Exists(destinationFile))
+            {
+                string newFileName = GetUniqueFileName(destinationFolder, fileName);
+                destinationFile = Path.Combine(destinationFolder, newFileName);
+                File.Move(filePath, destinationFile);
+            }
+            else
+                File.Move(filePath, destinationFile);
+        }
+
+        private string GetUniqueFileName(string destinationFolder, string fileName)
+        {
+            string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
+            string extension = Path.GetExtension(fileName);
+            int count = 1;
+            string newFileName = fileName;
+
+            while (File.Exists(Path.Combine(destinationFolder, newFileName)))
+            {
+                newFileName = $"{fileNameWithoutExtension} ({count}){extension}";
+                count++;
+            }
+            return newFileName;
         }
 
         private async Task ProcessMongenAsync()
@@ -1542,7 +1573,9 @@ namespace Legend2Tool.WPF.Services
                     {
                         continue;
                     }
+                    ProcessVariable(trimmedLine);
                     ProcessAddMapGate(trimmedLine);
+                    ProcessMongenEx(trimmedLine);
                 }
             }
 
@@ -1569,6 +1602,17 @@ namespace Legend2Tool.WPF.Services
                 {
                     MovFileToUnused(file, destinationDirectory);
                 }
+            }
+        }
+
+        private void ProcessVariable(string trimmedLine)
+        {
+            if (trimmedLine.StartsWith("mov", StringComparison.OrdinalIgnoreCase))
+            {
+                var parts = trimmedLine.Split(_emptySeparator, StringSplitOptions.RemoveEmptyEntries);
+                var variable = parts.Length > 1 ? parts[1] : string.Empty;
+                var value = parts.Length > 2 ? parts[2] : string.Empty;
+                _variables[variable] = value;
             }
         }
 
@@ -1690,6 +1734,33 @@ namespace Legend2Tool.WPF.Services
             }
         }
 
+        private void ProcessMongenEx(string trimmedLine)
+        {
+            if (trimmedLine.StartsWith("mongenex", StringComparison.OrdinalIgnoreCase))
+            {
+                var parts = trimmedLine.Split(_emptySeparator, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length < 5)
+                {
+                    _logger.Warning($"{trimmedLine}格式不正确.");
+                    return;
+                }
+                var mapCode = parts[1];
+                if (mapCode.StartsWith("<$")) mapCode = GetVariableValue(mapCode);
+                var monName = parts[4];
+                if (monName.StartsWith("<$")) monName = GetVariableValue(monName);
+                if (!_mapDatas.TryGetValue(mapCode, out var mapData))
+                {
+                    _logger.Warning($"{mapCode}不存在，无法对{trimmedLine}进行关联.");
+                    return;
+                }
+                if (!_monsters.TryGetValue(monName, out var monster))
+                {
+                    _logger.Warning($"{monName}不存在，无法对{trimmedLine}进行关联.");
+                    return;
+                }
+                MonsterMapAssociation(monster, mapData);
+            }
+        }
         private void ProcessAddMapGate(string trimmedLine)
         {
             if (trimmedLine.StartsWith("addmapgate", StringComparison.OrdinalIgnoreCase))
@@ -1765,6 +1836,7 @@ namespace Legend2Tool.WPF.Services
                     monsterQuery = "SELECT Name FROM monster";
                     break;
                 case EngineType.GOM:
+                case EngineType.NEWGOM:
                     var gomConfig = _configStore.M2Config as GOMConfig;
                     dbPath = gomConfig!.AccessFileName!;
                     connectionString =
@@ -1790,7 +1862,7 @@ namespace Legend2Tool.WPF.Services
 
             await Task.Run(() =>
             {
-                if (_configStore.EngineType.Equals(EngineType.GOM))
+                if (_configStore.EngineType.Equals(EngineType.GOM) || _configStore.EngineType.Equals(EngineType.NEWGOM))
                 {
                     _stdModes = GetAccessStdList(connectionString, stdmodeQuery);
                     _monsters = GetAccessMonList(connectionString, monsterQuery);

@@ -79,7 +79,8 @@ namespace Legend2Tool.WPF.State
                 try
                 {
                     GetM2ConfigInfo();
-                    GetLauncherConfigInfo();
+                    if (EngineType != EngineType.BLUE && EngineType != EngineType.NEWGOM)
+                        GetLauncherConfigInfo();
                 }
                 catch (Exception ex)
                 {
@@ -266,7 +267,7 @@ namespace Legend2Tool.WPF.State
             {
                 EngineType.GOM => _configService.ReadMultiSectionConfig<LauncherConfigGOM>(filePath, fileEncoding),
                 EngineType.GEE or EngineType.GXX or EngineType.LF or EngineType.V8 => _configService.ReadMultiSectionConfig<LauncherConfigGEE>(filePath, fileEncoding),
-                _ => throw new InvalidOperationException("不支持的引擎")
+                _ => _configService.ReadMultiSectionConfig<LauncherConfigBase>(filePath, fileEncoding)
             };
 
             if (LauncherConfig is LauncherConfigGEE geeConfig)
@@ -299,7 +300,7 @@ namespace Legend2Tool.WPF.State
             EngineType = _configService.CheckEngineType(ServerDirectory);
             M2Config = EngineType switch
             {
-                EngineType.GOM => _configService.ReadMultiSectionConfig<GOMConfig>(filePath, fileEncoding),
+                EngineType.GOM or EngineType.NEWGOM => _configService.ReadMultiSectionConfig<GOMConfig>(filePath, fileEncoding),
                 EngineType.GEE or EngineType.GXX or EngineType.LF or EngineType.V8 => _configService.ReadMultiSectionConfig<GEEConfig>(filePath, fileEncoding),
                 EngineType.BLUE => _configService.ReadMultiSectionConfig<BLUEConfig>(filePath, fileEncoding),
                 _ => throw new InvalidOperationException("不支持的引擎")
@@ -339,7 +340,8 @@ namespace Legend2Tool.WPF.State
             else if (M2Config is GOMConfig gomConfig)
             {
                 gomConfig.AccessFileName = Path.Combine(ServerDirectory, GetSourcePath(gomConfig.AccessFileName, "Mud2"));
-                SetDefaultBackListPath();
+                if (EngineType == EngineType.GOM)
+                    SetDefaultBackListPath();
                 SetDefaultSetupPath();
             }
             else if (M2Config is BLUEConfig blueConfig)
@@ -421,7 +423,7 @@ namespace Legend2Tool.WPF.State
                     {
                         EngineType.GOM => _configService.ReadSectionConfig<BackListBase>(filePath, fileEncoding, section.SectionName),
                         EngineType.GEE or EngineType.GXX or EngineType.LF or EngineType.V8 => _configService.ReadSectionConfig<GEEBackList>(filePath, fileEncoding, section.SectionName),
-                        _ => throw new InvalidOperationException("不支持的引擎")
+                        _ => _configService.ReadSectionConfig<BackListBase>(filePath, fileEncoding, section.SectionName)
                     };
                     backList.sectionName = section.SectionName;
                     _backLists.Add(backList);

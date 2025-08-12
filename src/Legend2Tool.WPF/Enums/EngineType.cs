@@ -17,6 +17,8 @@ namespace Legend2Tool.WPF.Enums
         [Description("V8引擎")]
         V8,
         [Description("BLUE引擎")]
-        BLUE
+        BLUE,
+        [Description("新GOM引擎")]
+        NEWGOM
     }
 }
