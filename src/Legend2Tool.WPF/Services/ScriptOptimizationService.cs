@@ -399,8 +399,8 @@ namespace Legend2Tool.WPF.Services
             var generateScriptTrigger = $@"@{options.RefreshMonTrigger}";
             var clearScriptTrigger = $@"@{options.ClearMonTrigger}";
 
-            var generateScriptFiled = $@"@{options.RefreshMonTrigger}触发";
-            var clearScriptFiled = $@"@{options.ClearMonTrigger}触发";
+            var generateScriptField = $@"@{options.RefreshMonTrigger}触发";
+            var clearScriptField = $@"@{options.ClearMonTrigger}触发";
 
             var autoRunRobotPath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "Robot_def", "AutoRunRobot.txt");
             if (!File.Exists(autoRunRobotPath))
@@ -443,28 +443,29 @@ namespace Legend2Tool.WPF.Services
             }
             File.Delete(refreshMonScriptPath);
             File.Delete(clearMonScriptPath);
-            await ClearScriptContentAsync(robotManagePath, robotManageEncoding);
-            await ClearScriptContentAsync(autoRunRobotPath, autoRunRobotEncoding);
-            //await ClearScriptContentAsync(noClearMonListPath, noClearMonListEncoding);
+            await ClearScriptContentAsync(robotManagePath, robotManageEncoding,options);
+            await ClearScriptContentAsync(autoRunRobotPath, autoRunRobotEncoding,options);
             await File.WriteAllTextAsync(noClearMonListPath, string.Empty);
         }
 
-        private static async Task ClearScriptContentAsync(string path, Encoding encoding)
+        private static async Task ClearScriptContentAsync(string path, Encoding encoding, RefreshOptimizationOptions options)
         {
             var isDeleteContent = false;
             var content = new List<string>();
             await foreach (var line in File.ReadLinesAsync(path, encoding))
             {
+
                 if (line.Contains(_startWriteTitle))
                 {
                     isDeleteContent = true;
+                    continue;
                 }
-                if (line.Contains(_endWriteTitle))
+                else if (line.Contains(_endWriteTitle))
                 {
                     isDeleteContent = false;
                     continue;
                 }
-                if (isDeleteContent)
+                else if (isDeleteContent || line.Contains(options.RefreshMonTrigger) || line.Contains(options.ClearMonTrigger))
                 {
                     continue;
                 }

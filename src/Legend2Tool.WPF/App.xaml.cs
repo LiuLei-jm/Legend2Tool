@@ -35,15 +35,15 @@ namespace Legend2Tool.WPF
                 .ConfigureServices(
                     (context, services) =>
                     {
+                        services.AddSingleton<ConfigStore>();
+                        services.AddSingleton<ProgressStore>();
+
                         // Register your services here
                         services.AddSingleton<IFileService, FileService>();
                         services.AddSingleton<IDialogService, DialogService>();
                         services.AddSingleton<IConfigService, ConfigService>();
                         services.AddSingleton<IEncodingService, EncodingService>();
                         services.AddSingleton<IScriptOptimizationService, ScriptOptimizationService>();
-
-                        services.AddSingleton<ConfigStore>();
-                        services.AddSingleton<ProgressStore>();
 
                         services.AddSingleton<MainViewModel>();
                         services.AddSingleton<MenuViewModel>();

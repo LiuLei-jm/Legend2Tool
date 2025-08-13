@@ -20,6 +20,7 @@ namespace Legend2Tool.WPF.ViewModels
         private readonly IFileService _fileService;
         private readonly IEncodingService _encodingService;
         private readonly ILogger _logger;
+        private readonly IConfigService _configService;
         private ConfigStore _configStore;
         private ProgressStore _progressStore;
 
@@ -32,7 +33,7 @@ namespace Legend2Tool.WPF.ViewModels
         #endregion
 
         #region Constructor
-        public PortConfViewModel(ConfigStore configStore, IFileService fileService, IEncodingService encodingService, ILogger logger, ProgressStore progressStore)
+        public PortConfViewModel(ConfigStore configStore, IFileService fileService, IEncodingService encodingService, ILogger logger, ProgressStore progressStore, IConfigService configService)
         {
             WeakReferenceMessenger.Default.Register<M2ConfigChangedMessage>(this);
             WeakReferenceMessenger.Default.Register<PatchDirectoryChangedMessage>(this);
@@ -41,7 +42,7 @@ namespace Legend2Tool.WPF.ViewModels
             _encodingService = encodingService;
             _logger = logger;
             _progressStore = progressStore;
-
+            _configService = configService;
         }
         #endregion
 
@@ -521,9 +522,7 @@ namespace Legend2Tool.WPF.ViewModels
 
             try
             {
-                _configStore.RenamePatchDirectory(ResourcesDir);
-                _configStore.ModifyPAKPath();
-                _configStore.SaveConfigFile();
+                _configService.SaveConfigFile(_configStore);
                 Growl.Success("保存成功");
 
             }
@@ -539,7 +538,11 @@ namespace Legend2Tool.WPF.ViewModels
         {
             try
             {
-                ExtIPAddr = await _configStore.GetExternalIpAddressAsync();
+                ExtIPAddr = await _configService.GetExternalIpAddressAsync();
+                if (ExtIPAddr == null)
+                {
+                    throw new Exception("获取外网IP地址失败，返回值为null");
+                }
                 Growl.Success("获取外网IP地址成功");
             }
             catch (Exception ex)
@@ -560,7 +563,7 @@ namespace Legend2Tool.WPF.ViewModels
         {
             try
             {
-                LauncherName = _configStore.GetLauncherName();
+                LauncherName = _configService.GetLauncherName(_configStore);
                 Growl.Success("客户端名称设置成功!");
 
             }
@@ -576,7 +579,7 @@ namespace Legend2Tool.WPF.ViewModels
         {
             try
             {
-                ResourcesDir = _configStore.GetResourcesDirByGamePinyin(LauncherName);
+                ResourcesDir = _configService.GetResourcesDirByGamePinyin(LauncherName);
                 Growl.Success("资源目录设置成功!");
 
             }
