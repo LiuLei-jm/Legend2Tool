@@ -510,7 +510,7 @@ namespace Legend2Tool.WPF.Services
                 {
                     case ".cache": case ".pak": break;
                     case ".map": mapLists.Add(file); break;
-                    case ".wav": wavLists.Add(file); break;
+                    case ".wav": case ".mp3": case ".lrc": wavLists.Add(file); break;
                     default: dataLists.Add(file); break;
                 }
             }
@@ -533,11 +533,11 @@ namespace Legend2Tool.WPF.Services
                 }
             }
 
-            await File.WriteAllLinesAsync(mapPath, mapLists);
-            await File.WriteAllLinesAsync(dataPath, dataLists);
-            await File.WriteAllLinesAsync(wavPath, wavLists);
-            await File.WriteAllLinesAsync(wzlPath, wzlLists);
-            await File.WriteAllLinesAsync(wilPath, wilLists);
+            await File.WriteAllLinesAsync(mapPath, mapLists, Encoding.GetEncoding("GB18030"));
+            await File.WriteAllLinesAsync(dataPath, dataLists, Encoding.GetEncoding("GB18030"));
+            await File.WriteAllLinesAsync(wavPath, wavLists, Encoding.GetEncoding("GB18030"));
+            await File.WriteAllLinesAsync(wzlPath, wzlLists, Encoding.GetEncoding("GB18030"));
+            await File.WriteAllLinesAsync(wilPath, wilLists, Encoding.GetEncoding("GB18030"));
 
             var pakPath = Path.Combine(configStore.ServerDirectory, "登录器", "pak.txt");
             if (!File.Exists(pakPath))

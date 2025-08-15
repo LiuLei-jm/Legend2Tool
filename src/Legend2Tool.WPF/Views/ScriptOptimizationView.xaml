@@ -138,16 +138,38 @@
                 </StackPanel>
 
                 <StackPanel>
-                    <StackPanel.Resources>
-                        <Style BasedOn="{StaticResource {x:Type Button}}" TargetType="Button">
-                            <Setter Property="Margin" Value="2" />
-                            <Setter Property="Width" Value="120" />
-                            <Setter Property="Height" Value="28" />
-                        </Style>
-                    </StackPanel.Resources>
+                    <autogrid:AutoGrid ColumnCount="2" RowCount="4">
+                        <autogrid:AutoGrid.Resources>
+                            <Style BasedOn="{StaticResource {x:Type TextBlock}}" TargetType="TextBlock">
+                                <Setter Property="VerticalAlignment" Value="Center" />
+                                <Setter Property="Margin" Value="5" />
+                            </Style>
+                            <Style BasedOn="{StaticResource {x:Type TextBox}}" TargetType="TextBox">
+                                <Setter Property="Margin" Value="2" />
+                                <Setter Property="MinWidth" Value="100" />
+                                <Setter Property="Height" Value="28" />
+                            </Style>
+                            <Style BasedOn="{StaticResource {x:Type CheckBox}}" TargetType="CheckBox">
+                                <Setter Property="Margin" Value="5,8,5,8" />
+                            </Style>
+                            <Style BasedOn="{StaticResource {x:Type hc:NumericUpDown}}" TargetType="hc:NumericUpDown">
+                                <Setter Property="Margin" Value="2" />
+                                <Setter Property="MaxWidth" Value="60" />
+                            </Style>
+                        </autogrid:AutoGrid.Resources>
 
-                    <Button Command="{Binding GenerateRefreshMonScriptCommand}" Content="生成动态刷怪脚本" />
-                    <Button Command="{Binding ClearRefreshMonScriptCommand}" Content="清除动态刷怪脚本" />
+                        <TextBlock Text="限制刷新时长" />
+                        <CheckBox IsChecked="{Binding IsLimitRefreshInterval}" />
+
+                        <TextBlock Text="最大刷新时长" />
+                        <hc:NumericUpDown
+                            Maximum="600"
+                            Minimum="0"
+                            Value="{Binding MaxRefreshInterval}" />
+
+                        <Button Command="{Binding GenerateRefreshMonScriptCommand}" Content="生成动态刷怪脚本" />
+                        <Button Command="{Binding ClearRefreshMonScriptCommand}" Content="清除动态刷怪脚本" />
+                    </autogrid:AutoGrid>
                 </StackPanel>
             </StackPanel>
         </GroupBox>

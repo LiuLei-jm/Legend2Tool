@@ -23,7 +23,7 @@ namespace Legend2Tool.WPF.ViewModels
 
         private const string DefaultFilterMapCode = "0\r1\r2\r3\r4\r5\r6\r11\r12\r";
         private const string DefaultFilterMonName = "弓箭手\r弓箭守卫\r虎卫\r鹰卫\r刀卫\r卫士\r带刀护卫\r";
-        private const string DefaultFilterMonCount = "1\r2\r";
+        private const string DefaultFilterMonCount = "1\r";
         private const string DefaultSelectedTimeUnit = "分";
         private const string DefaultRefreshMonTrigger = "XGD_动态刷怪";
         private const string DefaultClearMonTrigger = "XGD_动态清怪";
@@ -66,6 +66,10 @@ namespace Legend2Tool.WPF.ViewModels
         bool _isCommentMongen;
         [ObservableProperty]
         bool _isBusy;
+        [ObservableProperty]
+        bool _isLimitRefreshInterval;
+        [ObservableProperty]
+        int _maxRefreshInterval = 30;
         public string Head { get; } = "服务器脚本优化";
 
         public ObservableCollection<DuplicatedTriggerEntry> DuplicatedTriggers { get; set; }
@@ -243,7 +247,9 @@ namespace Legend2Tool.WPF.ViewModels
                 RefreshMonTrigger = RefreshMonTrigger,
                 ClearMonTrigger = ClearMonTrigger,
                 IsCommentMongen = IsCommentMongen,
-                IsClearMon = IsClearMon
+                IsClearMon = IsClearMon,
+                IsLimitRefreshInterval = IsLimitRefreshInterval,
+                MaxRefreshInterval = MaxRefreshInterval
             };
         }
 

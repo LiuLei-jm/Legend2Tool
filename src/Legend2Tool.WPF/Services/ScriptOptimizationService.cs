@@ -156,6 +156,22 @@ namespace Legend2Tool.WPF.Services
                     continue;
                 }
 
+                // 刷新间隔
+                string interval = parts.Length > 6 ? parts[6] : options.MaxRefreshInterval.ToString();
+                if (string.IsNullOrEmpty(interval) || filterIntervals.Contains(interval) || !int.TryParse(interval, out _))
+                {
+                    noClearMonLists.Add(monName);
+                    newMongen.Add(trimmedLine);
+                    continue;
+                }
+
+                if (options.IsLimitRefreshInterval && int.TryParse(interval, out int refreshInterval)) { 
+                    if(refreshInterval > options.MaxRefreshInterval)
+                    {
+                      trimmedLine = trimmedLine.Replace(interval, options.MaxRefreshInterval.ToString());
+                    }
+                }
+
                 // 地图代码
                 string mapCode = parts.Length > 0 ? parts[0] : string.Empty;
                 if (string.IsNullOrEmpty(mapCode) || filterMapCodes.Contains(mapCode))
@@ -223,14 +239,6 @@ namespace Legend2Tool.WPF.Services
                 else continue;
 
 
-                // 刷新间隔
-                string interval = parts.Length > 6 ? parts[6] : "1";
-                if (string.IsNullOrEmpty(interval) || filterIntervals.Contains(interval) || !int.TryParse(interval, out _))
-                {
-                    noClearMonLists.Add(monName);
-                    newMongen.Add(trimmedLine);
-                    continue;
-                }
 
                 // 怪物名称颜色
                 string monNameColor = parts.Length > 8 ? parts[8] : "255";
@@ -266,7 +274,7 @@ namespace Legend2Tool.WPF.Services
                 mapMonsterCounts[mapCode] += count;
             }
 
-            if (options.IsCommentMongen)
+            if (options.IsCommentMongen || options.IsLimitRefreshInterval)
             {
                 string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
                 var backupPath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", $"Mongen_{timestamp}.txt");
