@@ -165,10 +165,12 @@ namespace Legend2Tool.WPF.Services
                     continue;
                 }
 
-                if (options.IsLimitRefreshInterval && int.TryParse(interval, out int refreshInterval)) { 
-                    if(refreshInterval > options.MaxRefreshInterval)
+                if (options.IsLimitRefreshInterval && int.TryParse(interval, out int refreshInterval))
+                {
+                    if (refreshInterval > options.MaxRefreshInterval && parts.Length > 6)
                     {
-                      trimmedLine = trimmedLine.Replace(interval, options.MaxRefreshInterval.ToString());
+                        parts[6] = options.MaxRefreshInterval.ToString();
+                        trimmedLine = string.Join(' ', parts);
                     }
                 }
 
@@ -451,8 +453,8 @@ namespace Legend2Tool.WPF.Services
             }
             File.Delete(refreshMonScriptPath);
             File.Delete(clearMonScriptPath);
-            await ClearScriptContentAsync(robotManagePath, robotManageEncoding,options);
-            await ClearScriptContentAsync(autoRunRobotPath, autoRunRobotEncoding,options);
+            await ClearScriptContentAsync(robotManagePath, robotManageEncoding, options);
+            await ClearScriptContentAsync(autoRunRobotPath, autoRunRobotEncoding, options);
             await File.WriteAllTextAsync(noClearMonListPath, string.Empty);
         }
 
@@ -623,6 +625,7 @@ namespace Legend2Tool.WPF.Services
                                     if (!isInAct)
                                     {
                                         newFileContent.Add($"#Act");
+                                        isInAct = true;
                                     }
                                     string newLine = $"Goto {callField}";
                                     newFileContent.Add(newLine);
@@ -674,6 +677,7 @@ namespace Legend2Tool.WPF.Services
                                 if (!isInAct)
                                 {
                                     newFileContent.Add($"#Act");
+                                    isInAct = true;
                                 }
                                 string newLine = $"Goto {callField}";
                                 newFileContent.Add(newLine);

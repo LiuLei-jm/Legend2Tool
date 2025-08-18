@@ -303,7 +303,7 @@ namespace Legend2Tool.WPF.ViewModels
             {
                 M2ServerGatePort = 5000;
                 M2ServerMsgSrvPort = 4900;
-                _configStore.M2Config.DynamicIPMode = 0;
+                _configStore.M2Config.DynamicIPMode = 1;
                 DBServerGatePort = 5100;
                 DBServerServerPort = 6000;
                 RunGateCount = 1;
