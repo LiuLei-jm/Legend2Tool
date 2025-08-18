@@ -70,6 +70,9 @@ namespace Legend2Tool.WPF.ViewModels
         bool _isLimitRefreshInterval;
         [ObservableProperty]
         int _maxRefreshInterval = 30;
+        [ObservableProperty]
+        int _minMonBurstRate = 10;
+        
         public string Head { get; } = "服务器脚本优化";
 
         public ObservableCollection<DuplicatedTriggerEntry> DuplicatedTriggers { get; set; }
@@ -231,6 +234,20 @@ namespace Legend2Tool.WPF.ViewModels
                 Growl.Error("爆率查询生成失败！");
             }
         }
+        [RelayCommand(CanExecute = nameof(CanExecuteOptimization))]
+        private async Task OptimizingMinMonBurstRateAsync() {
+            try
+            {
+                await Task.Run(() => _scriptOptimizationService.OptimizingMinMonBurstRateAsync(MinMonBurstRate));
+                Growl.Success($"优化完成！");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, $"优化爆率文件失败！{ex.Message}");
+                Growl.Error("优化爆率文件失败！");
+            }
+        }
+
         private RefreshOptimizationOptions CollectRefreshScriptOption()
         {
             return new RefreshOptimizationOptions

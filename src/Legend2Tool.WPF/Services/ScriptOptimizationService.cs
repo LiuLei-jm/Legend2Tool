@@ -7,6 +7,7 @@ using Serilog;
 using SQLitePCL;
 using System.Data.OleDb;
 using System.IO;
+using System.IO.Compression;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -42,6 +43,11 @@ namespace Legend2Tool.WPF.Services
             "[@getback]",
             "[@upgradenow]",
             "[@getbackupgnow]"
+        };
+
+        private static readonly HashSet<string> _excludeItemName = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "金币","金创药(小量)","魔法药(小量)","金创药(中量)","魔法药(中量)","强效金创药","强效魔法药","太阳水","疗伤药","万年雪霜","强效太阳水"
         };
 
         private static readonly HashSet<string> _mainCityLists = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -1993,5 +1999,123 @@ namespace Legend2Tool.WPF.Services
             return stdmodes;
         }
         #endregion
+
+        public async Task OptimizingMinMonBurstRateAsync(int minMonBurstRate)
+        {
+            var folderPath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "MonItems");
+            string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            var zipPath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", $"MonItems_{timestamp}.zip");
+            ZipFile.CreateFromDirectory(folderPath, zipPath);
+            var callBurstRateFilePaths = new HashSet<string>();
+            var files = _fileService.GetFiles(folderPath, new List<string> { "*.txt" }, SearchOption.AllDirectories);
+            foreach (var file in files)
+            {
+                await ProcessMinMOnBurstRateForFile(minMonBurstRate, file, callBurstRateFilePaths);
+            }
+            if (callBurstRateFilePaths.Count > 0) {
+                foreach(var file in callBurstRateFilePaths)
+                {
+                    if (File.Exists(file))
+                    {
+                        await ProcessMinMOnBurstRateForFile(minMonBurstRate, file, callBurstRateFilePaths);
+                    }
+                    else
+                    {
+                        _logger.Warning($"文件 '{file}' 不存在，无法处理。");
+                    }
+                }
+            }
+        }
+
+        private async Task ProcessMinMOnBurstRateForFile(int minMonBurstRate, string file, HashSet<string> callBurstRateFilePaths)
+        {
+            var unChangedLines = new List<string>();
+            var changedLines = new Dictionary<string, List<string>>();
+            var fileEncoding = _encodingService.DetectFileEncoding(file);
+            bool isChild = false;
+            await foreach (var line in File.ReadLinesAsync(file, fileEncoding))
+            {
+                var trimmedLine = line.Trim();
+                if (string.IsNullOrWhiteSpace(trimmedLine) || trimmedLine.StartsWith(';'))
+                {
+                    unChangedLines.Add(trimmedLine);
+                    continue;
+                }
+                if (trimmedLine.Contains("#call", StringComparison.OrdinalIgnoreCase))
+                {
+                    ExtractCallPathAndField(trimmedLine, out string callPath, out string field);
+                    if (string.IsNullOrEmpty(callPath)) continue;
+                    while (callPath.StartsWith('\\'))
+                        callPath = callPath[1..];
+                    var callBurstRateFilePath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", callPath);
+                    callBurstRateFilePaths.Add(callBurstRateFilePath);
+                }
+                if (trimmedLine.StartsWith(')'))
+                {
+                    isChild = false;
+                    unChangedLines.Add(trimmedLine);
+                    continue;
+                }
+                if(trimmedLine.StartsWith("#child", StringComparison.OrdinalIgnoreCase))
+                {
+                    isChild = true;
+                    unChangedLines.Add(trimmedLine);
+                    continue;
+                }
+                if(isChild)
+                {
+                    unChangedLines.Add(trimmedLine);
+                    continue;
+                }
+                var parts = trimmedLine.Split(_emptySeparator, StringSplitOptions.RemoveEmptyEntries);
+                var ratePart = parts.Length > 0 ? parts[0] : string.Empty;
+                var itemPart = parts.Length > 1 ? parts[1] : string.Empty;
+                if (_excludeItemName.Contains(itemPart))
+                {
+                    unChangedLines.Add(trimmedLine);
+                    continue;
+                }
+                var burstRate = ratePart.Substring(ratePart.IndexOf('/') + 1);
+                if (int.TryParse(burstRate, out int result))
+                {
+                    if (result <= minMonBurstRate)
+                    {
+                        if (!changedLines.TryGetValue(ratePart, out var _))
+                        {
+                            changedLines[ratePart] = new List<string>();
+                        }
+                        changedLines[ratePart].Add(trimmedLine);
+                    }
+                    else
+                    {
+                        unChangedLines.Add(trimmedLine);
+                    }
+                }
+                else
+                {
+                    unChangedLines.Add(trimmedLine);
+                }
+            }
+
+            if (changedLines.Count > 0)
+            {
+                foreach (var (burstRate, lists) in changedLines)
+                {
+                    var burstRatePart = burstRate.Substring(burstRate.IndexOf('/') + 1);
+                    int newBurstRate = 1;
+                    if (int.TryParse(burstRatePart, out int currentBurstRate))
+                    {
+                        currentBurstRate = currentBurstRate / lists.Count;
+                        newBurstRate = Math.Max(currentBurstRate, newBurstRate);
+                    }
+                    unChangedLines.Add($"#CHILD 1/{newBurstRate} RANDOM");
+                    unChangedLines.Add("(");
+                    unChangedLines.AddRange(lists);
+                    unChangedLines.Add(")");
+                }
+            }
+
+            await File.WriteAllLinesAsync(file, unChangedLines, fileEncoding);
+        }
     }
 }

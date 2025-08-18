@@ -188,15 +188,15 @@
                                             Content="触发字段" />
                                     </GridViewColumn.Header>
                                 </GridViewColumn>
-                                <GridViewColumn Width="150" DisplayMemberBinding="{Binding FileName}">
+                                <GridViewColumn Width="500" DisplayMemberBinding="{Binding FilePath}">
                                     <GridViewColumn.Header>
                                         <GridViewColumnHeader
                                             Command="{Binding SortDuplicatedTriggersCommand}"
-                                            CommandParameter="FileName"
+                                            CommandParameter="FilePath"
                                             Content="文件名" />
                                     </GridViewColumn.Header>
                                 </GridViewColumn>
-                                <GridViewColumn Width="100" DisplayMemberBinding="{Binding LineNumber}">
+                                <GridViewColumn Width="50" DisplayMemberBinding="{Binding LineNumber}">
                                     <GridViewColumn.Header>
                                         <GridViewColumnHeader
                                             Command="{Binding SortDuplicatedTriggersCommand}"
@@ -204,7 +204,7 @@
                                             Content="行号" />
                                     </GridViewColumn.Header>
                                 </GridViewColumn>
-                                <GridViewColumn Width="100" DisplayMemberBinding="{Binding IsRecursion, Converter={StaticResource BoolToTextConverter}}">
+                                <GridViewColumn Width="60" DisplayMemberBinding="{Binding IsRecursion, Converter={StaticResource BoolToTextConverter}}">
                                     <GridViewColumn.Header>
                                         <GridViewColumnHeader
                                             Command="{Binding SortDuplicatedTriggersCommand}"
@@ -238,8 +238,23 @@
                         </Style>
                     </StackPanel.Resources>
                     <Button Command="{Binding DetectDuplicatedTriggerCommand}" Content="查询重复调用" />
-                    <Button Command="{Binding OptimizingCallsCommand}" Content="优化CALL调用" />
                     <Button Command="{Binding DropRateCalculatorCommand}" Content="生成爆率查询" />
+                    <Button Command="{Binding OptimizingCallsCommand}" Content="优化CALL调用" />
+                    <StackPanel Orientation="Horizontal">
+                        <StackPanel.Resources>
+                            <Style BasedOn="{StaticResource {x:Type TextBlock}}" TargetType="TextBlock">
+                                <Setter Property="VerticalAlignment" Value="Center" />
+                                <Setter Property="Margin" Value="5" />
+                            </Style>
+                            <Style BasedOn="{StaticResource {x:Type hc:NumericUpDown}}" TargetType="hc:NumericUpDown">
+                                <Setter Property="Margin" Value="2" />
+                            </Style>
+                        </StackPanel.Resources>
+
+                        <TextBlock Text="最小爆率" />
+                        <hc:NumericUpDown Minimum="0" Value="{Binding MinMonBurstRate}" />
+                    </StackPanel>
+                    <Button Command="{Binding OptimizingMinMonBurstRateCommand}" Content="优化最小爆率" />
                 </StackPanel>
 
             </StackPanel>
