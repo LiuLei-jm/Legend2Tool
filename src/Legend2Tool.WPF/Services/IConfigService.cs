@@ -1,4 +1,5 @@
 ﻿using Legend2Tool.WPF.Enums;
+using Legend2Tool.WPF.State;
 using System.Text;
 
 namespace Legend2Tool.WPF.Services
@@ -7,9 +8,11 @@ namespace Legend2Tool.WPF.Services
     {
         EngineType CheckEngineType(string serverDirectory);
         Task<string> GetExternalIpAddressAsync();
-        T ReadSectionConfig<T>(string filePath, Encoding fileEncoding, string sectionName) where T : class, new();
-        void WriteSectionConfig<T>(string filePath, T config, Encoding fileEncoding, string sectionName) where T : class, new();
-        T ReadMultiSectionConfig<T>(string filePath, Encoding fileEncoding) where T : class, new();
-        void WriteMultiSectionConfig<T>(string filePath, T config, Encoding fileEncoding) where T : class, new();
+        bool CheckPorts(int[] portsToCheck);
+        string GetResourcesDirByGamePinyin(string launcherName);
+        string GetLauncherName(ConfigStore configStore);
+        void SaveConfigFile(ConfigStore configStore);
+        void GetM2ConfigInfo(ConfigStore configStore);
+        void GetLauncherConfigInfo(ConfigStore configStore);
     }
 }

@@ -14,7 +14,7 @@ namespace Legend2Tool.WPF.Models.M2Config.M2Config
         public int LoginGateGetStart1 { get; set; }
         [IniConfig("LoginGate", "GatePort1")]
         public int LoginGateGatePort1 { get; set; }
-        [IniConfig("RunGate","GetMultiThread")]
+        [IniConfig("RunGate", "GetMultiThread")]
         public int RunGateGetMultiThread { get; set; }
         [IniConfig("RunGate", "DBPort1")]
         public int RunGateDBPort1 { get; set; }
@@ -32,7 +32,7 @@ namespace Legend2Tool.WPF.Models.M2Config.M2Config
         public int RunGateDBPort7 { get; set; }
         [IniConfig("RunGate", "DBPort8")]
         public int RunGateDBPort8 { get; set; }
-        [IniConfig("ClearServer","MyGetTxtNum")]
+        [IniConfig("ClearServer", "MyGetTxtNum")]
         public int MyGetTxtNum { get; set; } = 0;
         public List<string> MyGetTxtList { get; set; } = new List<string>();
         [IniConfig("ClearServer", "MyGetFileNum")]

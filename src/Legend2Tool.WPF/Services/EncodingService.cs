@@ -113,10 +113,6 @@ namespace Legend2Tool.WPF.Services
             if (!File.Exists(filePath))
                 throw new FileNotFoundException($"文件未找到：{filePath}");
 
-            long fileSize = new FileInfo(filePath).Length;
-            if (fileSize <= 30)
-                return Encoding.GetEncoding("GB18030");
-
             const int BytesToReadForDetection = 8192;
             byte[] buffer;
             try
@@ -142,23 +138,19 @@ namespace Legend2Tool.WPF.Services
             if (encoding != null)
                 return encoding;
 
+            long fileSize = new FileInfo(filePath).Length;
             if (fileSize < minLengthForUDE)
             {
                 if (IsPureAscii(buffer))
                 {
                     return Encoding.UTF8;
                 }
-                foreach (var fallbackEnc in GetCommonFallbackEncodings())
+                if (CanDecodeAsUtf8(buffer))
                 {
-                    try
-                    {
-                        fallbackEnc.GetString(buffer);
-                        return fallbackEnc;
-                    }
-                    catch (DecoderFallbackException) { }
-                    catch (ArgumentException) { }
+                    return Encoding.UTF8;
                 }
-                return Encoding.GetEncoding("GB18030") ?? Encoding.UTF8;
+
+                return Encoding.GetEncoding("GB18030");
             }
 
             // 使用UDE库检测
@@ -173,28 +165,22 @@ namespace Legend2Tool.WPF.Services
                     var safeEncoding = GetSafeEncoding(detected);
                     if (safeEncoding != null) return safeEncoding;
                 }
-                else
-                {
-                    foreach (var fallbackEnc in GetCommonFallbackEncodings())
-                    {
-                        try
-                        {
-                            fallbackEnc.GetString(buffer);
-                            return fallbackEnc;
-                        }
-                        catch (DecoderFallbackException) { }
-                        catch (ArgumentException) { }
-                    }
-                }
             }
-            return Encoding.GetEncoding("GB18030") ?? Encoding.UTF8;
+            return Encoding.GetEncoding("GB18030");
         }
 
-        private IEnumerable<Encoding> GetCommonFallbackEncodings()
+        private bool CanDecodeAsUtf8(byte[] buffer)
         {
-            yield return Encoding.GetEncoding("GB18030");
-            yield return Encoding.UTF8;
-            yield return Encoding.Default;
+            try
+            {
+                var utf8 = new UTF8Encoding(false, true); // ThrowOnInvalidBytes = true
+                string text = utf8.GetString(buffer);     // 尝试解码
+                return true;
+            }
+            catch (DecoderFallbackException)
+            {
+                return false;
+            }
         }
 
         private bool IsPureAscii(byte[] buffer)

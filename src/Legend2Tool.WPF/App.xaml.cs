@@ -35,14 +35,15 @@ namespace Legend2Tool.WPF
                 .ConfigureServices(
                     (context, services) =>
                     {
+                        services.AddSingleton<ConfigStore>();
+                        services.AddSingleton<ProgressStore>();
+
                         // Register your services here
                         services.AddSingleton<IFileService, FileService>();
                         services.AddSingleton<IDialogService, DialogService>();
                         services.AddSingleton<IConfigService, ConfigService>();
                         services.AddSingleton<IEncodingService, EncodingService>();
-
-                        services.AddSingleton<ConfigStore>();
-                        services.AddSingleton<ProgressStore>();
+                        services.AddSingleton<IScriptOptimizationService, ScriptOptimizationService>();
 
                         services.AddSingleton<MainViewModel>();
                         services.AddSingleton<MenuViewModel>();
@@ -59,7 +60,7 @@ namespace Legend2Tool.WPF
                     logging.ClearProviders();
                     Log.Logger = new LoggerConfiguration()
                                         .WriteTo.File("log.txt", rollingInterval: RollingInterval.Day)
-                                        .MinimumLevel.Error()
+                                        .MinimumLevel.Warning()
                                         .CreateLogger();
                     //logging.AddSerilog(Log.Logger, dispose: true);
                     logging.Services.AddSingleton(Log.Logger);
