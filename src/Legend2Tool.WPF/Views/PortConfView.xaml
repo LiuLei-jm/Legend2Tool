@@ -261,7 +261,7 @@
 
         <Grid Grid.Row="2">
             <GroupBox Header="服务端设置" Style="{StaticResource GroupBoxTab}">
-                <autogrid:AutoGrid ColumnCount="8" RowCount="2">
+                <autogrid:AutoGrid ColumnCount="10" RowCount="2">
                     <autogrid:AutoGrid.Resources>
                         <Style BasedOn="{StaticResource {x:Type TextBlock}}" TargetType="TextBlock">
                             <Setter Property="Margin" Value="5" />
@@ -277,7 +277,13 @@
                             <Setter Property="Margin" Value="5" />
                             <Setter Property="Width" Value="110" />
                         </Style>
+                        <Style BasedOn="{StaticResource {x:Type CheckBox}}" TargetType="CheckBox">
+                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                        </Style>
                     </autogrid:AutoGrid.Resources>
+
+                    <TextBlock Text="引擎类型：" />
+                    <TextBlock d:Text="领风引擎" Text="{Binding EngineType, Converter={StaticResource EnumDescriptionConverter}}" />
                     <TextBlock Text="游戏服务器名称" />
                     <TextBox Text="{Binding GameName}" />
                     <Button Command="{Binding SetDefaultPortConfCommand}" Content="默认设置" />
@@ -304,12 +310,12 @@
                             <ToolTip Content="转换Envir下的所有文件" />
                         </Button.ToolTip>
                     </Button>
+                    <TextBlock Text="动态IP地址" />
+                    <CheckBox IsChecked="{Binding DynamicIPMode}" />
                     <TextBlock Text="游戏外网IP地址" />
                     <TextBox Text="{Binding ExtIPAddr}" />
                     <Button Command="{Binding GetExtIpAddrCommand}" Content="获取外网IP" />
                     <Button Command="{Binding SetLocalIpCommand}" Content="设置本地IP" />
-                    <TextBlock Text="引擎类型：" />
-                    <TextBlock Text="{Binding EngineType, Converter={StaticResource EnumDescriptionConverter}}" />
                     <Button
                         Command="{Binding SaveConfigToFileCommand}"
                         Content="配置完成请保存"

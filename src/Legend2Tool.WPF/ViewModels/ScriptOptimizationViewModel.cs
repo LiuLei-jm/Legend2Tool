@@ -21,55 +21,10 @@ namespace Legend2Tool.WPF.ViewModels
         private readonly ConfigStore _configStore;
         private readonly ILogger _logger;
 
-        private const string DefaultFilterMapCode = "0\r1\r2\r3\r4\r5\r6\r11\r12\r";
-        private const string DefaultFilterMonName = "弓箭手\r弓箭守卫\r虎卫\r鹰卫\r刀卫\r卫士\r带刀护卫\r";
-        private const string DefaultFilterMonCount = "1\r";
-        private const string DefaultSelectedTimeUnit = "分";
-        private const string DefaultRefreshMonTrigger = "XGD_动态刷怪";
-        private const string DefaultClearMonTrigger = "XGD_动态清怪";
 
         private string? _lastSortProperty;
         private ListSortDirection _lastSortDirection = ListSortDirection.Ascending;
 
-        [ObservableProperty]
-        string _filterMapCode = DefaultFilterMapCode;
-        partial void OnFilterMapCodeChanged(string? oldValue, string newValue)
-        {
-            var mapCodes = newValue.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-            _scriptOptimizationService.UpdateMainCityLists(mapCodes);
-        }
-        [ObservableProperty]
-        string _filterMonName = DefaultFilterMonName;
-        [ObservableProperty]
-        string _filterMonCount = DefaultFilterMonCount;
-        [ObservableProperty]
-        string _filterInterval = string.Empty;
-        [ObservableProperty]
-        string _filterMonNameColor = string.Empty;
-        [ObservableProperty]
-        string _selectedTimeUnit = DefaultSelectedTimeUnit;
-        [ObservableProperty]
-        int _refreshMonInterval = 2;
-        [ObservableProperty]
-        int _clearMonInterval = 15;
-        [ObservableProperty]
-        int _refreshMonMultiplier = 1;
-        [ObservableProperty]
-        [Required(ErrorMessage = "请填写刷怪触发器名称")]
-        string _refreshMonTrigger = DefaultRefreshMonTrigger;
-        [ObservableProperty]
-        [Required(ErrorMessage = "请填写清怪触发器名称")]
-        string _clearMonTrigger = DefaultClearMonTrigger;
-        [ObservableProperty]
-        bool _isClearMon;
-        [ObservableProperty]
-        bool _isCommentMongen;
-        [ObservableProperty]
-        bool _isBusy;
-        [ObservableProperty]
-        bool _isLimitRefreshInterval;
-        [ObservableProperty]
-        int _maxRefreshInterval = 30;
         [ObservableProperty]
         int _minMonBurstRate = 10;
         
@@ -90,55 +45,6 @@ namespace Legend2Tool.WPF.ViewModels
             DuplicatedTriggersView = CollectionViewSource.GetDefaultView(DuplicatedTriggers);
         }
 
-        [RelayCommand(CanExecute = nameof(CanExecuteOptimization))]
-        async Task GenerateRefreshMonScript()
-        {
-            ValidateAllProperties();
-            if (HasErrors)
-            {
-                Growl.Error("请检查输入参数是否正确。");
-                return;
-            }
-
-            IsBusy = true;
-            try
-            {
-                var options = CollectRefreshScriptOption();
-                await _scriptOptimizationService.GenerateRefreshMonScriptAsync(options);
-                Growl.Success("脚本生成成功!");
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, $"生成脚本时发生错误: {ex.Message}");
-                Growl.Error("生成脚本时发生错误，请检查输入参数是否正确。");
-            }
-            finally
-            {
-                IsBusy = false;
-            }
-        }
-
-        [RelayCommand(CanExecute = nameof(CanExecuteOptimization))]
-        async Task ClearRefreshMonScript()
-        {
-            IsBusy = true;
-            try
-            {
-                var options = CollectRefreshScriptOption();
-                await _scriptOptimizationService.ClearRefreshMonScriptAsync(options);
-                Growl.Success("脚本清除成功！");
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, $"清除脚本时发生错误:{ex.Message}");
-                Growl.Error("清除脚本时发生错误，请检查文件是否被占用。");
-                return;
-            }
-            finally
-            {
-                IsBusy = false;
-            }
-        }
 
         [RelayCommand(CanExecute = nameof(CanExecuteOptimization))]
         async Task DetectDuplicatedTriggerAsync()
@@ -248,33 +154,10 @@ namespace Legend2Tool.WPF.ViewModels
             }
         }
 
-        private RefreshOptimizationOptions CollectRefreshScriptOption()
-        {
-            return new RefreshOptimizationOptions
-            {
-                FilterMapCode = FilterMapCode,
-                FilterMonName = FilterMonName,
-                FilterMonCount = FilterMonCount,
-                FilterInterval = FilterInterval,
-                FilterMonNameColor = FilterMonNameColor,
-                SelectedTimeUnit = SelectedTimeUnit,
-                RefreshMonInterval = RefreshMonInterval,
-                ClearMonInterval = ClearMonInterval,
-                RefreshMonMultiplier = RefreshMonMultiplier,
-                RefreshMonTrigger = RefreshMonTrigger,
-                ClearMonTrigger = ClearMonTrigger,
-                IsCommentMongen = IsCommentMongen,
-                IsClearMon = IsClearMon,
-                IsLimitRefreshInterval = IsLimitRefreshInterval,
-                MaxRefreshInterval = MaxRefreshInterval
-            };
-        }
 
         public void Receive(M2ConfigChangedMessage message)
         {
             OnPropertyChanged(string.Empty);
-            GenerateRefreshMonScriptCommand.NotifyCanExecuteChanged();
-            ClearRefreshMonScriptCommand.NotifyCanExecuteChanged();
             DetectDuplicatedTriggerCommand.NotifyCanExecuteChanged();
             SortDuplicatedTriggersCommand.NotifyCanExecuteChanged();
             OpenFileCommand.NotifyCanExecuteChanged();

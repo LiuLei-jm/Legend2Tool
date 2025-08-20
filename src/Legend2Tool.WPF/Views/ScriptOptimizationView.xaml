@@ -9,6 +9,7 @@
     xmlns:local="clr-namespace:Legend2Tool.WPF.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="clr-namespace:Legend2Tool.WPF.ViewModels"
+    d:Background="LightGray"
     d:DataContext="{d:DesignInstance Type=vm:ScriptOptimizationViewModel}"
     d:DesignHeight="700"
     d:DesignWidth="1070"
@@ -16,168 +17,12 @@
     <UserControl.Resources>
         <cv:BoolToTextConverter x:Key="BoolToTextConverter" />
     </UserControl.Resources>
-    <StackPanel>
-        <GroupBox
-            MinHeight="150"
-            Header="智能刷怪配置"
-            Style="{StaticResource GroupBoxTab}">
-            <StackPanel Orientation="Horizontal">
+    <Grid>
 
-                <StackPanel>
-                    <TextBlock Text="过滤设置(填入与Mongen.txt文件中吻合的数据，将忽略不会生成动态脚本" />
-                    <autogrid:AutoGrid ColumnCount="5">
-                        <autogrid:AutoGrid.Resources>
-                            <Style TargetType="DockPanel">
-                                <Setter Property="Height" Value="110" />
-                                <Setter Property="Width" Value="80" />
-                            </Style>
-                            <Style BasedOn="{StaticResource {x:Type TextBlock}}" TargetType="TextBlock">
-                                <Setter Property="DockPanel.Dock" Value="Top" />
-                                <Setter Property="HorizontalAlignment" Value="Center" />
-                            </Style>
-                            <Style BasedOn="{StaticResource {x:Type TextBox}}" TargetType="TextBox">
-                                <Setter Property="AcceptsReturn" Value="True" />
-                                <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
-                                <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
-                                <Setter Property="VerticalContentAlignment" Value="Top" />
-                            </Style>
-                        </autogrid:AutoGrid.Resources>
-                        <DockPanel>
-                            <TextBlock Text="地图代码" />
-                            <TextBox Text="{Binding FilterMapCode}" />
-                        </DockPanel>
-                        <DockPanel Grid.Column="1">
-                            <TextBlock Text="怪物名字" />
-                            <TextBox Text="{Binding FilterMonName}" />
-                        </DockPanel>
-                        <DockPanel Grid.Column="2">
-                            <TextBlock Text="怪物数量" />
-                            <TextBox Text="{Binding FilterMonCount}" />
-                        </DockPanel>
-                        <DockPanel Grid.Column="3">
-                            <TextBlock Text="刷新间隔" />
-                            <TextBox Text="{Binding FilterInterval}" />
-                        </DockPanel>
-                        <DockPanel Grid.Column="4">
-                            <TextBlock Text="名字颜色" />
-                            <TextBox Text="{Binding FilterMonNameColor}" />
-                        </DockPanel>
-                    </autogrid:AutoGrid>
-                </StackPanel>
-
-                <StackPanel>
-                    <autogrid:AutoGrid ColumnCount="2" RowCount="5">
-                        <autogrid:AutoGrid.Resources>
-                            <Style BasedOn="{StaticResource {x:Type TextBlock}}" TargetType="TextBlock">
-                                <Setter Property="VerticalAlignment" Value="Center" />
-                                <Setter Property="Margin" Value="5" />
-                            </Style>
-                            <Style BasedOn="{StaticResource {x:Type hc:NumericUpDown}}" TargetType="hc:NumericUpDown">
-                                <Setter Property="Margin" Value="2" />
-                            </Style>
-                        </autogrid:AutoGrid.Resources>
-                        <TextBlock Text="时间单位" />
-                        <ComboBox
-                            Margin="2"
-                            SelectedValue="{Binding SelectedTimeUnit}"
-                            SelectedValuePath="Content">
-                            <ComboBoxItem Content="分" />
-                            <ComboBoxItem Content="秒" />
-                        </ComboBox>
-
-                        <TextBlock Text="刷怪间隔" />
-                        <hc:NumericUpDown
-                            Maximum="60"
-                            Minimum="0"
-                            Value="{Binding RefreshMonInterval}" />
-
-                        <TextBlock Text="清怪间隔" />
-                        <hc:NumericUpDown
-                            Maximum="60"
-                            Minimum="0"
-                            Value="{Binding ClearMonInterval}" />
-
-                        <TextBlock Text="刷怪倍数" />
-                        <hc:NumericUpDown
-                            Maximum="10"
-                            Minimum="1"
-                            Value="{Binding RefreshMonMultiplier}" />
-                    </autogrid:AutoGrid>
-                </StackPanel>
-
-                <StackPanel>
-                    <autogrid:AutoGrid ColumnCount="2" RowCount="4">
-                        <autogrid:AutoGrid.Resources>
-                            <Style BasedOn="{StaticResource {x:Type TextBlock}}" TargetType="TextBlock">
-                                <Setter Property="VerticalAlignment" Value="Center" />
-                                <Setter Property="Margin" Value="5" />
-                            </Style>
-                            <Style BasedOn="{StaticResource {x:Type TextBox}}" TargetType="TextBox">
-                                <Setter Property="Margin" Value="2" />
-                                <Setter Property="MinWidth" Value="100" />
-                                <Setter Property="Height" Value="28" />
-
-                            </Style>
-                            <Style BasedOn="{StaticResource {x:Type CheckBox}}" TargetType="CheckBox">
-                                <Setter Property="Margin" Value="5,8,5,8" />
-                            </Style>
-                        </autogrid:AutoGrid.Resources>
-
-                        <TextBlock Text="刷怪触发字段" />
-                        <TextBox Text="{Binding RefreshMonTrigger}" />
-
-                        <TextBlock Text="清怪触发字段" />
-                        <TextBox Text="{Binding ClearMonTrigger}" />
-
-                        <TextBlock Text="清理怪物" />
-                        <CheckBox IsChecked="{Binding IsClearMon}" />
-
-                        <TextBlock Text="注释Mongen" />
-                        <CheckBox IsChecked="{Binding IsCommentMongen}" />
-                    </autogrid:AutoGrid>
-                </StackPanel>
-
-                <StackPanel>
-                    <autogrid:AutoGrid ColumnCount="2" RowCount="4">
-                        <autogrid:AutoGrid.Resources>
-                            <Style BasedOn="{StaticResource {x:Type TextBlock}}" TargetType="TextBlock">
-                                <Setter Property="VerticalAlignment" Value="Center" />
-                                <Setter Property="Margin" Value="5" />
-                            </Style>
-                            <Style BasedOn="{StaticResource {x:Type TextBox}}" TargetType="TextBox">
-                                <Setter Property="Margin" Value="2" />
-                                <Setter Property="MinWidth" Value="100" />
-                                <Setter Property="Height" Value="28" />
-                            </Style>
-                            <Style BasedOn="{StaticResource {x:Type CheckBox}}" TargetType="CheckBox">
-                                <Setter Property="Margin" Value="5,8,5,8" />
-                            </Style>
-                            <Style BasedOn="{StaticResource {x:Type hc:NumericUpDown}}" TargetType="hc:NumericUpDown">
-                                <Setter Property="Margin" Value="2" />
-                                <Setter Property="MaxWidth" Value="60" />
-                            </Style>
-                        </autogrid:AutoGrid.Resources>
-
-                        <TextBlock Text="限制刷新时长" />
-                        <CheckBox IsChecked="{Binding IsLimitRefreshInterval}" />
-
-                        <TextBlock Text="最大刷新时长" />
-                        <hc:NumericUpDown
-                            Maximum="600"
-                            Minimum="0"
-                            Value="{Binding MaxRefreshInterval}" />
-
-                        <Button Command="{Binding GenerateRefreshMonScriptCommand}" Content="生成动态刷怪脚本" />
-                        <Button Command="{Binding ClearRefreshMonScriptCommand}" Content="清除动态刷怪脚本" />
-                    </autogrid:AutoGrid>
-                </StackPanel>
-            </StackPanel>
-        </GroupBox>
-
-        <GroupBox Header="脚本优化配置" Style="{StaticResource GroupBoxTab}">
+        <StackPanel>
             <StackPanel Orientation="Horizontal">
                 <Grid>
-                    <ListView Height="350" ItemsSource="{Binding DuplicatedTriggersView}">
+                    <ListView Height="450" ItemsSource="{Binding DuplicatedTriggersView}">
                         <ListView.View>
                             <GridView>
                                 <GridViewColumn Width="150" DisplayMemberBinding="{Binding TriggerField}">
@@ -236,6 +81,7 @@
                             <Setter Property="Width" Value="100" />
                             <Setter Property="Height" Value="28" />
                         </Style>
+
                     </StackPanel.Resources>
                     <Button Command="{Binding DetectDuplicatedTriggerCommand}" Content="查询重复调用" />
                     <Button Command="{Binding DropRateCalculatorCommand}" Content="生成爆率查询" />
@@ -245,6 +91,7 @@
                             <Style BasedOn="{StaticResource {x:Type TextBlock}}" TargetType="TextBlock">
                                 <Setter Property="VerticalAlignment" Value="Center" />
                                 <Setter Property="Margin" Value="5" />
+                                <Setter Property="Foreground" Value="Black"/>
                             </Style>
                             <Style BasedOn="{StaticResource {x:Type hc:NumericUpDown}}" TargetType="hc:NumericUpDown">
                                 <Setter Property="Margin" Value="2" />
@@ -256,8 +103,8 @@
                     </StackPanel>
                     <Button Command="{Binding OptimizingMinMonBurstRateCommand}" Content="优化最小爆率" />
                 </StackPanel>
-
             </StackPanel>
-        </GroupBox>
-    </StackPanel>
+        </StackPanel>
+
+    </Grid>
 </UserControl>

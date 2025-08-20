@@ -67,6 +67,8 @@ namespace Legend2Tool.WPF.State
         public List<BackListBase> BackLists = [];
         public EngineType EngineType { get; set; }
 
+        public string MainCityLists { get; set; }
+
         public void Receive(ServerDirectoryChangedMessage message)
         {
             if (!string.Equals(ServerDirectory, message.Value, StringComparison.OrdinalIgnoreCase))

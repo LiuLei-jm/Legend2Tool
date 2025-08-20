@@ -65,6 +65,11 @@ namespace Legend2Tool.WPF.ViewModels
             get => _configStore.M2Config.ExtIPaddr;
             set => SetProperty(_configStore.M2Config.ExtIPaddr, value, _configStore, (m, v) => _configStore.M2Config.ExtIPaddr = v);
         }
+        public int DynamicIPMode
+        {
+            get => _configStore.M2Config.DynamicIPMode;
+            set => SetProperty(_configStore.M2Config.DynamicIPMode, value, _configStore, (m, v) => _configStore.M2Config.DynamicIPMode = v);
+        }
         [Range(1, 65535, ErrorMessage = "必须在1至65535之间")]
         public int DBServerGatePort
         {
@@ -303,7 +308,7 @@ namespace Legend2Tool.WPF.ViewModels
             {
                 M2ServerGatePort = 5000;
                 M2ServerMsgSrvPort = 4900;
-                _configStore.M2Config.DynamicIPMode = 1;
+                DynamicIPMode = 1;
                 DBServerGatePort = 5100;
                 DBServerServerPort = 6000;
                 RunGateCount = 1;
