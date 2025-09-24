@@ -305,10 +305,11 @@ namespace Legend2Tool.WPF.Services
             var startIndex = line.IndexOf('[');
             var endIndex = line.IndexOf(']');
             callPath = line[(startIndex + 1)..endIndex];
-            while (callPath.StartsWith('\\'))
+            while (callPath.StartsWith('\\') || callPath.StartsWith('/'))
             {
                 callPath = callPath[1..];
             }
+            if (callPath.Contains('/')) callPath = callPath.Replace('/', '\\');
             startIndex = line.IndexOf('@');
             if (startIndex != -1)
             {
@@ -940,10 +941,15 @@ namespace Legend2Tool.WPF.Services
                 if (parts.Length >= 5 && _mapDatas.TryGetValue(parts[1], out var mapData))
                 {
                     var npcName = parts[4];
-                    if (int.TryParse(npcName, out _) || string.IsNullOrWhiteSpace(npcName))
+                    if (int.TryParse(npcName, out _) || string.IsNullOrWhiteSpace(npcName) || npcName.Equals("-"))
                     {
                         var fileParts = parts[0].Split(AppConstants.MerchantSeparator, StringSplitOptions.None);
                         npcName = fileParts.LastOrDefault();
+                    }
+
+                    while (npcName.EndsWith('\\'))
+                    {
+                        npcName = npcName[..^1];
                     }
 
                     var coordinate = $"{parts[2]}:{parts[3]}";
@@ -1607,6 +1613,7 @@ namespace Legend2Tool.WPF.Services
             var unChangedLines = new List<string>();
             var changedLines = new Dictionary<string, List<string>>();
             var fileEncoding = _encodingService.DetectFileEncoding(file);
+            var endSymbol = new List<string>();
             bool isChild = false;
             await foreach (var line in File.ReadLinesAsync(file, fileEncoding))
             {
@@ -1616,13 +1623,14 @@ namespace Legend2Tool.WPF.Services
                     unChangedLines.Add(trimmedLine);
                     continue;
                 }
+                if (trimmedLine.StartsWith('}')) { endSymbol.Add(trimmedLine); continue; }
                 if (trimmedLine.Contains("#call", StringComparison.OrdinalIgnoreCase))
                 {
                     ExtractCallPathAndField(trimmedLine, out string callPath, out string field);
                     if (string.IsNullOrEmpty(callPath)) continue;
                     while (callPath.StartsWith('\\'))
                         callPath = callPath[1..];
-                    var callBurstRateFilePath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", callPath);
+                    var callBurstRateFilePath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "QuestDiary", callPath);
                     callBurstRateFilePaths.Add(callBurstRateFilePath);
                 }
                 if (trimmedLine.StartsWith(')'))
@@ -1688,6 +1696,11 @@ namespace Legend2Tool.WPF.Services
                     unChangedLines.AddRange(lists);
                     unChangedLines.Add(")");
                 }
+            }
+
+            if (endSymbol.Count > 0)
+            {
+                unChangedLines.AddRange(endSymbol);
             }
 
             await File.WriteAllLinesAsync(file, unChangedLines, fileEncoding);

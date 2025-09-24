@@ -61,6 +61,8 @@ namespace Legend2Tool.WPF.ViewModels
         [ObservableProperty]
         int _maxRefreshInterval = 30;
         [ObservableProperty]
+        int _maxRefreshCount = 500;
+        [ObservableProperty]
         bool _isBusy;
         public string Head { get; } = "动态刷怪配置";
         private bool CanExecuteAction => _configStore.ServerDirectory != string.Empty;
@@ -141,7 +143,8 @@ namespace Legend2Tool.WPF.ViewModels
                 IsCommentMongen = IsCommentMongen,
                 IsClearMon = IsClearMon,
                 IsLimitRefreshInterval = IsLimitRefreshInterval,
-                MaxRefreshInterval = MaxRefreshInterval
+                MaxRefreshInterval = MaxRefreshInterval,
+                MaxRefreshCount = MaxRefreshCount
             };
         }
 

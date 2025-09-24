@@ -12,7 +12,7 @@ using System.Windows;
 
 namespace Legend2Tool.WPF.Services
 {
-    public class DynamicMonsterSpawningService :IDynamicMonsterSpawningService
+    public class DynamicMonsterSpawningService : IDynamicMonsterSpawningService
     {
         private readonly ConfigStore _configStore;
         private readonly IEncodingService _encodingService;
@@ -175,6 +175,10 @@ namespace Legend2Tool.WPF.Services
                     {
                         count = 1;
                     }
+                    else if (count > options.MaxRefreshCount)
+                    {
+                        count = options.MaxRefreshCount;
+                    }
                     count *= options.RefreshMonMultiplier;
                     monCount = count.ToString();
                 }
@@ -275,7 +279,7 @@ namespace Legend2Tool.WPF.Services
                     var mapCode = map.Key;
 
                     await clearMonWriter.WriteLineAsync("#If");
-                    await clearMonWriter.WriteLineAsync($"CheckMapHumanCount {mapCode} = 0");
+                    await clearMonWriter.WriteLineAsync($"CheckMapHumanCount {mapCode} < 1");
                     await clearMonWriter.WriteLineAsync("#Act");
                     await clearMonWriter.WriteLineAsync($"ClearMapMon {mapCode}");
 

@@ -316,6 +316,7 @@
                     <TextBox Text="{Binding ExtIPAddr}" />
                     <Button Command="{Binding GetExtIpAddrCommand}" Content="获取外网IP" />
                     <Button Command="{Binding SetLocalIpCommand}" Content="设置本地IP" />
+                    <Button Command="{Binding GenerateCleanupScriptCommand}" Content="生成清理脚本" />
                     <Button
                         Command="{Binding SaveConfigToFileCommand}"
                         Content="配置完成请保存"

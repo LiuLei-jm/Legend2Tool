@@ -292,6 +292,7 @@ namespace Legend2Tool.WPF.ViewModels
             GetExtIpAddrCommand.NotifyCanExecuteChanged();
             SetLocalIpCommand.NotifyCanExecuteChanged();
             SetByServerNameCommand.NotifyCanExecuteChanged();
+            GenerateCleanupScriptCommand.NotifyCanExecuteChanged();
         }
         public void Receive(PatchDirectoryChangedMessage message)
         {
@@ -431,7 +432,7 @@ namespace Legend2Tool.WPF.ViewModels
                     return;
                 }
 
-                var files = _fileService.GetFiles(convertDirectory, new List<string> { "*.txt", "*.ini" }, SearchOption.AllDirectories);
+                var files = _fileService.GetFiles(convertDirectory, new List<string> { "*.txt" }, SearchOption.AllDirectories);
 
                 if (files.Count == 0)
                 {
@@ -516,7 +517,7 @@ namespace Legend2Tool.WPF.ViewModels
         }
 
         [RelayCommand(CanExecute = nameof(CanExecuteConfigCommands))]
-        private void SaveConfigToFile()
+        private async Task SaveConfigToFileAsync()
         {
             ValidateAllProperties();
             if (HasErrors)
@@ -527,7 +528,7 @@ namespace Legend2Tool.WPF.ViewModels
 
             try
             {
-                _configService.SaveConfigFile(_configStore);
+                await _configService.SaveConfigFileAsync(_configStore);
                 Growl.Success("保存成功");
 
             }
@@ -596,6 +597,22 @@ namespace Legend2Tool.WPF.ViewModels
             }
         }
 
+        [RelayCommand(CanExecute = nameof(CanExecuteConfigCommands))]
+        private async Task GenerateCleanupScriptAsync()
+        {
+            try
+            {
+                await _configService.GenerateCleanupScriptAsync(_configStore.ServerDirectory);
+                Growl.Success("生成清理脚本成功!");
+
+            }
+            catch (Exception ex)
+            {
+                _logger.Error($"生成清理脚本失败：{ex.Message}", ex);
+                Growl.Error("生成清理脚本失败，请检查日志获取详细信息。");
+                throw;
+            }
+        }
 
         #endregion
     }

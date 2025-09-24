@@ -118,11 +118,17 @@
                     <TextBlock Text="限制刷新时长" />
                     <CheckBox IsChecked="{Binding IsLimitRefreshInterval}" />
 
-                    <TextBlock Text="最大刷新时长" />
+                    <TextBlock Text="单个最大刷新时长" />
                     <hc:NumericUpDown
                         Maximum="600"
                         Minimum="0"
                         Value="{Binding MaxRefreshInterval}" />
+
+                    <TextBlock Text="单个怪物最大数量" />
+                    <hc:NumericUpDown
+                        Maximum="500"
+                        Minimum="0"
+                        Value="{Binding MaxRefreshCount}" />
                 </autogrid:AutoGrid>
             </StackPanel>
 
