@@ -11,8 +11,9 @@ namespace Legend2Tool.WPF.Services
         bool CheckPorts(int[] portsToCheck);
         string GetResourcesDirByGamePinyin(string launcherName);
         string GetLauncherName(ConfigStore configStore);
-        void SaveConfigFile(ConfigStore configStore);
+        Task SaveConfigFileAsync(ConfigStore configStore);
         void GetM2ConfigInfo(ConfigStore configStore);
         void GetLauncherConfigInfo(ConfigStore configStore);
+        Task GenerateCleanupScriptAsync(string baseDirectory);
     }
 }

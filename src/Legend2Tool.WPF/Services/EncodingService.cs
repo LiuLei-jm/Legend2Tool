@@ -8,6 +8,21 @@ namespace Legend2Tool.WPF.Services
     {
         private const int minLengthForUDE = 100;
         private const double minConfidenceThreshold = 0.7;
+        private HashSet<string> cjkCompetitors = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "SHIFT_JIS",
+            "X-EUC-JP",
+            "EUC-KP",
+            "BIG5",
+            "ISO-2022-JP",
+            "EUC-JP",
+            "ISO-8859-1",
+            "ISO-8859-2",
+            "ISO-8859-5",
+            "ISO-8859-15",
+            "Windows-1252",
+            "KOI8-R"
+        };
         public void ConvertFileEncoding(string inputFilePath, string outputFilePath, Encoding inputFileEncoding, string targetEncodingName)
         {
             if (string.IsNullOrWhiteSpace(inputFilePath))
@@ -157,14 +172,16 @@ namespace Legend2Tool.WPF.Services
             var charsetDetector = new CharsetDetector();
             charsetDetector.Feed(buffer, 0, buffer.Length);
             charsetDetector.DataEnd();
-            if (charsetDetector.Charset != null)
+            if (charsetDetector.Charset != null && charsetDetector.Confidence >= minConfidenceThreshold)
             {
-                if (charsetDetector.Confidence >= minConfidenceThreshold)
+                var detected = charsetDetector.Charset.ToUpperInvariant();
+                if (cjkCompetitors.Contains(detected))
                 {
-                    var detected = charsetDetector.Charset.ToUpperInvariant();
-                    var safeEncoding = GetSafeEncoding(detected);
-                    if (safeEncoding != null) return safeEncoding;
+                    return Encoding.GetEncoding("GB18030");
                 }
+
+                var safeEncoding = GetSafeEncoding(detected);
+                if (safeEncoding != null) return safeEncoding;
             }
             return Encoding.GetEncoding("GB18030");
         }

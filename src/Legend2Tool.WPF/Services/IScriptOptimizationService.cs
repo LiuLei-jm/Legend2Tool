@@ -4,13 +4,11 @@ namespace Legend2Tool.WPF.Services
 {
     public interface IScriptOptimizationService
     {
-        Task GenerateRefreshMonScriptAsync(RefreshOptimizationOptions options);
-        Task ClearRefreshMonScriptAsync(RefreshOptimizationOptions options);
+        void UpdateMainCityLists(string mainCityLists);
         Task<List<DuplicatedTriggerEntry>> DetectDuplicatedTriggerAsync();
         Task OptimizingCallsAsync();
         Task DropRateCalculatorAsync();
         void OpenFile(DuplicatedTriggerEntry entry);
-        void UpdateMainCityLists(IEnumerable<string> mapCodes);
         Task OptimizingMinMonBurstRateAsync(int minMonBurstRate);
     }
 }

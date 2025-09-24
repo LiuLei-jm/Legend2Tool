@@ -1,4 +1,7 @@
-﻿using Legend2Tool.WPF.Enums;
+﻿using CommunityToolkit.Mvvm.Messaging;
+using Legend2Tool.WPF.Commons;
+using Legend2Tool.WPF.Enums;
+using Legend2Tool.WPF.Messages;
 using Legend2Tool.WPF.Models.M2Config.M2Config;
 using Legend2Tool.WPF.Models.ScriptOptimizations;
 using Legend2Tool.WPF.State;
@@ -23,48 +26,8 @@ namespace Legend2Tool.WPF.Services
         private readonly IFileService _fileService;
         private readonly ProgressStore _progressStore;
         private readonly ILogger _logger;
+        private HashSet<string> _mainCityLists = [];
 
-        private static readonly char[] _emptySeparator = [' ', '\t'];
-        private static readonly string[] _lineSeparator = ["\r", "\n", "\r\n"];
-        private static readonly char[] _merchantSeparator = ['\\', '/'];
-        private const string _defaultPointRange = "50";
-        private const string _startWriteTitle = ";---------------由小疙瘩制作QQ14699396,生成开始";
-        private const string _endWriteTitle = ";---------------由小疙瘩制作QQ14699396,生成结束";
-
-        private static readonly HashSet<string> _excludedTriggers = new(StringComparer.OrdinalIgnoreCase)
-        {
-            "[@main]",
-            "[@buy]",
-            "[@makedrug]",
-            "[@storage]",
-            "[@s_repair]",
-            "[@repair]",
-            "[@sell]",
-            "[@getback]",
-            "[@upgradenow]",
-            "[@getbackupgnow]"
-        };
-
-        private static readonly HashSet<string> _excludeItemName = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "金币","金创药(小量)","魔法药(小量)","金创药(中量)","魔法药(中量)","强效金创药","强效魔法药","太阳水","疗伤药","万年雪霜","强效太阳水"
-        };
-
-        private static readonly HashSet<string> _mainCityLists = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "0","1","2","3","4","5","6","11","12"
-        };
-        private static readonly HashSet<string> _giveCommands = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "give","giveex", "giveonitem", "givestateitem", "givegamepet", "givefenghao", "confertitle"
-        };
-        private static readonly HashSet<string> _takeCommands = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
-            "take","takew", "recycfenghao", "deprivetitle"
-        };
-        private static readonly HashSet<string> _mapCommands = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "map","mapmove","groupmapmove"
-        };
         private static readonly Regex _burstSymbolRegex = new Regex(@"^(;|\(|\)|{|}|\#child)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static readonly Regex _skipFieldRegex = new Regex(@"^(;|\#|\[|\<)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static readonly Regex _variableRegex = new Regex(@"\<\$STR\((.*?)\)\>", RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -72,7 +35,6 @@ namespace Legend2Tool.WPF.Services
         private Dictionary<string, StdMode> _stdModes = new(StringComparer.OrdinalIgnoreCase);
         private Dictionary<string, Monster> _monsters = new(StringComparer.OrdinalIgnoreCase);
         private Dictionary<string, MapData> _mapDatas = new(StringComparer.OrdinalIgnoreCase);
-        private Dictionary<string, MapData> _mapInfos = new(StringComparer.OrdinalIgnoreCase);
         private List<NpcData> _npcDatas = [];
         private HashSet<string> _mapDescList = [];
         private HashSet<string> _visited = [];
@@ -86,408 +48,6 @@ namespace Legend2Tool.WPF.Services
             _fileService = fileService;
             _progressStore = progressStore;
             _logger = logger;
-        }
-
-        public async Task GenerateRefreshMonScriptAsync(RefreshOptimizationOptions options)
-        {
-            var mongenPath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "MonGen.txt");
-            if (!File.Exists(mongenPath))
-            {
-                MessageBox.Show("MonGen.txt 文件不存在，请检查服务器目录设置。");
-                return;
-            }
-            var mongenEncoding = _encodingService.DetectFileEncoding(mongenPath);
-            var robotManagePath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "Robot_def", "RobotManage.txt");
-            if (!File.Exists(robotManagePath))
-            {
-                MessageBox.Show("RobotManage.txt 文件不存在，请检查服务器目录设置。");
-                return;
-            }
-            var robotManageEncoding = _encodingService.DetectFileEncoding(robotManagePath);
-            var generateScriptTrigger = $@"@{options.RefreshMonTrigger}";
-            var clearScriptTrigger = $@"@{options.ClearMonTrigger}";
-
-            var generateScriptFiled = $@"@{options.RefreshMonTrigger}触发";
-            var clearScriptFiled = $@"@{options.ClearMonTrigger}触发";
-
-            if (File.ReadAllText(robotManagePath, robotManageEncoding).Contains(generateScriptTrigger))
-            {
-                MessageBox.Show($@"刷怪触发器已存在'{generateScriptTrigger}'，如果要重新生成脚本请先清除现有脚本。");
-                return;
-            }
-
-            var autoRunRobotPath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "Robot_def", "AutoRunRobot.txt");
-            if (!File.Exists(autoRunRobotPath))
-            {
-                MessageBox.Show("AutoRunRobot.txt 文件不存在，请检查服务器目录设置。");
-                return;
-            }
-            var autoRunRobotEncoding = _encodingService.DetectFileEncoding(autoRunRobotPath);
-
-            var noClearMonListPath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "NoClearMonList.txt");
-
-            var refreshMonScriptPath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "QuestDiary", "智能刷怪.txt");
-            var clearMonScriptPath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "QuestDiary", "智能清怪.txt");
-
-
-            var mapMonsters = new Dictionary<string, List<string>>();
-            var mapMonsterCounts = new Dictionary<string, int>();
-            var filterMapCodes = new HashSet<string>(options.FilterMapCode.Split(_lineSeparator, StringSplitOptions.RemoveEmptyEntries));
-            var filterMonNames = new HashSet<string>(options.FilterMonName.Split(_lineSeparator, StringSplitOptions.RemoveEmptyEntries));
-            var filterMonCounts = new HashSet<string>(options.FilterMonCount.Split(_lineSeparator, StringSplitOptions.RemoveEmptyEntries));
-            var filterIntervals = new HashSet<string>(options.FilterInterval.Split(_lineSeparator, StringSplitOptions.RemoveEmptyEntries));
-            var filterMonNameColors = new HashSet<string>(options.FilterMonNameColor.Split(_lineSeparator, StringSplitOptions.RemoveEmptyEntries));
-            var noClearMonLists = new HashSet<string>();
-
-            var newMongen = new List<string>();
-
-
-            foreach (var line in File.ReadLines(mongenPath, mongenEncoding))
-            {
-                var trimmedLine = line.Trim();
-                if (string.IsNullOrWhiteSpace(trimmedLine) || trimmedLine.StartsWith(';'))
-                {
-                    newMongen.Add(trimmedLine);
-                    continue;
-                }
-
-                var parts = trimmedLine.Split(_emptySeparator, StringSplitOptions.RemoveEmptyEntries);
-
-                // 怪物名称
-                string monName = parts.Length > 3 ? parts[3] : string.Empty;
-                if (string.IsNullOrEmpty(monName) || filterMonNames.Contains(monName))
-                {
-                    noClearMonLists.Add(monName);
-                    newMongen.Add(trimmedLine);
-                    continue;
-                }
-
-                // 刷新间隔
-                string interval = parts.Length > 6 ? parts[6] : options.MaxRefreshInterval.ToString();
-                if (string.IsNullOrEmpty(interval) || filterIntervals.Contains(interval) || !int.TryParse(interval, out _))
-                {
-                    noClearMonLists.Add(monName);
-                    newMongen.Add(trimmedLine);
-                    continue;
-                }
-
-                if (options.IsLimitRefreshInterval && int.TryParse(interval, out int refreshInterval))
-                {
-                    if (refreshInterval > options.MaxRefreshInterval && parts.Length > 6)
-                    {
-                        parts[6] = options.MaxRefreshInterval.ToString();
-                        trimmedLine = string.Join(' ', parts);
-                    }
-                }
-
-                // 地图代码
-                string mapCode = parts.Length > 0 ? parts[0] : string.Empty;
-                if (string.IsNullOrEmpty(mapCode) || filterMapCodes.Contains(mapCode))
-                {
-                    noClearMonLists.Add(monName);
-                    newMongen.Add(trimmedLine);
-                    continue;
-                }
-
-                // 地图X坐标
-                string pointX = parts.Length > 1 ? parts[1] : _defaultPointRange;
-                if (int.TryParse(pointX, out int x))
-                {
-                    if (x < 0) pointX = _defaultPointRange;
-                }
-                else
-                {
-                    newMongen.Add(trimmedLine);
-                    continue;
-                }
-
-
-                // 地图Y坐标
-                string pointY = parts.Length > 2 ? parts[2] : _defaultPointRange;
-                if (int.TryParse(pointY, out int y))
-                {
-                    if (y < 0) pointY = _defaultPointRange;
-                }
-                else
-                {
-                    newMongen.Add(trimmedLine);
-                    continue;
-                }
-
-
-                // 刷新范围
-                string range = parts.Length > 4 ? parts[4] : _defaultPointRange;
-                if (int.TryParse(range, out int r))
-                {
-                    if (r < 0) range = _defaultPointRange;
-                }
-                else
-                {
-                    newMongen.Add(trimmedLine);
-                    continue;
-                }
-
-                // 刷怪数量
-                string monCount = parts.Length > 5 ? parts[5] : "1";
-                if (filterMonCounts.Contains(monCount))
-                {
-                    noClearMonLists.Add(monName);
-                    newMongen.Add(trimmedLine);
-                    continue;
-                }
-                if (int.TryParse(monCount, out int count))
-                {
-                    if (count < 1)
-                    {
-                        count = 1;
-                    }
-                    count *= options.RefreshMonMultiplier;
-                    monCount = count.ToString();
-                }
-                else continue;
-
-
-
-                // 怪物名称颜色
-                string monNameColor = parts.Length > 8 ? parts[8] : "255";
-                if (string.IsNullOrEmpty(monNameColor) || filterMonNameColors.Contains(monNameColor))
-                {
-                    noClearMonLists.Add(monName);
-                    newMongen.Add(trimmedLine);
-                    continue;
-                }
-
-                if (options.IsCommentMongen)
-                {
-                    newMongen.Add($";{trimmedLine}");
-                }
-                else
-                {
-                    newMongen.Add(trimmedLine);
-                }
-
-                string mongenexScript = _configStore.EngineType switch
-                {
-                    EngineType.GOM => $"MonGenEX {mapCode} {pointX} {pointY} {monName} {range} {monCount} 0 {monNameColor}",
-                    _ => $"MonGenEX {mapCode} {pointX} {pointY} {monName} {range} {monCount} {monNameColor}"
-                };
-
-                if (!mapMonsters.TryGetValue(mapCode, out _))
-                {
-                    mapMonsters[mapCode] = [];
-                    mapMonsterCounts[mapCode] = 0;
-                }
-
-                mapMonsters[mapCode].Add(mongenexScript);
-                mapMonsterCounts[mapCode] += count;
-            }
-
-            if (options.IsCommentMongen || options.IsLimitRefreshInterval)
-            {
-                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                var backupPath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", $"Mongen_{timestamp}.txt");
-
-                File.Move(mongenPath, backupPath);
-                await File.WriteAllLinesAsync(mongenPath, newMongen, mongenEncoding);
-            }
-
-            using (var refreshMonWriter = new StreamWriter(refreshMonScriptPath, false, mongenEncoding))
-            {
-                await refreshMonWriter.WriteLineAsync(_startWriteTitle);
-                await refreshMonWriter.WriteLineAsync('{');
-                await refreshMonWriter.WriteLineAsync($"[{generateScriptFiled}]");
-
-                foreach (var map in mapMonsters)
-                {
-                    var mapCode = map.Key;
-                    int count = mapMonsterCounts[mapCode];
-
-                    await refreshMonWriter.WriteLineAsync("#If");
-                    await refreshMonWriter.WriteLineAsync($"CheckMapHumanCount {mapCode} > 0");
-                    switch (_configStore.EngineType)
-                    {
-                        case EngineType.BLUE:
-                            await refreshMonWriter.WriteLineAsync($"!CheckMonMap {mapCode} {count}");
-                            break;
-                        case EngineType.GOM:
-                            await refreshMonWriter.WriteLineAsync($"Not CheckMonMap {mapCode} {count}");
-                            break;
-                        default:
-                            await refreshMonWriter.WriteLineAsync($"Not CheckMonMap {mapCode} {count} 1");
-                            break;
-                    }
-                    await refreshMonWriter.WriteLineAsync("#Act");
-
-                    foreach (var mongenex in map.Value)
-                    {
-                        await refreshMonWriter.WriteLineAsync(mongenex);
-                    }
-
-                    await refreshMonWriter.WriteLineAsync();
-                }
-
-                await refreshMonWriter.WriteLineAsync('}');
-                await refreshMonWriter.WriteLineAsync(_endWriteTitle);
-            }
-
-            using (var clearMonWriter = new StreamWriter(clearMonScriptPath, false, mongenEncoding))
-            {
-                await clearMonWriter.WriteLineAsync(_startWriteTitle);
-                await clearMonWriter.WriteLineAsync('{');
-                await clearMonWriter.WriteLineAsync($"[{clearScriptFiled}]");
-
-                foreach (var map in mapMonsters)
-                {
-                    var mapCode = map.Key;
-
-                    await clearMonWriter.WriteLineAsync("#If");
-                    await clearMonWriter.WriteLineAsync($"CheckMapHumanCount {mapCode} = 0");
-                    await clearMonWriter.WriteLineAsync("#Act");
-                    await clearMonWriter.WriteLineAsync($"ClearMapMon {mapCode}");
-
-                    await clearMonWriter.WriteLineAsync();
-                }
-
-                await clearMonWriter.WriteLineAsync('}');
-                await clearMonWriter.WriteLineAsync(_endWriteTitle);
-
-            }
-
-            using (var noClearMonListWriter = new StreamWriter(noClearMonListPath, true, mongenEncoding))
-            {
-                foreach (var monName in noClearMonLists)
-                {
-                    if (string.IsNullOrEmpty(monName)) continue;
-                    await noClearMonListWriter.WriteLineAsync(monName);
-                }
-
-            }
-
-            using (var robotManageWriter = new StreamWriter(robotManagePath, true, robotManageEncoding))
-            {
-                await robotManageWriter.WriteLineAsync();
-                await robotManageWriter.WriteLineAsync(_startWriteTitle);
-                await robotManageWriter.WriteLineAsync($"[{generateScriptTrigger}]");
-                await robotManageWriter.WriteLineAsync($@"#Call [\智能刷怪.txt] {generateScriptFiled}");
-                if (options.IsClearMon)
-                {
-                    await robotManageWriter.WriteLineAsync($"[{clearScriptTrigger}]");
-                    await robotManageWriter.WriteLineAsync($@"#Call [\智能清怪.txt] {clearScriptFiled}");
-                }
-                await robotManageWriter.WriteLineAsync(_endWriteTitle);
-            }
-
-            using (var autoRunRobotWriter = new StreamWriter(autoRunRobotPath, true, autoRunRobotEncoding))
-            {
-                var timeUnit = options.SelectedTimeUnit switch
-                {
-                    "分" => "MIN",
-                    _ => "SEC"
-                };
-                await autoRunRobotWriter.WriteLineAsync();
-                await autoRunRobotWriter.WriteLineAsync(_startWriteTitle);
-                await autoRunRobotWriter.WriteLineAsync($@"#AutoRun NPC {timeUnit} {options.RefreshMonInterval} {generateScriptTrigger}");
-                if (options.IsClearMon)
-                {
-                    await autoRunRobotWriter.WriteLineAsync($@"#AutoRun NPC {timeUnit} {options.ClearMonInterval} {clearScriptTrigger}");
-                }
-                await autoRunRobotWriter.WriteLineAsync(_endWriteTitle);
-            }
-
-        }
-
-        public async Task ClearRefreshMonScriptAsync(RefreshOptimizationOptions options)
-        {
-            var mongenPath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "MonGen.txt");
-            if (!File.Exists(mongenPath))
-            {
-                MessageBox.Show("MonGen.txt 文件不存在，请检查服务器目录设置。");
-                return;
-            }
-            var mongenEncoding = _encodingService.DetectFileEncoding(mongenPath);
-            var robotManagePath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "Robot_def", "RobotManage.txt");
-            if (!File.Exists(robotManagePath))
-            {
-                MessageBox.Show("RobotManage.txt 文件不存在，请检查服务器目录设置。");
-                return;
-            }
-            var robotManageEncoding = _encodingService.DetectFileEncoding(robotManagePath);
-            var generateScriptTrigger = $@"@{options.RefreshMonTrigger}";
-            var clearScriptTrigger = $@"@{options.ClearMonTrigger}";
-
-            var generateScriptField = $@"@{options.RefreshMonTrigger}触发";
-            var clearScriptField = $@"@{options.ClearMonTrigger}触发";
-
-            var autoRunRobotPath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "Robot_def", "AutoRunRobot.txt");
-            if (!File.Exists(autoRunRobotPath))
-            {
-                MessageBox.Show("AutoRunRobot.txt 文件不存在，请检查服务器目录设置。");
-                return;
-            }
-            var autoRunRobotEncoding = _encodingService.DetectFileEncoding(autoRunRobotPath);
-
-            var noClearMonListPath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "NoClearMonList.txt");
-
-            var noClearMonListEncoding = _encodingService.DetectFileEncoding(noClearMonListPath);
-
-            var refreshMonScriptPath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "QuestDiary", "智能刷怪.txt");
-            var clearMonScriptPath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "QuestDiary", "智能清怪.txt");
-
-            if (options.IsCommentMongen)
-            {
-                var backupDir = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir");
-                var backupFiles = Directory.GetFiles(backupDir, "Mongen_*.txt");
-                if (backupFiles.Length == 0)
-                {
-                    MessageBox.Show("未找到任何Mongen.txt备份文件。");
-                    return;
-                }
-
-                // 找到最新的备份文件
-                var latestBackup = backupFiles
-                    .OrderByDescending(f => File.GetCreationTime(f))
-                    .First();
-
-                try
-                {
-                    File.Copy(latestBackup, mongenPath, overwrite: true);
-                }
-                catch (Exception ex)
-                {
-                    throw new Exception($"还原Mongen.txt失败: {ex.Message}", ex);
-                }
-            }
-            File.Delete(refreshMonScriptPath);
-            File.Delete(clearMonScriptPath);
-            await ClearScriptContentAsync(robotManagePath, robotManageEncoding, options);
-            await ClearScriptContentAsync(autoRunRobotPath, autoRunRobotEncoding, options);
-            await File.WriteAllTextAsync(noClearMonListPath, string.Empty);
-        }
-
-        private static async Task ClearScriptContentAsync(string path, Encoding encoding, RefreshOptimizationOptions options)
-        {
-            var isDeleteContent = false;
-            var content = new List<string>();
-            await foreach (var line in File.ReadLinesAsync(path, encoding))
-            {
-
-                if (line.Contains(_startWriteTitle))
-                {
-                    isDeleteContent = true;
-                    continue;
-                }
-                else if (line.Contains(_endWriteTitle))
-                {
-                    isDeleteContent = false;
-                    continue;
-                }
-                else if (isDeleteContent || line.Contains(options.RefreshMonTrigger) || line.Contains(options.ClearMonTrigger))
-                {
-                    continue;
-                }
-                content.Add(line);
-            }
-            await File.WriteAllLinesAsync(path, content, encoding);
         }
 
         public async Task<List<DuplicatedTriggerEntry>> DetectDuplicatedTriggerAsync()
@@ -530,7 +90,7 @@ namespace Legend2Tool.WPF.Services
                             {
                                 currentTrigger = match.Value;
                                 currentField = currentTrigger.Substring(1, currentTrigger.Length - 2).ToLower();
-                                if (_excludedTriggers.Contains(currentTrigger)) continue;
+                                if (AppConstants.ExcludedTriggers.Contains(currentTrigger)) continue;
                                 if (!triggers.Add(currentField))
                                 {
                                     var entry = new DuplicatedTriggerEntry(currentField, fileName, filePath, i + 1, false);
@@ -540,7 +100,7 @@ namespace Legend2Tool.WPF.Services
                             }
                             else
                             {
-                                if (_excludedTriggers.Contains(currentTrigger)) continue;
+                                if (AppConstants.ExcludedTriggers.Contains(currentTrigger)) continue;
                                 if (!string.IsNullOrEmpty(currentField) && currentLine.EndsWith(currentField))
                                 {
                                     var entry = new DuplicatedTriggerEntry(currentField, fileName, filePath, i + 1, true);
@@ -745,10 +305,11 @@ namespace Legend2Tool.WPF.Services
             var startIndex = line.IndexOf('[');
             var endIndex = line.IndexOf(']');
             callPath = line[(startIndex + 1)..endIndex];
-            while (callPath.StartsWith('\\'))
+            while (callPath.StartsWith('\\') || callPath.StartsWith('/'))
             {
                 callPath = callPath[1..];
             }
+            if (callPath.Contains('/')) callPath = callPath.Replace('/', '\\');
             startIndex = line.IndexOf('@');
             if (startIndex != -1)
             {
@@ -816,6 +377,14 @@ namespace Legend2Tool.WPF.Services
 
         public async Task DropRateCalculatorAsync()
         {
+
+            _stdModes.Clear();
+            _mapDatas.Clear();
+            _monsters.Clear();
+            _npcDatas.Clear();
+            _mapDescList.Clear();
+            _visited.Clear();
+            _variables.Clear();
             IProgress<ProgressStore> progress = new Progress<ProgressStore>(report =>
             {
                 _progressStore.ProgressPercentage = report.ProgressPercentage;
@@ -856,21 +425,6 @@ namespace Legend2Tool.WPF.Services
             _progressStore.ProgressText = $"处理完成";
             progress.Report(_progressStore);
 
-            _stdModes.Clear();
-            _mapDatas.Clear();
-            _monsters.Clear();
-            _npcDatas.Clear();
-            _mapDescList.Clear();
-            _visited.Clear();
-            _variables.Clear();
-        }
-        public void UpdateMainCityLists(IEnumerable<string> mapCodes)
-        {
-            _mainCityLists.Clear();
-            foreach (var code in mapCodes)
-            {
-                _mainCityLists.Add(code);
-            }
         }
         private async Task ProcessDataWriteFileAsync()
         {
@@ -961,7 +515,7 @@ namespace Legend2Tool.WPF.Services
             {
                 var trimmedLine = line.Trim();
                 if (string.IsNullOrEmpty(trimmedLine) || _skipFieldRegex.IsMatch(trimmedLine)) continue;
-                var parts = trimmedLine.Split(_emptySeparator, StringSplitOptions.RemoveEmptyEntries);
+                var parts = trimmedLine.Split(AppConstants.EmptySeparator, StringSplitOptions.RemoveEmptyEntries);
                 if (!parts[5].StartsWith('4') && !parts[5].StartsWith('5')) continue;
                 var mapCode = parts[0];
                 if (!_mapDatas.TryGetValue(mapCode, out var mapData))
@@ -1027,7 +581,7 @@ namespace Legend2Tool.WPF.Services
         private void ProcessNpcFileContent(string trimmedLine, NpcData npcData)
         {
             if (string.IsNullOrEmpty(trimmedLine) || _skipFieldRegex.IsMatch(trimmedLine)) return;
-            var parts = trimmedLine.Split(_emptySeparator, StringSplitOptions.RemoveEmptyEntries);
+            var parts = trimmedLine.Split(AppConstants.EmptySeparator, StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length < 2) return;
 
             var command = parts[0];
@@ -1040,7 +594,7 @@ namespace Legend2Tool.WPF.Services
                 return;
             }
 
-            if (_giveCommands.Contains(command))
+            if (AppConstants.GiveCommands.Contains(command))
             {
                 var item = parts[1];
                 if (item.Equals("金币")) return;
@@ -1053,7 +607,7 @@ namespace Legend2Tool.WPF.Services
                 NpcGiveStdmodeAssociation(npcData, stdMode);
             }
 
-            if (_takeCommands.Contains(command))
+            if (AppConstants.TakeCommands.Contains(command))
             {
                 var item = parts[1];
                 if (item.Equals("金币")) return;
@@ -1066,7 +620,7 @@ namespace Legend2Tool.WPF.Services
                 NpcTakeStdModeAssociation(npcData, stdMode);
             }
 
-            if (_mapCommands.Contains(command))
+            if (AppConstants.MapCommands.Contains(command))
             {
                 var mapCode = parts[1];
                 if (mapCode.StartsWith("<$")) mapCode = GetVariableValue(mapCode);
@@ -1182,7 +736,7 @@ namespace Legend2Tool.WPF.Services
 
         private void ProcessBurstRateContent(string trimmedLine, HashSet<string> processedItems, Monster monster)
         {
-            var parts = trimmedLine.Split(_emptySeparator, StringSplitOptions.RemoveEmptyEntries);
+            var parts = trimmedLine.Split(AppConstants.EmptySeparator, StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length < 2) return;
 
             var itemName = parts[1];
@@ -1244,7 +798,7 @@ namespace Legend2Tool.WPF.Services
                     continue;
                 }
 
-                var parts = trimmedLine.Split(_emptySeparator, StringSplitOptions.RemoveEmptyEntries);
+                var parts = trimmedLine.Split(AppConstants.EmptySeparator, StringSplitOptions.RemoveEmptyEntries);
 
                 if (parts.Length < 7)
                 {
@@ -1382,15 +936,20 @@ namespace Legend2Tool.WPF.Services
                 {
                     continue;
                 }
-                var parts = trimmedLine.Split(_emptySeparator, StringSplitOptions.RemoveEmptyEntries);
+                var parts = trimmedLine.Split(AppConstants.EmptySeparator, StringSplitOptions.RemoveEmptyEntries);
 
                 if (parts.Length >= 5 && _mapDatas.TryGetValue(parts[1], out var mapData))
                 {
                     var npcName = parts[4];
-                    if (int.TryParse(npcName, out _) || string.IsNullOrWhiteSpace(npcName))
+                    if (int.TryParse(npcName, out _) || string.IsNullOrWhiteSpace(npcName) || npcName.Equals("-"))
                     {
-                        var fileParts = parts[0].Split(_merchantSeparator, StringSplitOptions.None);
+                        var fileParts = parts[0].Split(AppConstants.MerchantSeparator, StringSplitOptions.None);
                         npcName = fileParts.LastOrDefault();
+                    }
+
+                    while (npcName.EndsWith('\\'))
+                    {
+                        npcName = npcName[..^1];
                     }
 
                     var coordinate = $"{parts[2]}:{parts[3]}";
@@ -1442,7 +1001,7 @@ namespace Legend2Tool.WPF.Services
 
                     string mapString = trimmedLine.Substring(1, trimmedLine.IndexOf(']') - 1).Trim();
 
-                    var mapParts = mapString.Split(_emptySeparator, StringSplitOptions.RemoveEmptyEntries);
+                    var mapParts = mapString.Split(AppConstants.EmptySeparator, StringSplitOptions.RemoveEmptyEntries);
 
                     if (mapParts.Length < 2)
                     {
@@ -1511,7 +1070,7 @@ namespace Legend2Tool.WPF.Services
                 MapData toMap;
 
                 var fromPart = parts[0];
-                var fromParts = fromPart.Split(_emptySeparator, StringSplitOptions.RemoveEmptyEntries);
+                var fromParts = fromPart.Split(AppConstants.EmptySeparator, StringSplitOptions.RemoveEmptyEntries);
                 if (fromParts.Length < 2)
                 {
                     _logger.Warning($"fromPart内容不正确：{fromPart}");
@@ -1542,7 +1101,7 @@ namespace Legend2Tool.WPF.Services
                 symbol = "->";
 
                 var toPart = parts[1];
-                var toParts = toPart.Split(_emptySeparator, StringSplitOptions.RemoveEmptyEntries);
+                var toParts = toPart.Split(AppConstants.EmptySeparator, StringSplitOptions.RemoveEmptyEntries);
                 if (toParts.Length < 2)
                 {
                     _logger.Warning($"toParts内容不正确：{toPart},");
@@ -1628,7 +1187,7 @@ namespace Legend2Tool.WPF.Services
         {
             if (trimmedLine.StartsWith("mov", StringComparison.OrdinalIgnoreCase))
             {
-                var parts = trimmedLine.Split(_emptySeparator, StringSplitOptions.RemoveEmptyEntries);
+                var parts = trimmedLine.Split(AppConstants.EmptySeparator, StringSplitOptions.RemoveEmptyEntries);
                 var variable = parts.Length > 1 ? parts[1] : string.Empty;
                 var value = parts.Length > 2 ? parts[2] : string.Empty;
                 _variables[variable] = value;
@@ -1757,7 +1316,7 @@ namespace Legend2Tool.WPF.Services
         {
             if (trimmedLine.StartsWith("mongenex", StringComparison.OrdinalIgnoreCase))
             {
-                var parts = trimmedLine.Split(_emptySeparator, StringSplitOptions.RemoveEmptyEntries);
+                var parts = trimmedLine.Split(AppConstants.EmptySeparator, StringSplitOptions.RemoveEmptyEntries);
                 if (parts.Length < 5)
                 {
                     _logger.Warning($"{trimmedLine}格式不正确.");
@@ -1784,7 +1343,7 @@ namespace Legend2Tool.WPF.Services
         {
             if (trimmedLine.StartsWith("addmapgate", StringComparison.OrdinalIgnoreCase))
             {
-                var parts = trimmedLine.Split(_emptySeparator, StringSplitOptions.RemoveEmptyEntries);
+                var parts = trimmedLine.Split(AppConstants.EmptySeparator, StringSplitOptions.RemoveEmptyEntries);
                 if (parts.Length < 9)
                 {
                     _logger.Warning($"addmapgate格式错误: {trimmedLine}");
@@ -2002,18 +1561,34 @@ namespace Legend2Tool.WPF.Services
 
         public async Task OptimizingMinMonBurstRateAsync(int minMonBurstRate)
         {
+            IProgress<ProgressStore> progress = new Progress<ProgressStore>(report =>
+            {
+                _progressStore.ProgressPercentage = report.ProgressPercentage;
+                _progressStore.ProgressText = report.ProgressText;
+            });
+            _progressStore.ProgressPercentage = 0;
+            _progressStore.ProgressText = string.Empty;
+
             var folderPath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "MonItems");
             string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
             var zipPath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", $"MonItems_{timestamp}.zip");
             ZipFile.CreateFromDirectory(folderPath, zipPath);
             var callBurstRateFilePaths = new HashSet<string>();
             var files = _fileService.GetFiles(folderPath, new List<string> { "*.txt" }, SearchOption.AllDirectories);
+            int currentProgress = 0;
+            int totalFiles = files.Count;
+
             foreach (var file in files)
             {
                 await ProcessMinMOnBurstRateForFile(minMonBurstRate, file, callBurstRateFilePaths);
+                _progressStore.ProgressPercentage = (int)((++currentProgress / (double)totalFiles) * 100);
+                _progressStore.ProgressText = $"{currentProgress}/{totalFiles}：{Path.GetFileName(file)}";
+                progress.Report(_progressStore);
             }
-            if (callBurstRateFilePaths.Count > 0) {
-                foreach(var file in callBurstRateFilePaths)
+            if (callBurstRateFilePaths.Count > 0)
+            {
+                totalFiles += callBurstRateFilePaths.Count;
+                foreach (var file in callBurstRateFilePaths)
                 {
                     if (File.Exists(file))
                     {
@@ -2023,8 +1598,14 @@ namespace Legend2Tool.WPF.Services
                     {
                         _logger.Warning($"文件 '{file}' 不存在，无法处理。");
                     }
+                    _progressStore.ProgressPercentage = (int)((++currentProgress / (double)totalFiles) * 100);
+                    _progressStore.ProgressText = $"{currentProgress}/{totalFiles}：{Path.GetFileName(file)}";
+                    progress.Report(_progressStore);
                 }
             }
+
+            _progressStore.ProgressText = "优化完成.";
+            progress.Report(_progressStore);
         }
 
         private async Task ProcessMinMOnBurstRateForFile(int minMonBurstRate, string file, HashSet<string> callBurstRateFilePaths)
@@ -2032,6 +1613,7 @@ namespace Legend2Tool.WPF.Services
             var unChangedLines = new List<string>();
             var changedLines = new Dictionary<string, List<string>>();
             var fileEncoding = _encodingService.DetectFileEncoding(file);
+            var endSymbol = new List<string>();
             bool isChild = false;
             await foreach (var line in File.ReadLinesAsync(file, fileEncoding))
             {
@@ -2041,13 +1623,14 @@ namespace Legend2Tool.WPF.Services
                     unChangedLines.Add(trimmedLine);
                     continue;
                 }
+                if (trimmedLine.StartsWith('}')) { endSymbol.Add(trimmedLine); continue; }
                 if (trimmedLine.Contains("#call", StringComparison.OrdinalIgnoreCase))
                 {
                     ExtractCallPathAndField(trimmedLine, out string callPath, out string field);
                     if (string.IsNullOrEmpty(callPath)) continue;
                     while (callPath.StartsWith('\\'))
                         callPath = callPath[1..];
-                    var callBurstRateFilePath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", callPath);
+                    var callBurstRateFilePath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "QuestDiary", callPath);
                     callBurstRateFilePaths.Add(callBurstRateFilePath);
                 }
                 if (trimmedLine.StartsWith(')'))
@@ -2056,21 +1639,21 @@ namespace Legend2Tool.WPF.Services
                     unChangedLines.Add(trimmedLine);
                     continue;
                 }
-                if(trimmedLine.StartsWith("#child", StringComparison.OrdinalIgnoreCase))
+                if (trimmedLine.StartsWith("#child", StringComparison.OrdinalIgnoreCase))
                 {
                     isChild = true;
                     unChangedLines.Add(trimmedLine);
                     continue;
                 }
-                if(isChild)
+                if (isChild)
                 {
                     unChangedLines.Add(trimmedLine);
                     continue;
                 }
-                var parts = trimmedLine.Split(_emptySeparator, StringSplitOptions.RemoveEmptyEntries);
+                var parts = trimmedLine.Split(AppConstants.EmptySeparator, StringSplitOptions.RemoveEmptyEntries);
                 var ratePart = parts.Length > 0 ? parts[0] : string.Empty;
                 var itemPart = parts.Length > 1 ? parts[1] : string.Empty;
-                if (_excludeItemName.Contains(itemPart))
+                if (AppConstants.ExcludeItemName.Contains(itemPart))
                 {
                     unChangedLines.Add(trimmedLine);
                     continue;
@@ -2115,7 +1698,23 @@ namespace Legend2Tool.WPF.Services
                 }
             }
 
+            if (endSymbol.Count > 0)
+            {
+                unChangedLines.AddRange(endSymbol);
+            }
+
             await File.WriteAllLinesAsync(file, unChangedLines, fileEncoding);
+        }
+
+        public void UpdateMainCityLists(string mainCityLists)
+        {
+            if (string.IsNullOrEmpty(mainCityLists)) return;
+            var mapCodes = mainCityLists.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            _mainCityLists.Clear();
+            foreach (var code in mapCodes)
+            {
+                _mainCityLists.Add(code);
+            }
         }
     }
 }

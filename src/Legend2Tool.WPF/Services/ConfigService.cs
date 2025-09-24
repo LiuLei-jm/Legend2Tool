@@ -580,7 +580,7 @@ namespace Legend2Tool.WPF.Services
             }
         }
 
-        public void SaveConfigFile(ConfigStore configStore)
+        public async Task SaveConfigFileAsync(ConfigStore configStore)
         {
             int[] portsToCheck =
             [
@@ -622,10 +622,16 @@ namespace Legend2Tool.WPF.Services
                 return;
             }
 
-            RenamePatchDirectory(configStore.LauncherConfig.ResourcesDir!, configStore);
-            ModifyPAKPath(configStore);
+            if (!string.IsNullOrEmpty(configStore.PatchDirectory))
+            {
+                RenamePatchDirectory(configStore.LauncherConfig.ResourcesDir!, configStore);
+                await ModifyPAKPath(configStore);
+            }
             SaveM2ConfigToFile(configStore);
-            SaveLauncherConfigToFile(configStore);
+            if (configStore.EngineType != EngineType.BLUE || configStore.EngineType != EngineType.NEWGOM)
+            {
+                SaveLauncherConfigToFile(configStore);
+            }
         }
 
         public void GetLauncherConfigInfo(ConfigStore configStore)
@@ -889,6 +895,16 @@ namespace Legend2Tool.WPF.Services
             {
                 throw new Exception($"处理路径时发生错误：{ex.Message}", ex);
             }
+        }
+
+        public async Task GenerateCleanupScriptAsync(string baseDirectory)
+        {
+            var fileName = "清理文件.bat";
+            var filePath = Path.Combine(baseDirectory, fileName);
+            var templatePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "CleanupDirectoryTemplate.txt");
+            string batContent = await File.ReadAllTextAsync(templatePath, Encoding.GetEncoding("GB18030"));
+
+            await File.WriteAllTextAsync(filePath, batContent, Encoding.GetEncoding("GB18030"));
         }
     }
 }

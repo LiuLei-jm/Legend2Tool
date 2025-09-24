@@ -1,0 +1,49 @@
+@echo off
+echo.
+echo ╔════════════════════════════════════════════════╗
+echo ‖   开区清理文件全部都在这里，清除后无法恢复    ‖
+echo ╚════════════════════════════════════════════════╝
+echo.
+echo 注意：清理数据无法恢复
+echo.
+echo.
+pause
+
+set clean_files=^
+Mir200\Envir\AdminList.txt ^
+Mir200\Envir\QuestDiary\充值积分\消费积分Save.txt
+
+for %%f in (%clean_files%) do (
+    if exist "%cd%\%%f" (
+        echo.>"%cd%\%%f"
+    )
+)
+
+set log_dirs=^
+DBServer\Log ^
+LoginGate\packed_log ^
+LoginSrv\ChrLog ^
+LoginSrv\CountLog ^
+LogServer\BaseDir ^
+Mir200\ChatLog ^
+Mir200\ConLog ^
+Mir200\Log ^
+Mir200\login_log ^
+RunGate\Log ^
+RunGate\RecordLog ^
+SelGate\DataLog ^
+SelGate\Log ^
+数据备份
+
+for %%d in (%log_dirs%) do (
+    if exist "%cd%\%%d\" (
+        rd "%cd%\%%d" /s /q
+        md "%cd%\%%d"
+    )
+)
+
+echo.
+echo 数据清理完成......
+echo.
+echo [1]秒后本窗口将自动关闭,请稍等...
+ping 127.0.0.1 -n 2 > NUL

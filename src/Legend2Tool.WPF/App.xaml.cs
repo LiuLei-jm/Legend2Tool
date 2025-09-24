@@ -43,11 +43,13 @@ namespace Legend2Tool.WPF
                         services.AddSingleton<IDialogService, DialogService>();
                         services.AddSingleton<IConfigService, ConfigService>();
                         services.AddSingleton<IEncodingService, EncodingService>();
+                        services.AddSingleton<IDynamicMonsterSpawningService, DynamicMonsterSpawningService>();
                         services.AddSingleton<IScriptOptimizationService, ScriptOptimizationService>();
 
                         services.AddSingleton<MainViewModel>();
                         services.AddSingleton<MenuViewModel>();
                         services.AddSingleton<PortConfViewModel>();
+                        services.AddSingleton<DynamicMonsterSpawningViewModel>();
                         services.AddSingleton<ScriptOptimizationViewModel>();
 
                         services.AddSingleton<MainWindow>(sp => new MainWindow
