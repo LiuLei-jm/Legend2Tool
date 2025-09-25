@@ -52,6 +52,9 @@
                 <DataTemplate DataType="{x:Type vm:ScriptOptimizationViewModel}">
                     <views:ScriptOptimizationView />
                 </DataTemplate>
+                <DataTemplate DataType="{x:Type vm:LogViewModel}">
+                    <views:LogView />
+                </DataTemplate>
             </TabControl.Resources>
         </TabControl>
 

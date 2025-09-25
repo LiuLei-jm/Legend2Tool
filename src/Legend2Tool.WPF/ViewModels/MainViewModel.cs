@@ -25,10 +25,10 @@ namespace Legend2Tool.WPF.ViewModels
 
         [ObservableProperty]
         private ViewModelBase? _selectedViewModel;
-        public MainViewModel(IDialogService dialogService, MenuViewModel menuViewModel, PortConfViewModel portConfViewModel, DynamicMonsterSpawningViewModel dynamicMonsterSpawningViewModel, ScriptOptimizationViewModel scriptOptimizationViewModel, ProgressStore progressStore)
+        public MainViewModel(IDialogService dialogService, MenuViewModel menuViewModel, PortConfViewModel portConfViewModel, DynamicMonsterSpawningViewModel dynamicMonsterSpawningViewModel, ScriptOptimizationViewModel scriptOptimizationViewModel, LogViewModel logViewModel, ProgressStore progressStore)
         {
             MenuViewModel = menuViewModel;
-            ViewModels = new ObservableCollection<ViewModelBase> { portConfViewModel, dynamicMonsterSpawningViewModel, scriptOptimizationViewModel };
+            ViewModels = new ObservableCollection<ViewModelBase> { portConfViewModel, dynamicMonsterSpawningViewModel, scriptOptimizationViewModel, logViewModel };
             SelectedViewModel = portConfViewModel;
             _progressStore = progressStore;
             WeakReferenceMessenger.Default.Register<ProgressChangedMessage>(this);

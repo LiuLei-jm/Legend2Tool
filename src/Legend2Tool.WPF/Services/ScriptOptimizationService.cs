@@ -601,7 +601,7 @@ namespace Legend2Tool.WPF.Services
                 if (item.StartsWith("<$")) item = GetVariableValue(item);
                 if (!_stdModes.TryGetValue(item, out var stdMode))
                 {
-                    _logger.Warning($"无法获取物品：{trimmedLine}.");
+                    _logger.Warning($"物品 {item} 无法获取：{trimmedLine}.");
                     return;
                 }
                 NpcGiveStdmodeAssociation(npcData, stdMode);
@@ -614,7 +614,7 @@ namespace Legend2Tool.WPF.Services
                 if (item.StartsWith("<$")) item = GetVariableValue(item);
                 if (!_stdModes.TryGetValue(item, out var stdMode))
                 {
-                    _logger.Warning($"无法获取物品：{trimmedLine}.");
+                    _logger.Warning($"物品 {item} 无法获取：{trimmedLine}.");
                     return;
                 }
                 NpcTakeStdModeAssociation(npcData, stdMode);
@@ -815,12 +815,12 @@ namespace Legend2Tool.WPF.Services
 
                 if (!_mapDatas.TryGetValue(mapCode, out var mapData))
                 {
-                    _logger.Warning($"地图代码 '{mapCode}' 不存在,请检测脚本.");
+                    _logger.Warning($"地图代码 {mapCode} 不存在,请检测脚本.");
                     continue;
                 }
                 if (!_monsters.TryGetValue(monName, out var monster))
                 {
-                    _logger.Warning($"怪物名称 '{monName}' 不存在,请检测数据库.");
+                    _logger.Warning($"怪物名称 {monName} 不存在,请检测数据库.");
                     continue;
                 }
                 var monBot = $"每 {interval} 分钟 刷新{count} 个 【{mapData.Name}({x}:{y})范围{range}】";
@@ -1073,13 +1073,13 @@ namespace Legend2Tool.WPF.Services
                 var fromParts = fromPart.Split(AppConstants.EmptySeparator, StringSplitOptions.RemoveEmptyEntries);
                 if (fromParts.Length < 2)
                 {
-                    _logger.Warning($"fromPart内容不正确：{fromPart}");
+                    _logger.Warning($"路径格式不正确：{fromPart}");
                     continue;
                 }
                 fromMapCode = fromParts[0];
                 if (!_mapDatas.TryGetValue(fromMapCode, out fromMap!))
                 {
-                    _logger.Warning($"fromMapCode地图代码 '{fromMapCode}' 未找到，跳过路径：{mapPath}");
+                    _logger.Warning($"地图代码 {fromMapCode} 未找到，跳过路径：{mapPath}");
                     continue;
                 }
                 fromMapName = fromMap.Name!;
@@ -1088,7 +1088,7 @@ namespace Legend2Tool.WPF.Services
                 {
                     if (fromParts.Length < 3)
                     {
-                        _logger.Warning($"fromPart内容不正确：{fromPart}");
+                        _logger.Warning($"路径格式不正确：{fromPart}");
                         continue;
                     }
                     fromMapCoordinate = $"{fromParts[1]}:{fromParts[2]}";
@@ -1104,13 +1104,13 @@ namespace Legend2Tool.WPF.Services
                 var toParts = toPart.Split(AppConstants.EmptySeparator, StringSplitOptions.RemoveEmptyEntries);
                 if (toParts.Length < 2)
                 {
-                    _logger.Warning($"toParts内容不正确：{toPart},");
+                    _logger.Warning($"路径格式不正确：{toPart},");
                     continue;
                 }
                 toMapCode = toParts[0];
                 if (!_mapDatas.TryGetValue(toMapCode, out toMap!))
                 {
-                    _logger.Warning($"toMapCode地图代码 '{toMapCode}' 未找到，跳过路径： {mapPath}");
+                    _logger.Warning($"地图代码 {toMapCode} 未找到，跳过路径： {mapPath}");
                     continue;
                 }
                 toMapName = toMap.Name!;
@@ -1119,7 +1119,7 @@ namespace Legend2Tool.WPF.Services
                 {
                     if (toParts.Length < 3)
                     {
-                        _logger.Warning($"toParts内容不正确：{toPart},");
+                        _logger.Warning($"路径格式不正确：{toPart},");
                         continue;
                     }
                     toMapCoordinate = $"{toParts[1]}:{toParts[2]}";
@@ -1328,12 +1328,12 @@ namespace Legend2Tool.WPF.Services
                 if (monName.StartsWith("<$")) monName = GetVariableValue(monName);
                 if (!_mapDatas.TryGetValue(mapCode, out var mapData))
                 {
-                    _logger.Warning($"{mapCode}不存在，无法对{trimmedLine}进行关联.");
+                    _logger.Warning($"地图 {mapCode} 不存在，无法对 {trimmedLine} 进行关联.");
                     return;
                 }
                 if (!_monsters.TryGetValue(monName, out var monster))
                 {
-                    _logger.Warning($"{monName}不存在，无法对{trimmedLine}进行关联.");
+                    _logger.Warning($"怪物 {monName} 不存在，无法对 {trimmedLine} 进行关联.");
                     return;
                 }
                 MonsterMapAssociation(monster, mapData);
