@@ -4,6 +4,7 @@ namespace Legend2Tool.WPF.Models.M2Config
 {
     public class M2ConfigBase
     {
+        // GameConf section
         [IniConfig("GameConf", "GameDirectory")]
         public string? GameDirectory { get; set; }
         [IniConfig("GameConf", "HeroDBName")]
@@ -13,18 +14,21 @@ namespace Legend2Tool.WPF.Models.M2Config
         [IniConfig("GameConf", "ExtIPaddr")]
         public string? ExtIPaddr { get; set; }
         [IniConfig("GameConf", "DynamicIPMode")]
+        // DBServer section
         public int DynamicIPMode { get; set; }
         [IniConfig("DBServer", "GatePort")]
         public int DBServerGatePort { get; set; }
         [IniConfig("DBServer", "ServerPort")]
         public int DBServerServerPort { get; set; }
         [IniConfig("DBServer", "GetStart")]
+        // M2Server section
         public int DBServerGetStart { get; set; }
         [IniConfig("M2Server", "GatePort")]
         public int M2ServerGatePort { get; set; }
         [IniConfig("M2Server", "MsgSrvPort")]
         public int M2ServerMsgSrvPort { get; set; }
         [IniConfig("M2Server", "GetStart")]
+        // RunGate section
         public int M2ServerGetStart { get; set; }
         [IniConfig("RunGate", "GatePort1")]
         public int RunGateGatePort1 { get; set; }
@@ -43,11 +47,13 @@ namespace Legend2Tool.WPF.Models.M2Config
         [IniConfig("RunGate", "GatePort8")]
         public int RunGateGatePort8 { get; set; }
         [IniConfig("RunGate", "Count")]
+        // LoginGate section
         public int RunGateCount { get; set; }
         [IniConfig("LoginGate", "GetStart")]
         public int LoginGateGetStart { get; set; }
         [IniConfig("LoginGate", "GatePort")]
         public int LoginGateGatePort { get; set; }
+        // SelGate section
         [IniConfig("SelGate", "GatePort")]
         public int SelGateGatePort { get; set; }
         [IniConfig("SelGate", "GetStart")]
@@ -56,11 +62,13 @@ namespace Legend2Tool.WPF.Models.M2Config
         public int SelGateGatePort1 { get; set; }
         [IniConfig("SelGate", "GetStart1")]
         public int SelGateGetStart1 { get; set; }
+        // LoginServer section
         [IniConfig("LoginServer", "GatePort")]
         public int LoginServerGatePort { get; set; }
         [IniConfig("LoginServer", "ServerPort")]
         public int LoginServerServerPort { get; set; }
         [IniConfig("LoginServer", "GetStart")]
+        // LogServer section
         public int LoginServerGetStart { get; set; }
         [IniConfig("LogServer", "Port")]
         public int LogServerPort { get; set; }

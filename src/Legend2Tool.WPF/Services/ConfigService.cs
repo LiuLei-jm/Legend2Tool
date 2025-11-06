@@ -751,6 +751,15 @@ namespace Legend2Tool.WPF.Services
             else if(configStore.M2Config is HGEConfig hgeConfig)
             {
                 hgeConfig.SQLiteName = Path.Combine(configStore.ServerDirectory, GetSourcePath(hgeConfig.SQLiteName, "Mud2"));
+                hgeConfig.DataDir1 = configStore.ServerDirectory;
+                hgeConfig.BakDir1 = Path.Combine(configStore.ServerDirectory, "数据备份");
+                hgeConfig.TimeCls1 = 0;
+                hgeConfig.Hour1 = 6;
+                hgeConfig.Minute1 = 0;
+                hgeConfig.OnlyBakDatabase1 = 1;
+                hgeConfig.Count = 1;
+                hgeConfig.BakAuto = 1;
+                hgeConfig.BakReduce = 1;
             }
             else
             {
