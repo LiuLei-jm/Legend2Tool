@@ -52,7 +52,6 @@ namespace Legend2Tool.WPF.Models.M2Config
         public int SelGateGatePort { get; set; }
         [IniConfig("SelGate", "GetStart")]
         public int SelGateGetStart { get; set; }
-
         [IniConfig("SelGate", "GatePort1")]
         public int SelGateGatePort1 { get; set; }
         [IniConfig("SelGate", "GetStart1")]

@@ -2,6 +2,7 @@
 using Legend2Tool.WPF.Commons;
 using Legend2Tool.WPF.Enums;
 using Legend2Tool.WPF.Messages;
+using Legend2Tool.WPF.Models.M2Config;
 using Legend2Tool.WPF.Models.M2Config.M2Config;
 using Legend2Tool.WPF.Models.ScriptOptimizations;
 using Legend2Tool.WPF.State;
@@ -1419,6 +1420,13 @@ namespace Legend2Tool.WPF.Services
                     dbPath = gomConfig!.AccessFileName!;
                     connectionString =
                         $@"Provider=Microsoft.ACE.OLEDB.12.0;Data Source={dbPath};Persist Security Info=False;";
+                    stdmodeQuery = "SELECT Idx, Name, StdMode FROM StdItems";
+                    monsterQuery = "SELECT Name FROM Monster";
+                    break;
+                case EngineType.HGE:
+                    var hgeConfig = _configStore.M2Config as HGEConfig;
+                    dbPath = hgeConfig!.SQLiteName!;
+                    connectionString = $"Data Source={dbPath};";
                     stdmodeQuery = "SELECT Idx, Name, StdMode FROM StdItems";
                     monsterQuery = "SELECT Name FROM Monster";
                     break;

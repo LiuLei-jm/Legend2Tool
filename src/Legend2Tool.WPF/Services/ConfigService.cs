@@ -73,6 +73,7 @@ namespace Legend2Tool.WPF.Services
                      ("hao", EngineType.LF),
                      ("v8", EngineType.V8),
                      ("blue", EngineType.BLUE),
+                     ("hge", EngineType.HGE),
                 };
                 string companyName = fileVersionInfo.CompanyName ?? string.Empty;
                 string fileDescription = fileVersionInfo.FileDescription ?? string.Empty;
@@ -628,7 +629,7 @@ namespace Legend2Tool.WPF.Services
                 await ModifyPAKPath(configStore);
             }
             SaveM2ConfigToFile(configStore);
-            if (configStore.EngineType != EngineType.BLUE || configStore.EngineType != EngineType.NEWGOM)
+            if (configStore.EngineType != EngineType.BLUE || configStore.EngineType != EngineType.NEWGOM || configStore.EngineType != EngineType.HGE)
             {
                 SaveLauncherConfigToFile(configStore);
             }
@@ -683,6 +684,7 @@ namespace Legend2Tool.WPF.Services
                 EngineType.GOM or EngineType.NEWGOM => ReadMultiSectionConfig<GOMConfig>(filePath, fileEncoding),
                 EngineType.GEE or EngineType.GXX or EngineType.LF or EngineType.V8 => ReadMultiSectionConfig<GEEConfig>(filePath, fileEncoding),
                 EngineType.BLUE => ReadMultiSectionConfig<BLUEConfig>(filePath, fileEncoding),
+                EngineType.HGE => ReadMultiSectionConfig<HGEConfig>(filePath, fileEncoding),
                 _ => throw new InvalidOperationException("不支持的引擎")
             };
 
@@ -745,6 +747,10 @@ namespace Legend2Tool.WPF.Services
                 blueConfig.沙城目录_path = Path.Combine(configStore.ServerDirectory, "Mir200", "Castle");
                 blueConfig.脚本数据目录 = 1;
                 blueConfig.脚本数据目录_path = Path.Combine(configStore.ServerDirectory, "Mir200", "Envir", "QuestDiary", "数据文件");
+            }
+            else if(configStore.M2Config is HGEConfig hgeConfig)
+            {
+                hgeConfig.SQLiteName = Path.Combine(configStore.ServerDirectory, GetSourcePath(hgeConfig.SQLiteName, "Mud2"));
             }
             else
             {

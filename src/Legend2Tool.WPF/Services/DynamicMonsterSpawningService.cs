@@ -104,7 +104,6 @@ namespace Legend2Tool.WPF.Services
                     newMongen.Add(trimmedLine);
                     continue;
                 }
-
                 if (options.IsLimitRefreshInterval && int.TryParse(interval, out int refreshInterval))
                 {
                     if (refreshInterval > options.MaxRefreshInterval && parts.Length > 6)
@@ -184,7 +183,8 @@ namespace Legend2Tool.WPF.Services
                 }
                 else continue;
 
-
+                // 怪物类型
+                string monType = parts.Length > 7 ? parts[7] : "0";
 
                 // 怪物名称颜色
                 string monNameColor = parts.Length > 8 ? parts[8] : "255";
@@ -194,7 +194,6 @@ namespace Legend2Tool.WPF.Services
                     newMongen.Add(trimmedLine);
                     continue;
                 }
-
                 if (options.IsCommentMongen)
                 {
                     newMongen.Add($";{trimmedLine}");
@@ -207,6 +206,7 @@ namespace Legend2Tool.WPF.Services
                 string mongenexScript = _configStore.EngineType switch
                 {
                     EngineType.GOM => $"MonGenEX {mapCode} {pointX} {pointY} {monName} {range} {monCount} 0 {monNameColor}",
+                    EngineType.HGE => $"MonGenEX {mapCode} {pointX} {pointY} {monName}|{monType}|{monNameColor}|1,2 {range} {monCount} 0 1",
                     _ => $"MonGenEX {mapCode} {pointX} {pointY} {monName} {range} {monCount} {monNameColor}"
                 };
 
@@ -248,6 +248,7 @@ namespace Legend2Tool.WPF.Services
                             await refreshMonWriter.WriteLineAsync($"!CheckMonMap {mapCode} {count}");
                             break;
                         case EngineType.GOM:
+                        case EngineType.HGE:
                             await refreshMonWriter.WriteLineAsync($"Not CheckMonMap {mapCode} {count}");
                             break;
                         default:
