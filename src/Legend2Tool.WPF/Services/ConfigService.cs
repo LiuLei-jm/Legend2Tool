@@ -17,7 +17,6 @@ using System.Net.Sockets;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using System.Windows;
 using TinyPinyin;
 
@@ -748,7 +747,7 @@ namespace Legend2Tool.WPF.Services
                 blueConfig.脚本数据目录 = 1;
                 blueConfig.脚本数据目录_path = Path.Combine(configStore.ServerDirectory, "Mir200", "Envir", "QuestDiary", "数据文件");
             }
-            else if(configStore.M2Config is HGEConfig hgeConfig)
+            else if (configStore.M2Config is HGEConfig hgeConfig)
             {
                 hgeConfig.SQLiteName = Path.Combine(configStore.ServerDirectory, GetSourcePath(hgeConfig.SQLiteName, "Mud2"));
                 hgeConfig.DataDir1 = configStore.ServerDirectory;

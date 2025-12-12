@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Legend2Tool.WPF.Models.ScriptOptimizations
+﻿namespace Legend2Tool.WPF.Models.ScriptOptimizations
 {
     public class MapData
     {
@@ -17,7 +11,7 @@ namespace Legend2Tool.WPF.Models.ScriptOptimizations
         public List<string> BestPaths { get; set; } = [];
         public HashSet<string> FromMapLists { get; set; } = [];
         public HashSet<string> AddedPaths { get; set; } = [];
-        public bool IsMainCity ;
+        public bool IsMainCity;
 
     }
 }

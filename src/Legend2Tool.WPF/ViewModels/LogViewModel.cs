@@ -2,7 +2,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Legend2Tool.WPF.Services;
 using Serilog;
-using System;
 
 namespace Legend2Tool.WPF.ViewModels
 {

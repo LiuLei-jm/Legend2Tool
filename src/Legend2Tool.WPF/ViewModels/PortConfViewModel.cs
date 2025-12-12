@@ -349,12 +349,12 @@ namespace Legend2Tool.WPF.ViewModels
                 {
                     blueConfig.LoginServerMonPort = 3000;
                 }
-                Growl.Success("默认配置载入成功");
+                Growl.SuccessGlobal("默认配置载入成功");
 
             }
             catch (Exception ex)
             {
-                Growl.Error("载入默认配置失败，详细信息请查看日志。");
+                Growl.ErrorGlobal("载入默认配置失败，详细信息请查看日志。");
                 _logger.Error(ex, $"载入默认配置失败：{ex.Message}");
             }
         }
@@ -399,12 +399,12 @@ namespace Legend2Tool.WPF.ViewModels
                 {
                     blueConfig.LoginServerMonPort += ModifyNumberOfPort;
                 }
-                Growl.Success("批量编辑端口成功");
+                Growl.SuccessGlobal("批量编辑端口成功");
 
             }
             catch (Exception ex)
             {
-                Growl.Error("批量修改端口失败！");
+                Growl.ErrorGlobal("批量修改端口失败！");
                 _logger.Error(ex, $"批量修改端口失败:{ex.Message}");
 
             }
@@ -428,7 +428,7 @@ namespace Legend2Tool.WPF.ViewModels
                 string convertDirectory = Path.Combine(_configStore.ServerDirectory, EnvirRelativePath);
                 if (!Directory.Exists(convertDirectory))
                 {
-                    Growl.Error($"目录不存在：{convertDirectory}");
+                    Growl.ErrorGlobal($"目录不存在：{convertDirectory}");
                     return;
                 }
 
@@ -436,7 +436,7 @@ namespace Legend2Tool.WPF.ViewModels
 
                 if (files.Count == 0)
                 {
-                    Growl.Info("指定目录下没有找到需要转换编码的文件。");
+                    Growl.InfoGlobal("指定目录下没有找到需要转换编码的文件。");
                     _progressStore.ProgressText = "没有找到文件。";
                     progress.Report(_progressStore);
                     return;
@@ -464,7 +464,7 @@ namespace Legend2Tool.WPF.ViewModels
                     catch (OperationCanceledException)
                     {
                         _logger.Information($"文件编码转换已取消: {file}");
-                        Growl.Warning($"文件 {Path.GetFileName(file)} 转换被取消。");
+                        Growl.WarningGlobal($"文件 {Path.GetFileName(file)} 转换被取消。");
                     }
                     catch (IOException ex)
                     {
@@ -489,11 +489,11 @@ namespace Legend2Tool.WPF.ViewModels
                 if (filesFailedToConvert > 0)
                 {
                     finalMessage += $"有 {filesFailedToConvert} 个文件未能成功转换，请查看日志获取详情。";
-                    Growl.Warning(finalMessage);
+                    Growl.WarningGlobal(finalMessage);
                 }
                 else
                 {
-                    Growl.Success(finalMessage);
+                    Growl.SuccessGlobal(finalMessage);
                 }
                 _progressStore.ProgressText = finalMessage;
                 progress.Report(_progressStore);
@@ -501,7 +501,7 @@ namespace Legend2Tool.WPF.ViewModels
             catch (OperationCanceledException)
             {
                 _logger.Information("文件编码转换操作被用户取消。");
-                Growl.Info("文件编码转换操作已取消。");
+                Growl.InfoGlobal("文件编码转换操作已取消。");
                 _progressStore.ProgressText = "操作已取消。";
                 _progressStore.ProgressPercentage = 0;
                 progress.Report(_progressStore);
@@ -509,7 +509,7 @@ namespace Legend2Tool.WPF.ViewModels
             catch (Exception ex)
             {
                 _logger.Error(ex, $"编码转换操作失败：{ex.Message}");
-                Growl.Error("编码转换操作失败！请查看应用程序日志获取详细信息。");
+                Growl.ErrorGlobal("编码转换操作失败！请查看应用程序日志获取详细信息。");
                 _progressStore.ProgressText = "操作失败。";
                 _progressStore.ProgressPercentage = 0;
                 progress.Report(_progressStore);
@@ -522,19 +522,19 @@ namespace Legend2Tool.WPF.ViewModels
             ValidateAllProperties();
             if (HasErrors)
             {
-                Growl.Error("请检查输入参数是否正确。");
+                Growl.ErrorGlobal("请检查输入参数是否正确。");
                 return;
             }
 
             try
             {
                 await _configService.SaveConfigFileAsync(_configStore);
-                Growl.Success("保存成功");
+                Growl.SuccessGlobal("保存成功");
 
             }
             catch (Exception ex)
             {
-                Growl.Error("保存配置文件失败，请检查日志获取详细信息。");
+                Growl.ErrorGlobal("保存配置文件失败，请检查日志获取详细信息。");
                 _logger.Error(ex, $"保存配置文件失败：{ex.Message}", ex);
             }
         }
@@ -549,11 +549,11 @@ namespace Legend2Tool.WPF.ViewModels
                 {
                     throw new Exception("获取外网IP地址失败，返回值为null");
                 }
-                Growl.Success("获取外网IP地址成功");
+                Growl.SuccessGlobal("获取外网IP地址成功");
             }
             catch (Exception ex)
             {
-                Growl.Error("获取外网IP地址失败，请检查日志获取详细信息。");
+                Growl.ErrorGlobal("获取外网IP地址失败，请检查日志获取详细信息。");
                 _logger.Error(ex, $"获取外网IP地址失败:{ex.Message}", ex);
             }
         }
@@ -562,7 +562,7 @@ namespace Legend2Tool.WPF.ViewModels
         private void SetLocalIp()
         {
             ExtIPAddr = "127.0.0.1";
-            Growl.Success("设置本地IP地址成功");
+            Growl.SuccessGlobal("设置本地IP地址成功");
         }
         [RelayCommand(CanExecute = nameof(CanExecuteConfigCommands))]
         private void SetByServerName()
@@ -570,13 +570,13 @@ namespace Legend2Tool.WPF.ViewModels
             try
             {
                 LauncherName = _configService.GetLauncherName(_configStore);
-                Growl.Success("客户端名称设置成功!");
+                Growl.SuccessGlobal("客户端名称设置成功!");
 
             }
             catch (Exception ex)
             {
                 _logger.Error($"设置客户端名称失败：{ex.Message}", ex);
-                Growl.Error("设置客户端名称失败，请检查日志获取详细信息。");
+                Growl.ErrorGlobal("设置客户端名称失败，请检查日志获取详细信息。");
             }
         }
 
@@ -586,13 +586,13 @@ namespace Legend2Tool.WPF.ViewModels
             try
             {
                 ResourcesDir = _configService.GetResourcesDirByGamePinyin(LauncherName);
-                Growl.Success("资源目录设置成功!");
+                Growl.SuccessGlobal("资源目录设置成功!");
 
             }
             catch (Exception ex)
             {
                 _logger.Error($"设置资源目录失败：{ex.Message}", ex);
-                Growl.Error("设置资源目录失败，请检查日志获取详细信息。");
+                Growl.ErrorGlobal("设置资源目录失败，请检查日志获取详细信息。");
                 throw;
             }
         }
@@ -603,13 +603,13 @@ namespace Legend2Tool.WPF.ViewModels
             try
             {
                 await _configService.GenerateCleanupScriptAsync(_configStore.ServerDirectory);
-                Growl.Success("生成清理脚本成功!");
+                Growl.SuccessGlobal("生成清理脚本成功!");
 
             }
             catch (Exception ex)
             {
                 _logger.Error($"生成清理脚本失败：{ex.Message}", ex);
-                Growl.Error("生成清理脚本失败，请检查日志获取详细信息。");
+                Growl.ErrorGlobal("生成清理脚本失败，请检查日志获取详细信息。");
                 throw;
             }
         }

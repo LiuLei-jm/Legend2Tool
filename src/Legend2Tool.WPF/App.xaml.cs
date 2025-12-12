@@ -1,11 +1,11 @@
-﻿using System.Windows;
-using Legend2Tool.WPF.Services;
+﻿using Legend2Tool.WPF.Services;
 using Legend2Tool.WPF.State;
 using Legend2Tool.WPF.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Serilog;
+using System.Windows;
 
 namespace Legend2Tool.WPF
 {

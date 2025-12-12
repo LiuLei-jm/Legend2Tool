@@ -2,12 +2,8 @@
 using Legend2Tool.WPF.Enums;
 using Legend2Tool.WPF.Models.ScriptOptimizations;
 using Legend2Tool.WPF.State;
-using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 
 namespace Legend2Tool.WPF.Services

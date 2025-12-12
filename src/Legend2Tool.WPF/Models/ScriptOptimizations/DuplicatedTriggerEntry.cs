@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Legend2Tool.WPF.Models.ScriptOptimizations
+﻿namespace Legend2Tool.WPF.Models.ScriptOptimizations
 {
     public class DuplicatedTriggerEntry
     {
@@ -21,6 +15,6 @@ namespace Legend2Tool.WPF.Models.ScriptOptimizations
         public string FileName { get; set; } = string.Empty;
         public string FilePath { get; set; } = string.Empty;
         public int LineNumber { get; set; }
-        public bool IsRecursion { get; set; } 
+        public bool IsRecursion { get; set; }
     }
 }

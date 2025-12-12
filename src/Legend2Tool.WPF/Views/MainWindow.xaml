@@ -62,18 +62,18 @@
             Grid.Row="2"
             Grid.ColumnSpan="2"
             VerticalAlignment="Center">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="auto" />
-            </Grid.ColumnDefinitions>
-            <ProgressBar Grid.Column="0" Value="{Binding ProgressPercentage}" />
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="auto" />
+            </Grid.RowDefinitions>
             <TextBlock
-                Grid.Column="1"
-                MinWidth="200"
+                Grid.Row="0"
                 Margin="10,0,10,0"
+                HorizontalAlignment="Center"
                 VerticalAlignment="Center"
                 Foreground="Blue"
                 Text="{Binding ProgressText}" />
+            <ProgressBar Grid.Row="1" Value="{Binding ProgressPercentage}" />
         </Grid>
     </Grid>
 
