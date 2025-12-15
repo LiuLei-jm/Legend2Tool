@@ -69,7 +69,7 @@ namespace Legend2Tool.WPF.State
                 try
                 {
                     _configService.GetM2ConfigInfo(this);
-                    if (EngineType != EngineType.BLUE && EngineType != EngineType.NEWGOM && EngineType != EngineType.HGE)
+                    if (EngineType == EngineType.GEE || EngineType == EngineType.GOM)
                         _configService.GetLauncherConfigInfo(this);
                 }
                 catch (Exception ex)

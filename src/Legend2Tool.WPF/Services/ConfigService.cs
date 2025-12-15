@@ -1,4 +1,13 @@
-﻿using CommunityToolkit.Mvvm.Messaging;
+﻿using System.Diagnostics;
+using System.IO;
+using System.Net;
+using System.Net.Http;
+using System.Net.Sockets;
+using System.Reflection;
+using System.Text;
+using System.Text.RegularExpressions;
+using System.Windows;
+using CommunityToolkit.Mvvm.Messaging;
 using IniFileParser.Model;
 using Legend2Tool.WPF.Attributes;
 using Legend2Tool.WPF.Enums;
@@ -9,15 +18,6 @@ using Legend2Tool.WPF.Models.M2Config;
 using Legend2Tool.WPF.Models.M2Config.M2Config;
 using Legend2Tool.WPF.State;
 using Serilog;
-using System.Diagnostics;
-using System.IO;
-using System.Net;
-using System.Net.Http;
-using System.Net.Sockets;
-using System.Reflection;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Windows;
 using TinyPinyin;
 
 namespace Legend2Tool.WPF.Services
@@ -41,7 +41,11 @@ namespace Legend2Tool.WPF.Services
             "https://myexternalip.com/raw",
         ];
 
-        public ConfigService(ILogger logger, IEncodingService encodingService, IFileService fileService)
+        public ConfigService(
+            ILogger logger,
+            IEncodingService encodingService,
+            IFileService fileService
+        )
         {
             _logger = logger;
             _encodingService = encodingService;
@@ -50,7 +54,6 @@ namespace Legend2Tool.WPF.Services
 
         public EngineType CheckEngineType(string serverDirectory)
         {
-
             string primaryPath = Path.Combine(serverDirectory, "GameOfMir引擎控制器.exe");
             string filePath = File.Exists(primaryPath)
                 ? primaryPath
@@ -65,22 +68,22 @@ namespace Legend2Tool.WPF.Services
             {
                 var indicators = new (string Keyword, EngineType EngineType)[]
                 {
-                     ("gameofmir", EngineType.GOM),
-                     ("gamecenter", EngineType.NEWGOM),
-                     ("gee", EngineType.GEE),
-                     ("gxx", EngineType.GXX),
-                     ("hao", EngineType.LF),
-                     ("v8", EngineType.V8),
-                     ("blue", EngineType.BLUE),
-                     ("hge", EngineType.HGE),
+                    ("gameofmir", EngineType.GOM),
+                    ("gamecenter", EngineType.NEWGOM),
+                    ("gee", EngineType.GEE),
+                    ("gxx", EngineType.GXX),
+                    ("hao", EngineType.LF),
+                    ("v8", EngineType.V8),
+                    ("blue", EngineType.BLUE),
+                    ("hge", EngineType.HGE),
                 };
                 string companyName = fileVersionInfo.CompanyName ?? string.Empty;
                 string fileDescription = fileVersionInfo.FileDescription ?? string.Empty;
                 foreach (var (keyword, engineType) in indicators)
                 {
                     if (
-                    companyName.Contains(keyword, StringComparison.OrdinalIgnoreCase) ||
-                        fileDescription.Contains(keyword, StringComparison.OrdinalIgnoreCase)
+                        companyName.Contains(keyword, StringComparison.OrdinalIgnoreCase)
+                        || fileDescription.Contains(keyword, StringComparison.OrdinalIgnoreCase)
                     )
                     {
                         return engineType;
@@ -121,13 +124,18 @@ namespace Legend2Tool.WPF.Services
                     catch (OperationCanceledException ex)
                     {
                         throw new OperationCanceledException(
-                                                $"获取外部IP地址时请求超时或被取消。请检查网络连接或稍后重试。错误信息：{ex.Message}",
-                                                ex
-                                            );
+                            $"获取外部IP地址时请求超时或被取消。请检查网络连接或稍后重试。错误信息：{ex.Message}",
+                            ex
+                        );
                     }
                     catch (Exception ex)
                     {
-                        throw new Exception(apiUrl + " 获取外部IP地址时发生错误。请检查网络连接或稍后重试。错误信息：" + ex.Message, ex);
+                        throw new Exception(
+                            apiUrl
+                                + " 获取外部IP地址时发生错误。请检查网络连接或稍后重试。错误信息："
+                                + ex.Message,
+                            ex
+                        );
                     }
                 }
             }
@@ -153,7 +161,8 @@ namespace Legend2Tool.WPF.Services
             }
         }
 
-        private T ReadMultiSectionConfig<T>(string filePath, Encoding fileEncoding) where T : class, new()
+        private T ReadMultiSectionConfig<T>(string filePath, Encoding fileEncoding)
+            where T : class, new()
         {
             var parser = new IniFileParser.IniFileParser();
             parser.Parser.Configuration.AssigmentSpacer = ""; // <-- THIS IS THE KEY FIX
@@ -179,7 +188,10 @@ namespace Legend2Tool.WPF.Services
                         {
                             try
                             {
-                                prop.SetValue(settings, Convert.ChangeType(value, prop.PropertyType));
+                                prop.SetValue(
+                                    settings,
+                                    Convert.ChangeType(value, prop.PropertyType)
+                                );
                             }
                             catch (InvalidCastException ex)
                             {
@@ -204,7 +216,10 @@ namespace Legend2Tool.WPF.Services
                 for (int i = 0; i < geeConfig.MyGetTxtNum; i++)
                 {
                     string keyName = $"MyGetTxt{i}";
-                    if (data.Sections.ContainsSection(sectionName) && data[sectionName].ContainsKey(keyName))
+                    if (
+                        data.Sections.ContainsSection(sectionName)
+                        && data[sectionName].ContainsKey(keyName)
+                    )
                     {
                         string? value = data[sectionName][keyName];
                         if (!string.IsNullOrEmpty(value))
@@ -216,7 +231,10 @@ namespace Legend2Tool.WPF.Services
                 for (int i = 0; i < geeConfig.MyGetFileNum; i++)
                 {
                     string keyName = $"MyGetFile{i}";
-                    if (data.Sections.ContainsSection(sectionName) && data[sectionName].ContainsKey(keyName))
+                    if (
+                        data.Sections.ContainsSection(sectionName)
+                        && data[sectionName].ContainsKey(keyName)
+                    )
                     {
                         string? value = data[sectionName][keyName];
                         if (!string.IsNullOrEmpty(value))
@@ -228,7 +246,10 @@ namespace Legend2Tool.WPF.Services
                 for (int i = 0; i < geeConfig.MyGetDirNum; i++)
                 {
                     string keyName = $"MyGetDir{i}";
-                    if (data.Sections.ContainsSection(sectionName) && data[sectionName].ContainsKey(keyName))
+                    if (
+                        data.Sections.ContainsSection(sectionName)
+                        && data[sectionName].ContainsKey(keyName)
+                    )
                     {
                         string? value = data[sectionName][keyName];
                         if (!string.IsNullOrEmpty(value))
@@ -242,7 +263,8 @@ namespace Legend2Tool.WPF.Services
             return settings;
         }
 
-        private void WriteMultiSectionConfig<T>(string filePath, T config, Encoding fileEncoding) where T : class, new()
+        private void WriteMultiSectionConfig<T>(string filePath, T config, Encoding fileEncoding)
+            where T : class, new()
         {
             var parser = new IniFileParser.IniFileParser();
             parser.Parser.Configuration.AssigmentSpacer = ""; // <-- THIS IS THE KEY FIX
@@ -302,9 +324,9 @@ namespace Legend2Tool.WPF.Services
             parser.WriteFile(filePath, data, fileEncoding);
         }
 
-        private T ReadSectionConfig<T>(string filePath, Encoding fileEncoding, string sectionName) where T : class, new()
+        private T ReadSectionConfig<T>(string filePath, Encoding fileEncoding, string sectionName)
+            where T : class, new()
         {
-
             var parser = new IniFileParser.IniFileParser();
             parser.Parser.Configuration.AssigmentSpacer = ""; // <-- THIS IS THE KEY FIX
             parser.Parser.Configuration.CommentString = "#"; // Good practice
@@ -327,7 +349,10 @@ namespace Legend2Tool.WPF.Services
                         {
                             try
                             {
-                                prop.SetValue(settings, Convert.ChangeType(value, prop.PropertyType));
+                                prop.SetValue(
+                                    settings,
+                                    Convert.ChangeType(value, prop.PropertyType)
+                                );
                             }
                             catch (InvalidCastException ex)
                             {
@@ -347,7 +372,13 @@ namespace Legend2Tool.WPF.Services
             }
         }
 
-        private void WriteSectionConfig<T>(string filePath, T config, Encoding fileEncoding, string sectionName) where T : class, new()
+        private void WriteSectionConfig<T>(
+            string filePath,
+            T config,
+            Encoding fileEncoding,
+            string sectionName
+        )
+            where T : class, new()
         {
             var parser = new IniFileParser.IniFileParser();
             parser.Parser.Configuration.AssigmentSpacer = ""; // <-- THIS IS THE KEY FIX
@@ -431,6 +462,7 @@ namespace Legend2Tool.WPF.Services
             resourcesDir = CaptalizeFirstLetters(resourcesDir.ToLower());
             return resourcesDir;
         }
+
         private string CaptalizeFirstLetters(string v)
         {
             var words = v.Split(' ');
@@ -447,10 +479,12 @@ namespace Legend2Tool.WPF.Services
         public string GetLauncherName(ConfigStore configStore)
         {
             string pattern = @"^(.*?)[\d一二三四五六七八九十]+区";
-            if (string.IsNullOrEmpty(configStore.M2Config.GameName)) configStore.M2Config.GameName = "热血传奇";
+            if (string.IsNullOrEmpty(configStore.M2Config.GameName))
+                configStore.M2Config.GameName = "热血传奇";
             var match = Regex.Match(configStore.M2Config.GameName, pattern);
             var launcherName = match.Groups[1].Value;
-            if (string.IsNullOrEmpty(launcherName)) configStore.M2Config.GameName = "热血传奇";
+            if (string.IsNullOrEmpty(launcherName))
+                configStore.M2Config.GameName = "热血传奇";
             return launcherName;
         }
 
@@ -466,7 +500,10 @@ namespace Legend2Tool.WPF.Services
                 MessageBox.Show($"补丁目录不存在：{configStore.PatchDirectory}");
                 return;
             }
-            string newPatchDir = Path.Combine(Path.GetDirectoryName(configStore.PatchDirectory) ?? string.Empty, resourcesDir);
+            string newPatchDir = Path.Combine(
+                Path.GetDirectoryName(configStore.PatchDirectory) ?? string.Empty,
+                resourcesDir
+            );
             if (newPatchDir == configStore.PatchDirectory)
             {
                 MessageBox.Show("补丁目录未更改");
@@ -498,38 +535,58 @@ namespace Legend2Tool.WPF.Services
             var wzlLists = new List<string>();
             var wilLists = new List<string>();
 
-            var patchLists = _fileService.GetFiles(configStore.PatchDirectory, new List<string>
-            {
-                "*",
-            }, SearchOption.AllDirectories);
+            var patchLists = _fileService.GetFiles(
+                configStore.PatchDirectory,
+                new List<string> { "*" },
+                SearchOption.AllDirectories
+            );
 
             foreach (var file in patchLists)
             {
                 var fileExtension = Path.GetExtension(file).ToLowerInvariant();
                 switch (fileExtension)
                 {
-                    case ".cache": case ".pak": break;
-                    case ".map": mapLists.Add(file); break;
-                    case ".wav": case ".mp3": case ".lrc": wavLists.Add(file); break;
-                    default: dataLists.Add(file); break;
+                    case ".cache":
+                    case ".pak":
+                        break;
+                    case ".map":
+                        mapLists.Add(file);
+                        break;
+                    case ".wav":
+                    case ".mp3":
+                    case ".lrc":
+                        wavLists.Add(file);
+                        break;
+                    default:
+                        dataLists.Add(file);
+                        break;
                 }
             }
 
-            var dataDirectory = Path.Combine(Path.GetDirectoryName(configStore.PatchDirectory)!, "data");
+            var dataDirectory = Path.Combine(
+                Path.GetDirectoryName(configStore.PatchDirectory)!,
+                "data"
+            );
 
-            var wzlDataLists = _fileService.GetFiles(dataDirectory, new List<string>
-            {
-                "*",
-            }, SearchOption.AllDirectories);
+            var wzlDataLists = _fileService.GetFiles(
+                dataDirectory,
+                new List<string> { "*" },
+                SearchOption.AllDirectories
+            );
 
             foreach (var file in wzlDataLists)
             {
                 var fileExtension = Path.GetExtension(file).ToLowerInvariant();
                 switch (fileExtension)
                 {
-                    case ".wzl": wzlLists.Add(file); break;
-                    case ".wil": wilLists.Add(file); break;
-                    default: break;
+                    case ".wzl":
+                        wzlLists.Add(file);
+                        break;
+                    case ".wil":
+                        wilLists.Add(file);
+                        break;
+                    default:
+                        break;
                 }
             }
 
@@ -547,7 +604,11 @@ namespace Legend2Tool.WPF.Services
             }
             var fileEncoding = _encodingService.DetectFileEncoding(pakPath);
             string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-            var backupPath = Path.Combine(configStore.ServerDirectory, "登录器", $"Pak_{timestamp}.txt");
+            var backupPath = Path.Combine(
+                configStore.ServerDirectory,
+                "登录器",
+                $"Pak_{timestamp}.txt"
+            );
             var tempFilePath = Path.Combine(configStore.ServerDirectory, "登录器", $"Pak_temp.txt");
             bool isExists = false;
 
@@ -559,11 +620,14 @@ namespace Legend2Tool.WPF.Services
                     string? line;
                     while ((line = reader.ReadLine()) != null)
                     {
-                        var keepPart = line.Contains("data", StringComparison.OrdinalIgnoreCase) ? GetSourcePath(line, "data") : GetSourcePath(line, "Graphics");
+                        var keepPart = line.Contains("data", StringComparison.OrdinalIgnoreCase)
+                            ? GetSourcePath(line, "data")
+                            : GetSourcePath(line, "Graphics");
                         var newLine = $"{configStore.PatchDirectory}\\{keepPart}";
                         if (keepPart.Contains("newopui", StringComparison.OrdinalIgnoreCase))
                         {
-                            if (isExists) continue;
+                            if (isExists)
+                                continue;
                             keepPart = GetSourcePath(line, "newopui.pak");
                             newLine = $"{configStore.ServerDirectory}\\登录器\\{keepPart}";
                             isExists = true;
@@ -598,23 +662,29 @@ namespace Legend2Tool.WPF.Services
 
             if (configStore.M2Config is GEEConfig geeConfig)
             {
-                portsToCheck = portsToCheck.Concat(new[]
-                {
-                    geeConfig.LoginGateGatePort1,
-                    geeConfig.RunGateDBPort1,
-                    geeConfig.RunGateDBPort2,
-                    geeConfig.RunGateDBPort3,
-                    geeConfig.RunGateDBPort4,
-                    geeConfig.RunGateDBPort5,
-                    geeConfig.RunGateDBPort6,
-                    geeConfig.RunGateDBPort7,
-                    geeConfig.RunGateDBPort8
-                }).ToArray();
+                portsToCheck = portsToCheck
+                    .Concat(
+                        new[]
+                        {
+                            geeConfig.LoginGateGatePort1,
+                            geeConfig.RunGateDBPort1,
+                            geeConfig.RunGateDBPort2,
+                            geeConfig.RunGateDBPort3,
+                            geeConfig.RunGateDBPort4,
+                            geeConfig.RunGateDBPort5,
+                            geeConfig.RunGateDBPort6,
+                            geeConfig.RunGateDBPort7,
+                            geeConfig.RunGateDBPort8,
+                        }
+                    )
+                    .ToArray();
             }
 
             if (configStore.M2Config is BLUEConfig blueConfig)
             {
-                portsToCheck = portsToCheck.Concat(new[] { blueConfig.LoginServerMonPort }).ToArray();
+                portsToCheck = portsToCheck
+                    .Concat(new[] { blueConfig.LoginServerMonPort })
+                    .ToArray();
             }
 
             if (!CheckPorts(portsToCheck))
@@ -622,13 +692,22 @@ namespace Legend2Tool.WPF.Services
                 return;
             }
 
-            if (!string.IsNullOrEmpty(configStore.PatchDirectory))
+            if (
+                !string.IsNullOrEmpty(configStore.PatchDirectory)
+                && (
+                    configStore.EngineType == EngineType.GEE
+                    || configStore.EngineType == EngineType.GOM
+                )
+            )
             {
                 RenamePatchDirectory(configStore.LauncherConfig.ResourcesDir!, configStore);
                 await ModifyPAKPath(configStore);
             }
             SaveM2ConfigToFile(configStore);
-            if (configStore.EngineType != EngineType.BLUE || configStore.EngineType != EngineType.NEWGOM || configStore.EngineType != EngineType.HGE)
+            if (
+                configStore.EngineType == EngineType.GEE
+                || configStore.EngineType == EngineType.GOM
+            )
             {
                 SaveLauncherConfigToFile(configStore);
             }
@@ -646,25 +725,46 @@ namespace Legend2Tool.WPF.Services
             configStore.LauncherConfig = configStore.EngineType switch
             {
                 EngineType.GOM => ReadMultiSectionConfig<LauncherConfigGOM>(filePath, fileEncoding),
-                EngineType.GEE or EngineType.GXX or EngineType.LF or EngineType.V8 => ReadMultiSectionConfig<LauncherConfigGEE>(filePath, fileEncoding),
-                _ => ReadMultiSectionConfig<LauncherConfigBase>(filePath, fileEncoding)
+                EngineType.GEE or EngineType.GXX or EngineType.LF or EngineType.V8 =>
+                    ReadMultiSectionConfig<LauncherConfigGEE>(filePath, fileEncoding),
+                _ => ReadMultiSectionConfig<LauncherConfigBase>(filePath, fileEncoding),
             };
 
             if (configStore.LauncherConfig is LauncherConfigGEE geeConfig)
             {
-                geeConfig.BackgroundImage = Path.Combine(configStore.ServerDirectory, GetSourcePath(geeConfig.BackgroundImage, "登录器"));
-                geeConfig.LauncherIcon = Path.Combine(configStore.ServerDirectory, GetSourcePath(geeConfig.LauncherIcon, "登录器"));
-                geeConfig.GameCursor = Path.Combine(configStore.ServerDirectory, GetSourcePath(geeConfig.GameCursor, "登录器"));
-                geeConfig.InlayCursor = Path.Combine(configStore.ServerDirectory, GetSourcePath(geeConfig.InlayCursor, "登录器"));
-                geeConfig.DisassembleCursor = Path.Combine(configStore.ServerDirectory, GetSourcePath(geeConfig.DisassembleCursor, "登录器"));
+                geeConfig.BackgroundImage = Path.Combine(
+                    configStore.ServerDirectory,
+                    GetSourcePath(geeConfig.BackgroundImage, "登录器")
+                );
+                geeConfig.LauncherIcon = Path.Combine(
+                    configStore.ServerDirectory,
+                    GetSourcePath(geeConfig.LauncherIcon, "登录器")
+                );
+                geeConfig.GameCursor = Path.Combine(
+                    configStore.ServerDirectory,
+                    GetSourcePath(geeConfig.GameCursor, "登录器")
+                );
+                geeConfig.InlayCursor = Path.Combine(
+                    configStore.ServerDirectory,
+                    GetSourcePath(geeConfig.InlayCursor, "登录器")
+                );
+                geeConfig.DisassembleCursor = Path.Combine(
+                    configStore.ServerDirectory,
+                    GetSourcePath(geeConfig.DisassembleCursor, "登录器")
+                );
             }
             else if (configStore.LauncherConfig is LauncherConfigGOM gomConfig)
             {
-                gomConfig.BackgroundImage = Path.Combine(configStore.ServerDirectory, GetSourcePath(gomConfig.BackgroundImage, "登录器"));
+                gomConfig.BackgroundImage = Path.Combine(
+                    configStore.ServerDirectory,
+                    GetSourcePath(gomConfig.BackgroundImage, "登录器")
+                );
             }
             else
             {
-                _logger.Warning($"尝试读取未知的 LauncherConfig 类型：{configStore.LauncherConfig?.GetType().Name ?? "null"}");
+                _logger.Warning(
+                    $"尝试读取未知的 LauncherConfig 类型：{configStore.LauncherConfig?.GetType().Name ?? "null"}"
+                );
             }
         }
 
@@ -680,38 +780,57 @@ namespace Legend2Tool.WPF.Services
             configStore.EngineType = CheckEngineType(configStore.ServerDirectory);
             configStore.M2Config = configStore.EngineType switch
             {
-                EngineType.GOM or EngineType.NEWGOM => ReadMultiSectionConfig<GOMConfig>(filePath, fileEncoding),
-                EngineType.GEE or EngineType.GXX or EngineType.LF or EngineType.V8 => ReadMultiSectionConfig<GEEConfig>(filePath, fileEncoding),
+                EngineType.GOM or EngineType.NEWGOM => ReadMultiSectionConfig<GOMConfig>(
+                    filePath,
+                    fileEncoding
+                ),
+                EngineType.GEE or EngineType.GXX or EngineType.LF or EngineType.V8 =>
+                    ReadMultiSectionConfig<GEEConfig>(filePath, fileEncoding),
                 EngineType.BLUE => ReadMultiSectionConfig<BLUEConfig>(filePath, fileEncoding),
                 EngineType.HGE => ReadMultiSectionConfig<HGEConfig>(filePath, fileEncoding),
-                _ => throw new InvalidOperationException("不支持的引擎")
+                _ => throw new InvalidOperationException("不支持的引擎"),
             };
 
             configStore.M2Config.GameDirectory = $"{configStore.ServerDirectory}\\";
 
             if (configStore.M2Config is GEEConfig geeConfig)
             {
-                geeConfig.SqliteDBFile = Path.Combine(configStore.ServerDirectory, GetSourcePath(geeConfig.SqliteDBFile, "Mud2"));
-                geeConfig.SqliteDBName = Path.Combine(configStore.ServerDirectory, GetSourcePath(geeConfig.SqliteDBName, "Mud2"));
+                geeConfig.SqliteDBFile = Path.Combine(
+                    configStore.ServerDirectory,
+                    GetSourcePath(geeConfig.SqliteDBFile, "Mud2")
+                );
+                geeConfig.SqliteDBName = Path.Combine(
+                    configStore.ServerDirectory,
+                    GetSourcePath(geeConfig.SqliteDBName, "Mud2")
+                );
                 if (geeConfig.MyGetTxtNum > 0)
                 {
                     for (int i = 0; i < geeConfig.MyGetTxtNum; i++)
                     {
-                        geeConfig.MyGetTxtList[i] = Path.Combine(configStore.ServerDirectory, GetSourcePath(geeConfig.MyGetTxtList[i], "Mir200"));
+                        geeConfig.MyGetTxtList[i] = Path.Combine(
+                            configStore.ServerDirectory,
+                            GetSourcePath(geeConfig.MyGetTxtList[i], "Mir200")
+                        );
                     }
                 }
                 if (geeConfig.MyGetFileNum > 0)
                 {
                     for (int i = 0; i < geeConfig.MyGetFileNum; i++)
                     {
-                        geeConfig.MyGetFileList[i] = Path.Combine(configStore.ServerDirectory, GetSourcePath(geeConfig.MyGetFileList[i], "Mir200"));
+                        geeConfig.MyGetFileList[i] = Path.Combine(
+                            configStore.ServerDirectory,
+                            GetSourcePath(geeConfig.MyGetFileList[i], "Mir200")
+                        );
                     }
                 }
                 if (geeConfig.MyGetDirNum > 0)
                 {
                     for (int i = 0; i < geeConfig.MyGetDirNum; i++)
                     {
-                        geeConfig.MyGetDirList[i] = Path.Combine(configStore.ServerDirectory, GetSourcePath(geeConfig.MyGetDirList[i], "Mir200"));
+                        geeConfig.MyGetDirList[i] = Path.Combine(
+                            configStore.ServerDirectory,
+                            GetSourcePath(geeConfig.MyGetDirList[i], "Mir200")
+                        );
                     }
                 }
 
@@ -720,36 +839,70 @@ namespace Legend2Tool.WPF.Services
             }
             else if (configStore.M2Config is GOMConfig gomConfig)
             {
-                gomConfig.AccessFileName = Path.Combine(configStore.ServerDirectory, GetSourcePath(gomConfig.AccessFileName, "Mud2"));
+                gomConfig.AccessFileName = Path.Combine(
+                    configStore.ServerDirectory,
+                    GetSourcePath(gomConfig.AccessFileName, "Mud2")
+                );
                 if (configStore.EngineType == EngineType.GOM)
                     SetDefaultBackListPath(configStore);
                 SetDefaultSetupPath(configStore);
             }
             else if (configStore.M2Config is BLUEConfig blueConfig)
             {
-                blueConfig.DataTableFile = Path.Combine(configStore.ServerDirectory, GetSourcePath(blueConfig.DataTableFile, "Mud2"));
+                blueConfig.DataTableFile = Path.Combine(
+                    configStore.ServerDirectory,
+                    GetSourcePath(blueConfig.DataTableFile, "Mud2")
+                );
                 blueConfig.Backup = 1;
                 blueConfig.Mode = 0;
                 blueConfig.Interval = 720;
                 blueConfig.Attime = "0:0:00";
                 blueConfig.数据备份目录 = 1;
-                blueConfig.数据备份目录_path = Path.Combine(configStore.ServerDirectory, "数据备份");
+                blueConfig.数据备份目录_path = Path.Combine(
+                    configStore.ServerDirectory,
+                    "数据备份"
+                );
                 blueConfig.WinRAR目录 = 1;
                 blueConfig.WinRAR目录_path = Path.Combine(configStore.ServerDirectory, "WinRAR");
                 blueConfig.FDB目录 = 1;
-                blueConfig.FDB目录_path = Path.Combine(configStore.ServerDirectory, "DBServer", "FDB");
+                blueConfig.FDB目录_path = Path.Combine(
+                    configStore.ServerDirectory,
+                    "DBServer",
+                    "FDB"
+                );
                 blueConfig.IDDB目录 = 1;
-                blueConfig.IDDB目录_path = Path.Combine(configStore.ServerDirectory, "LoginSrv", "IDDB");
+                blueConfig.IDDB目录_path = Path.Combine(
+                    configStore.ServerDirectory,
+                    "LoginSrv",
+                    "IDDB"
+                );
                 blueConfig.行会目录 = 1;
-                blueConfig.行会目录_path = Path.Combine(configStore.ServerDirectory, "Mir200", "GuildBase");
+                blueConfig.行会目录_path = Path.Combine(
+                    configStore.ServerDirectory,
+                    "Mir200",
+                    "GuildBase"
+                );
                 blueConfig.沙城目录 = 1;
-                blueConfig.沙城目录_path = Path.Combine(configStore.ServerDirectory, "Mir200", "Castle");
+                blueConfig.沙城目录_path = Path.Combine(
+                    configStore.ServerDirectory,
+                    "Mir200",
+                    "Castle"
+                );
                 blueConfig.脚本数据目录 = 1;
-                blueConfig.脚本数据目录_path = Path.Combine(configStore.ServerDirectory, "Mir200", "Envir", "QuestDiary", "数据文件");
+                blueConfig.脚本数据目录_path = Path.Combine(
+                    configStore.ServerDirectory,
+                    "Mir200",
+                    "Envir",
+                    "QuestDiary",
+                    "数据文件"
+                );
             }
             else if (configStore.M2Config is HGEConfig hgeConfig)
             {
-                hgeConfig.SQLiteName = Path.Combine(configStore.ServerDirectory, GetSourcePath(hgeConfig.SQLiteName, "Mud2"));
+                hgeConfig.SQLiteName = Path.Combine(
+                    configStore.ServerDirectory,
+                    GetSourcePath(hgeConfig.SQLiteName, "Mud2")
+                );
                 hgeConfig.DataDir1 = configStore.ServerDirectory;
                 hgeConfig.BakDir1 = Path.Combine(configStore.ServerDirectory, "数据备份");
                 hgeConfig.TimeCls1 = 0;
@@ -762,9 +915,10 @@ namespace Legend2Tool.WPF.Services
             }
             else
             {
-                _logger.Warning($"尝试读取未知的 M2Config 类型：{configStore.M2Config?.GetType().Name ?? "null"}");
+                _logger.Warning(
+                    $"尝试读取未知的 M2Config 类型：{configStore.M2Config?.GetType().Name ?? "null"}"
+                );
             }
-
         }
 
         private void SetDefaultSetupPath(ConfigStore configStore)
@@ -779,10 +933,25 @@ namespace Legend2Tool.WPF.Services
 
             configStore.Setup = ReadMultiSectionConfig<Setup>(filePath, fileEncoding);
 
-            configStore.Setup.ChatDir = Path.Combine(configStore.ServerDirectory, "Mir200", "ChatLog");
+            configStore.Setup.ChatDir = Path.Combine(
+                configStore.ServerDirectory,
+                "Mir200",
+                "ChatLog"
+            );
             configStore.Setup.SortDir = Path.Combine(configStore.ServerDirectory, "Mir200", "Sort");
-            configStore.Setup.BoxsDir = Path.Combine(configStore.ServerDirectory, "Mir200", "Envir", "Boxs");
-            configStore.Setup.BoxsFile = Path.Combine(configStore.ServerDirectory, "Mir200", "Envir", "Boxs", "BoxsList.txt");
+            configStore.Setup.BoxsDir = Path.Combine(
+                configStore.ServerDirectory,
+                "Mir200",
+                "Envir",
+                "Boxs"
+            );
+            configStore.Setup.BoxsFile = Path.Combine(
+                configStore.ServerDirectory,
+                "Mir200",
+                "Envir",
+                "Boxs",
+                "BoxsList.txt"
+            );
 
             WriteMultiSectionConfig(filePath, configStore.Setup, fileEncoding);
         }
@@ -802,11 +971,9 @@ namespace Legend2Tool.WPF.Services
             parser.Parser.Configuration.CommentString = "#"; // Good practice
             parser.Parser.Configuration.SkipInvalidLines = true; // Good practice
 
-
             IniData data = parser.ReadFile(filePath, fileEncoding);
 
             configStore.BackLists.Clear();
-
 
             foreach (var section in data.Sections)
             {
@@ -815,9 +982,22 @@ namespace Legend2Tool.WPF.Services
                     var backList = new BackListBase();
                     backList = configStore.EngineType switch
                     {
-                        EngineType.GOM => ReadSectionConfig<BackListBase>(filePath, fileEncoding, section.SectionName),
-                        EngineType.GEE or EngineType.GXX or EngineType.LF or EngineType.V8 => ReadSectionConfig<GEEBackList>(filePath, fileEncoding, section.SectionName),
-                        _ => ReadSectionConfig<BackListBase>(filePath, fileEncoding, section.SectionName)
+                        EngineType.GOM => ReadSectionConfig<BackListBase>(
+                            filePath,
+                            fileEncoding,
+                            section.SectionName
+                        ),
+                        EngineType.GEE or EngineType.GXX or EngineType.LF or EngineType.V8 =>
+                            ReadSectionConfig<GEEBackList>(
+                                filePath,
+                                fileEncoding,
+                                section.SectionName
+                            ),
+                        _ => ReadSectionConfig<BackListBase>(
+                            filePath,
+                            fileEncoding,
+                            section.SectionName
+                        ),
                     };
                     backList.sectionName = section.SectionName;
                     configStore.BackLists.Add(backList);
@@ -826,8 +1006,14 @@ namespace Legend2Tool.WPF.Services
 
             foreach (var backList in configStore.BackLists)
             {
-                backList.Source = Path.Combine(configStore.ServerDirectory, GetSourcePath(backList.Source, "mirserver")[10..]);
-                backList.Save = Path.Combine(configStore.ServerDirectory, GetSourcePath(backList.Save, "mirserver")[10..]);
+                backList.Source = Path.Combine(
+                    configStore.ServerDirectory,
+                    GetSourcePath(backList.Source, "mirserver")[10..]
+                );
+                backList.Save = Path.Combine(
+                    configStore.ServerDirectory,
+                    GetSourcePath(backList.Save, "mirserver")[10..]
+                );
                 backList.Hour = 6;
                 backList.Min = 0;
                 backList.BackMode = 1;
@@ -835,10 +1021,20 @@ namespace Legend2Tool.WPF.Services
                 if (backList is GEEBackList geeBackList)
                 {
                     geeBackList.IsCompress = 1;
-                    WriteSectionConfig<GEEBackList>(filePath, geeBackList, fileEncoding, backList.sectionName);
+                    WriteSectionConfig<GEEBackList>(
+                        filePath,
+                        geeBackList,
+                        fileEncoding,
+                        backList.sectionName
+                    );
                     continue;
                 }
-                WriteSectionConfig<BackListBase>(filePath, backList, fileEncoding, backList.sectionName);
+                WriteSectionConfig<BackListBase>(
+                    filePath,
+                    backList,
+                    fileEncoding,
+                    backList.sectionName
+                );
             }
         }
 
@@ -851,7 +1047,6 @@ namespace Legend2Tool.WPF.Services
                 return;
             }
             var fileEncoding = _encodingService.DetectFileEncoding(filePath);
-
 
             if (configStore.M2Config is GEEConfig geeConfig)
             {
@@ -867,7 +1062,9 @@ namespace Legend2Tool.WPF.Services
             }
             else
             {
-                _logger.Warning($"尝试写入未知的 M2Config 类型：{configStore.M2Config?.GetType().Name ?? "null"}");
+                _logger.Warning(
+                    $"尝试写入未知的 M2Config 类型：{configStore.M2Config?.GetType().Name ?? "null"}"
+                );
             }
         }
 
@@ -890,14 +1087,18 @@ namespace Legend2Tool.WPF.Services
             }
             else
             {
-                _logger.Warning($"尝试写入未知的 LauncherConfig 类型：{configStore.LauncherConfig?.GetType().Name ?? "null"}");
+                _logger.Warning(
+                    $"尝试写入未知的 LauncherConfig 类型：{configStore.LauncherConfig?.GetType().Name ?? "null"}"
+                );
             }
         }
+
         private string GetSourcePath(string? oldPath, string match)
         {
             try
             {
-                if (string.IsNullOrEmpty(oldPath)) return match;
+                if (string.IsNullOrEmpty(oldPath))
+                    return match;
                 int startIndex = oldPath!.IndexOf(match, StringComparison.OrdinalIgnoreCase);
                 if (startIndex != -1)
                 {
@@ -915,8 +1116,15 @@ namespace Legend2Tool.WPF.Services
         {
             var fileName = "清理文件.bat";
             var filePath = Path.Combine(baseDirectory, fileName);
-            var templatePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "CleanupDirectoryTemplate.txt");
-            string batContent = await File.ReadAllTextAsync(templatePath, Encoding.GetEncoding("GB18030"));
+            var templatePath = Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory,
+                "Resources",
+                "CleanupDirectoryTemplate.txt"
+            );
+            string batContent = await File.ReadAllTextAsync(
+                templatePath,
+                Encoding.GetEncoding("GB18030")
+            );
 
             await File.WriteAllTextAsync(filePath, batContent, Encoding.GetEncoding("GB18030"));
         }
