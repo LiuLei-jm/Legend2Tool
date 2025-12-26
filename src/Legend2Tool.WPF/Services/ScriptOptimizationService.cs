@@ -1887,6 +1887,11 @@ namespace Legend2Tool.WPF.Services
 
         public async Task OptimizingMinMonBurstRateAsync(int minMonBurstRate)
         {
+            if(_configStore.EngineType == EngineType.BLUE || _configStore.EngineType == EngineType.HGE)
+            {
+                MessageBox.Show("该引擎不支持该功能。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
             IProgress<ProgressStore> progress = new Progress<ProgressStore>(report =>
             {
                 _progressStore.ProgressPercentage = report.ProgressPercentage;
