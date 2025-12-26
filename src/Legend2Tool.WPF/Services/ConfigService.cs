@@ -695,8 +695,10 @@ namespace Legend2Tool.WPF.Services
             if (
                 !string.IsNullOrEmpty(configStore.PatchDirectory)
                 && (
-                    configStore.EngineType == EngineType.GEE
-                    || configStore.EngineType == EngineType.GOM
+                    configStore.EngineType != EngineType.BLUE
+                    && configStore.EngineType != EngineType.HGE
+                    && configStore.EngineType != EngineType.NEWGOM
+                    && configStore.EngineType != EngineType.Unknown
                 )
             )
             {
@@ -705,8 +707,10 @@ namespace Legend2Tool.WPF.Services
             }
             SaveM2ConfigToFile(configStore);
             if (
-                configStore.EngineType == EngineType.GEE
-                || configStore.EngineType == EngineType.GOM
+                    configStore.EngineType != EngineType.BLUE
+                    && configStore.EngineType != EngineType.HGE
+                    && configStore.EngineType != EngineType.NEWGOM
+                    && configStore.EngineType != EngineType.Unknown
             )
             {
                 SaveLauncherConfigToFile(configStore);
