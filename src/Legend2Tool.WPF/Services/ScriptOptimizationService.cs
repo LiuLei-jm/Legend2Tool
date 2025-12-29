@@ -188,72 +188,73 @@ namespace Legend2Tool.WPF.Services
             {
                 try
                 {
+                    if (filePath.Contains("QuestDiary", StringComparison.OrdinalIgnoreCase)) continue;
                     var fileName = Path.GetFileName(filePath);
                     Encoding fileEncoding = _encodingService.DetectFileEncoding(filePath);
                     var newFileContent = new List<string>();
                     var callLines = new HashSet<string>();
                     var linesToPrepend = new List<string>();
                     bool isStart =
-                        filePath.Contains("QFunction", StringComparison.OrdinalIgnoreCase)
-                        || filePath.Contains("QManage", StringComparison.OrdinalIgnoreCase)
-                        || filePath.Contains("RobotManage", StringComparison.OrdinalIgnoreCase);
+                        !filePath.Contains("QFunction", StringComparison.OrdinalIgnoreCase)
+                        && !filePath.Contains("QManage", StringComparison.OrdinalIgnoreCase)
+                        && !filePath.Contains("RobotManage", StringComparison.OrdinalIgnoreCase);
                     bool isInAct = false;
                     if (isStart)
-                    //{
-                    //    await foreach (var line in File.ReadLinesAsync(filePath, fileEncoding))
-                    //    {
-                    //        var trimmedLine = line.TrimStart();
+                    {
+                        await foreach (var line in File.ReadLinesAsync(filePath, fileEncoding))
+                        {
+                            var trimmedLine = line.TrimStart();
 
-                    //        if (
-                    //            trimmedLine.StartsWith("[@")
-                    //            || trimmedLine.StartsWith("#if", StringComparison.OrdinalIgnoreCase)
-                    //        )
-                    //        {
-                    //            isInAct = false;
-                    //        }
-                    //        else if (
-                    //            trimmedLine.StartsWith("#act", StringComparison.OrdinalIgnoreCase)
-                    //            || trimmedLine.StartsWith(
-                    //                "#elseact",
-                    //                StringComparison.OrdinalIgnoreCase
-                    //            )
-                    //        )
-                    //        {
-                    //            isInAct = true;
-                    //        }
+                            if (
+                                trimmedLine.StartsWith("[@")
+                                || trimmedLine.StartsWith("#if", StringComparison.OrdinalIgnoreCase)
+                            )
+                            {
+                                isInAct = false;
+                            }
+                            else if (
+                                trimmedLine.StartsWith("#act", StringComparison.OrdinalIgnoreCase)
+                                || trimmedLine.StartsWith(
+                                    "#elseact",
+                                    StringComparison.OrdinalIgnoreCase
+                                )
+                            )
+                            {
+                                isInAct = true;
+                            }
 
-                    //        if (trimmedLine.StartsWith("#Call", StringComparison.OrdinalIgnoreCase))
-                    //        {
-                    //            ExtractCallPathAndField(
-                    //                trimmedLine,
-                    //                out string callPath,
-                    //                out string callField
-                    //            );
-                    //            var callLine = $"{callPath}{callField}";
-                    //            if (callLines.Add(callLine))
-                    //            {
-                    //                newFileContent.Add(trimmedLine);
-                    //            }
-                    //            else
-                    //            {
-                    //                string oldLine = $";{trimmedLine}";
-                    //                newFileContent.Add(oldLine);
-                    //                if (!isInAct)
-                    //                {
-                    //                    newFileContent.Add($"#Act");
-                    //                    isInAct = true;
-                    //                }
-                    //                string newLine = $"Goto {callField}";
-                    //                newFileContent.Add(newLine);
-                    //            }
-                    //        }
-                    //        else
-                    //        {
-                    //            newFileContent.Add(trimmedLine);
-                    //        }
-                    //    }
-                    //}
-                    //else
+                            if (trimmedLine.StartsWith("#Call", StringComparison.OrdinalIgnoreCase))
+                            {
+                                ExtractCallPathAndField(
+                                    trimmedLine,
+                                    out string callPath,
+                                    out string callField
+                                );
+                                var callLine = $"{callPath}{callField}";
+                                if (callLines.Add(callLine))
+                                {
+                                    newFileContent.Add(trimmedLine);
+                                }
+                                else
+                                {
+                                    string oldLine = $";{trimmedLine}";
+                                    newFileContent.Add(oldLine);
+                                    if (!isInAct)
+                                    {
+                                        newFileContent.Add($"#Act");
+                                        isInAct = true;
+                                    }
+                                    string newLine = $"Goto {callField}";
+                                    newFileContent.Add(newLine);
+                                }
+                            }
+                            else
+                            {
+                                newFileContent.Add(trimmedLine);
+                            }
+                        }
+                    }
+                    else
                     {
                         await foreach (var line in File.ReadLinesAsync(filePath, fileEncoding))
                         {
