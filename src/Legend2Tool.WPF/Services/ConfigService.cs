@@ -1,13 +1,4 @@
-﻿using System.Diagnostics;
-using System.IO;
-using System.Net;
-using System.Net.Http;
-using System.Net.Sockets;
-using System.Reflection;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Windows;
-using CommunityToolkit.Mvvm.Messaging;
+﻿using CommunityToolkit.Mvvm.Messaging;
 using IniFileParser.Model;
 using Legend2Tool.WPF.Attributes;
 using Legend2Tool.WPF.Enums;
@@ -18,6 +9,15 @@ using Legend2Tool.WPF.Models.M2Config;
 using Legend2Tool.WPF.Models.M2Config.M2Config;
 using Legend2Tool.WPF.State;
 using Serilog;
+using System.Diagnostics;
+using System.IO;
+using System.Net;
+using System.Net.Http;
+using System.Net.Sockets;
+using System.Reflection;
+using System.Text;
+using System.Text.RegularExpressions;
+using System.Windows;
 using TinyPinyin;
 
 namespace Legend2Tool.WPF.Services
@@ -1063,6 +1063,10 @@ namespace Legend2Tool.WPF.Services
             else if (configStore.M2Config is BLUEConfig blueConfig)
             {
                 WriteMultiSectionConfig(filePath, blueConfig, fileEncoding);
+            }
+            else if (configStore.M2Config is HGEConfig hgeConfig)
+            {
+                WriteMultiSectionConfig(filePath, hgeConfig, fileEncoding);
             }
             else
             {

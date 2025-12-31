@@ -1,11 +1,4 @@
-﻿using System.Collections.Concurrent;
-using System.Data.OleDb;
-using System.IO;
-using System.IO.Compression;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Windows;
-using Legend2Tool.WPF.Commons;
+﻿using Legend2Tool.WPF.Commons;
 using Legend2Tool.WPF.Enums;
 using Legend2Tool.WPF.Models.M2Config;
 using Legend2Tool.WPF.Models.M2Config.M2Config;
@@ -14,6 +7,13 @@ using Legend2Tool.WPF.State;
 using Microsoft.Data.Sqlite;
 using Serilog;
 using SQLitePCL;
+using System.Collections.Concurrent;
+using System.Data.OleDb;
+using System.IO;
+using System.IO.Compression;
+using System.Text;
+using System.Text.RegularExpressions;
+using System.Windows;
 
 namespace Legend2Tool.WPF.Services
 {
@@ -1888,7 +1888,7 @@ namespace Legend2Tool.WPF.Services
 
         public async Task OptimizingMinMonBurstRateAsync(int minMonBurstRate)
         {
-            if(_configStore.EngineType == EngineType.BLUE || _configStore.EngineType == EngineType.HGE)
+            if (_configStore.EngineType == EngineType.BLUE || _configStore.EngineType == EngineType.HGE)
             {
                 MessageBox.Show("该引擎不支持该功能。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
