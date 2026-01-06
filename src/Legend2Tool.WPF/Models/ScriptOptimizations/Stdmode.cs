@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Concurrent;
 
 namespace Legend2Tool.WPF.Models.ScriptOptimizations
 {
@@ -11,7 +7,9 @@ namespace Legend2Tool.WPF.Models.ScriptOptimizations
         public int Id { get; set; }
         public string? Name { get; set; }
         public string? Type { get; set; }
-        public HashSet<string> Mons { get; set; } = ["-1"];
-        public HashSet<string> Npcs { get; set; } = ["-1"];
+        public ConcurrentDictionary<string, byte> Mons { get; set; } =
+            new ConcurrentDictionary<string, byte>() { ["-1"] = 0 };
+        public ConcurrentDictionary<string, byte> Npcs { get; set; } =
+            new ConcurrentDictionary<string, byte>() { ["-1"] = 0 };
     }
 }

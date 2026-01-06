@@ -4,11 +4,15 @@ namespace Legend2Tool.WPF.Models.M2Config.M2Config
 {
     public class BLUEConfig : M2ConfigBase
     {
+        // GameConf section
         [IniConfig("GameConf", "DataTableFile")]
         public string? DataTableFile { get; set; }
 
+        // LoginServer section
         [IniConfig("LoginServer", "MonPort")]
         public int LoginServerMonPort { get; set; }
+
+        // Backup section
         [IniConfig("Backup", "backup")]
         public int Backup { get; set; } = 0;
         [IniConfig("Backup", "mode")]

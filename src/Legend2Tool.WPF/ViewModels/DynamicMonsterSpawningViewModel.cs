@@ -8,12 +8,7 @@ using Legend2Tool.WPF.Models.ScriptOptimizations;
 using Legend2Tool.WPF.Services;
 using Legend2Tool.WPF.State;
 using Serilog;
-using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Legend2Tool.WPF.ViewModels
 {
@@ -81,7 +76,7 @@ namespace Legend2Tool.WPF.ViewModels
             ValidateAllProperties();
             if (HasErrors)
             {
-                Growl.Error("请检查输入参数是否正确。");
+                Growl.ErrorGlobal("请检查输入参数是否正确。");
                 return;
             }
 
@@ -90,12 +85,12 @@ namespace Legend2Tool.WPF.ViewModels
             {
                 var options = CollectRefreshScriptOption();
                 await _dynamicMonsterSpawningService.GenerateRefreshMonScriptAsync(options);
-                Growl.Success("脚本生成成功!");
+                Growl.SuccessGlobal("脚本生成成功!");
             }
             catch (Exception ex)
             {
                 _logger.Error(ex, $"生成脚本时发生错误: {ex.Message}");
-                Growl.Error("生成脚本时发生错误，请检查输入参数是否正确。");
+                Growl.ErrorGlobal("生成脚本时发生错误，请检查输入参数是否正确。");
             }
             finally
             {
@@ -111,12 +106,12 @@ namespace Legend2Tool.WPF.ViewModels
             {
                 var options = CollectRefreshScriptOption();
                 await _dynamicMonsterSpawningService.ClearRefreshMonScriptAsync(options);
-                Growl.Success("脚本清除成功！");
+                Growl.SuccessGlobal("脚本清除成功！");
             }
             catch (Exception ex)
             {
                 _logger.Error(ex, $"清除脚本时发生错误:{ex.Message}");
-                Growl.Error("清除脚本时发生错误，请检查文件是否被占用。");
+                Growl.ErrorGlobal("清除脚本时发生错误，请检查文件是否被占用。");
                 return;
             }
             finally

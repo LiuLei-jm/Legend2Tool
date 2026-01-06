@@ -1,20 +1,18 @@
-﻿using CommunityToolkit.Mvvm.Messaging;
-using Legend2Tool.WPF.Commons;
+﻿using Legend2Tool.WPF.Commons;
 using Legend2Tool.WPF.Enums;
-using Legend2Tool.WPF.Messages;
+using Legend2Tool.WPF.Models.M2Config;
 using Legend2Tool.WPF.Models.M2Config.M2Config;
 using Legend2Tool.WPF.Models.ScriptOptimizations;
 using Legend2Tool.WPF.State;
 using Microsoft.Data.Sqlite;
 using Serilog;
 using SQLitePCL;
+using System.Collections.Concurrent;
 using System.Data.OleDb;
 using System.IO;
 using System.IO.Compression;
-using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using System.Windows;
 
 namespace Legend2Tool.WPF.Services
@@ -28,9 +26,18 @@ namespace Legend2Tool.WPF.Services
         private readonly ILogger _logger;
         private HashSet<string> _mainCityLists = [];
 
-        private static readonly Regex _burstSymbolRegex = new Regex(@"^(;|\(|\)|{|}|\#child)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex _skipFieldRegex = new Regex(@"^(;|\#|\[|\<)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex _variableRegex = new Regex(@"\<\$STR\((.*?)\)\>", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex _burstSymbolRegex = new Regex(
+            @"^(;|\(|\)|{|}|\#child)",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase
+        );
+        private static readonly Regex _skipFieldRegex = new Regex(
+            @"^(;|\#|\[|\<)",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase
+        );
+        private static readonly Regex _variableRegex = new Regex(
+            @"\<\$STR\((.*?)\)\>",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase
+        );
 
         private Dictionary<string, StdMode> _stdModes = new(StringComparer.OrdinalIgnoreCase);
         private Dictionary<string, Monster> _monsters = new(StringComparer.OrdinalIgnoreCase);
@@ -40,8 +47,13 @@ namespace Legend2Tool.WPF.Services
         private HashSet<string> _visited = [];
         private Dictionary<string, string> _variables = [];
 
-
-        public ScriptOptimizationService(ConfigStore configStore, IEncodingService encodingService, IFileService fileService, ProgressStore progressStore, ILogger logger)
+        public ScriptOptimizationService(
+            ConfigStore configStore,
+            IEncodingService encodingService,
+            IFileService fileService,
+            ProgressStore progressStore,
+            ILogger logger
+        )
         {
             _configStore = configStore;
             _encodingService = encodingService;
@@ -84,29 +96,48 @@ namespace Legend2Tool.WPF.Services
                         for (int i = 0; i < lines.Length; i++)
                         {
                             var currentLine = lines[i].Trim();
-                            if (!currentLine.Contains('@')) continue;
+                            if (!currentLine.Contains('@'))
+                                continue;
                             var match = Regex.Match(currentLine, pattern);
                             if (match.Success)
                             {
                                 currentTrigger = match.Value;
-                                currentField = currentTrigger.Substring(1, currentTrigger.Length - 2).ToLower();
-                                if (AppConstants.ExcludedTriggers.Contains(currentTrigger)) continue;
+                                currentField = currentTrigger
+                                    .Substring(1, currentTrigger.Length - 2)
+                                    .ToLower();
+                                if (AppConstants.ExcludedTriggers.Contains(currentTrigger))
+                                    continue;
                                 if (!triggers.Add(currentField))
                                 {
-                                    var entry = new DuplicatedTriggerEntry(currentField, fileName, filePath, i + 1, false);
+                                    var entry = new DuplicatedTriggerEntry(
+                                        currentField,
+                                        fileName,
+                                        filePath,
+                                        i + 1,
+                                        false
+                                    );
                                     duplicatedEntries.Add(entry);
                                 }
                                 continue;
                             }
                             else
                             {
-                                if (AppConstants.ExcludedTriggers.Contains(currentTrigger)) continue;
-                                if (!string.IsNullOrEmpty(currentField) && currentLine.EndsWith(currentField))
+                                if (AppConstants.ExcludedTriggers.Contains(currentTrigger))
+                                    continue;
+                                if (
+                                    !string.IsNullOrEmpty(currentField)
+                                    && currentLine.EndsWith(currentField)
+                                )
                                 {
-                                    var entry = new DuplicatedTriggerEntry(currentField, fileName, filePath, i + 1, true);
+                                    var entry = new DuplicatedTriggerEntry(
+                                        currentField,
+                                        fileName,
+                                        filePath,
+                                        i + 1,
+                                        true
+                                    );
                                     duplicatedEntries.Add(entry);
                                 }
-
                             }
                         }
                     }
@@ -116,13 +147,18 @@ namespace Legend2Tool.WPF.Services
                     }
                     catch (UnauthorizedAccessException ex)
                     {
-                        throw new UnauthorizedAccessException($"无权限访问文件 '{filePath}': {ex.Message}");
+                        throw new UnauthorizedAccessException(
+                            $"无权限访问文件 '{filePath}': {ex.Message}"
+                        );
                     }
                     finally
                     {
                         int updatedProgress = Interlocked.Increment(ref currentProgress);
-                        _progressStore.ProgressPercentage = (int)((updatedProgress / (double)totalFiles) * 100);
-                        _progressStore.ProgressText = $"{updatedProgress}/{totalFiles}：{Path.GetFileName(filePath)}";
+                        _progressStore.ProgressPercentage = (int)(
+                            (updatedProgress / (double)totalFiles) * 100
+                        );
+                        _progressStore.ProgressText =
+                            $"{updatedProgress}/{totalFiles}：{Path.GetFileName(filePath)}";
                         progress.Report(_progressStore);
                     }
                 });
@@ -152,12 +188,14 @@ namespace Legend2Tool.WPF.Services
             {
                 try
                 {
+                    if (filePath.Contains("QuestDiary", StringComparison.OrdinalIgnoreCase)) continue;
                     var fileName = Path.GetFileName(filePath);
                     Encoding fileEncoding = _encodingService.DetectFileEncoding(filePath);
                     var newFileContent = new List<string>();
                     var callLines = new HashSet<string>();
                     var linesToPrepend = new List<string>();
-                    bool isStart = !filePath.Contains("QFunction", StringComparison.OrdinalIgnoreCase)
+                    bool isStart =
+                        !filePath.Contains("QFunction", StringComparison.OrdinalIgnoreCase)
                         && !filePath.Contains("QManage", StringComparison.OrdinalIgnoreCase)
                         && !filePath.Contains("RobotManage", StringComparison.OrdinalIgnoreCase);
                     bool isInAct = false;
@@ -167,18 +205,31 @@ namespace Legend2Tool.WPF.Services
                         {
                             var trimmedLine = line.TrimStart();
 
-                            if (trimmedLine.StartsWith("[@") || trimmedLine.StartsWith("#if", StringComparison.OrdinalIgnoreCase))
+                            if (
+                                trimmedLine.StartsWith("[@")
+                                || trimmedLine.StartsWith("#if", StringComparison.OrdinalIgnoreCase)
+                            )
                             {
                                 isInAct = false;
                             }
-                            else if (trimmedLine.StartsWith("#act", StringComparison.OrdinalIgnoreCase) || trimmedLine.StartsWith("#elseact", StringComparison.OrdinalIgnoreCase))
+                            else if (
+                                trimmedLine.StartsWith("#act", StringComparison.OrdinalIgnoreCase)
+                                || trimmedLine.StartsWith(
+                                    "#elseact",
+                                    StringComparison.OrdinalIgnoreCase
+                                )
+                            )
                             {
                                 isInAct = true;
                             }
 
                             if (trimmedLine.StartsWith("#Call", StringComparison.OrdinalIgnoreCase))
                             {
-                                ExtractCallPathAndField(trimmedLine, out string callPath, out string callField);
+                                ExtractCallPathAndField(
+                                    trimmedLine,
+                                    out string callPath,
+                                    out string callField
+                                );
                                 var callLine = $"{callPath}{callField}";
                                 if (callLines.Add(callLine))
                                 {
@@ -210,7 +261,9 @@ namespace Legend2Tool.WPF.Services
                             var trimmedLine = line.TrimStart();
                             if (!isStart)
                             {
-                                if (trimmedLine.StartsWith("[@", StringComparison.OrdinalIgnoreCase))
+                                if (
+                                    trimmedLine.StartsWith("[@", StringComparison.OrdinalIgnoreCase)
+                                )
                                 {
                                     isStart = true;
                                 }
@@ -221,18 +274,31 @@ namespace Legend2Tool.WPF.Services
                                 }
                             }
 
-                            if (trimmedLine.StartsWith("[@") || trimmedLine.StartsWith("#if", StringComparison.OrdinalIgnoreCase))
+                            if (
+                                trimmedLine.StartsWith("[@")
+                                || trimmedLine.StartsWith("#if", StringComparison.OrdinalIgnoreCase)
+                            )
                             {
                                 isInAct = false;
                             }
-                            else if (trimmedLine.StartsWith("#act", StringComparison.OrdinalIgnoreCase) || trimmedLine.StartsWith("#elseact", StringComparison.OrdinalIgnoreCase))
+                            else if (
+                                trimmedLine.StartsWith("#act", StringComparison.OrdinalIgnoreCase)
+                                || trimmedLine.StartsWith(
+                                    "#elseact",
+                                    StringComparison.OrdinalIgnoreCase
+                                )
+                            )
                             {
                                 isInAct = true;
                             }
 
                             if (trimmedLine.StartsWith("#call", StringComparison.OrdinalIgnoreCase))
                             {
-                                ExtractCallPathAndField(trimmedLine, out string callPath, out string callField);
+                                ExtractCallPathAndField(
+                                    trimmedLine,
+                                    out string callPath,
+                                    out string callField
+                                );
                                 var callLine = $"{callPath}{callField}";
                                 if (callLines.Add(callLine))
                                 {
@@ -268,7 +334,9 @@ namespace Legend2Tool.WPF.Services
                 }
                 catch (UnauthorizedAccessException ex)
                 {
-                    throw new UnauthorizedAccessException($"无权限访问文件 '{filePath}': {ex.Message}");
+                    throw new UnauthorizedAccessException(
+                        $"无权限访问文件 '{filePath}': {ex.Message}"
+                    );
                 }
                 catch (IOException ex)
                 {
@@ -276,21 +344,32 @@ namespace Legend2Tool.WPF.Services
                 }
                 catch (OutOfMemoryException ex)
                 {
-                    throw new OutOfMemoryException($"处理文件 '{filePath}' 时内存不足: {ex.Message}", ex);
+                    throw new OutOfMemoryException(
+                        $"处理文件 '{filePath}' 时内存不足: {ex.Message}",
+                        ex
+                    );
                 }
                 catch (ArgumentException ex)
                 {
-                    throw new ArgumentException($"处理文件 '{filePath}' 时发生错误: {ex.Message}", ex);
+                    throw new ArgumentException(
+                        $"处理文件 '{filePath}' 时发生错误: {ex.Message}",
+                        ex
+                    );
                 }
                 catch (Exception)
                 {
-                    throw new Exception($"处理文件 '{filePath}' 时发生错误。请检查文件内容和格式是否正确。");
+                    throw new Exception(
+                        $"处理文件 '{filePath}' 时发生错误。请检查文件内容和格式是否正确。"
+                    );
                 }
                 finally
                 {
                     int updatedProgress = Interlocked.Increment(ref currentProgress);
-                    _progressStore.ProgressPercentage = (int)((updatedProgress / (double)totalFiles) * 100);
-                    _progressStore.ProgressText = $"{updatedProgress}/{totalFiles}：{Path.GetFileName(filePath)}";
+                    _progressStore.ProgressPercentage = (int)(
+                        (updatedProgress / (double)totalFiles) * 100
+                    );
+                    _progressStore.ProgressText =
+                        $"{updatedProgress}/{totalFiles}：{Path.GetFileName(filePath)}";
                     progress.Report(_progressStore);
                 }
             }
@@ -309,7 +388,8 @@ namespace Legend2Tool.WPF.Services
             {
                 callPath = callPath[1..];
             }
-            if (callPath.Contains('/')) callPath = callPath.Replace('/', '\\');
+            if (callPath.Contains('/'))
+                callPath = callPath.Replace('/', '\\');
             startIndex = line.IndexOf('@');
             if (startIndex != -1)
             {
@@ -336,8 +416,8 @@ namespace Legend2Tool.WPF.Services
                     {
                         FileName = entry.FilePath,
                         Arguments = $"-n {entry.LineNumber}",
-                        UseShellExecute = true
-                    }
+                        UseShellExecute = true,
+                    },
                 };
                 process.Start();
             }
@@ -346,38 +426,68 @@ namespace Legend2Tool.WPF.Services
                 MessageBox.Show($"打开文件失败: {ex.Message}");
             }
         }
+
         private List<string> GetScriptFiles()
         {
-            var mapQuestDefDirectory = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "MapQuest_Def");
+            var mapQuestDefDirectory = Path.Combine(
+                _configStore.ServerDirectory,
+                "Mir200",
+                "Envir",
+                "MapQuest_Def"
+            );
             if (!Directory.Exists(mapQuestDefDirectory))
             {
                 throw new DirectoryNotFoundException($"目录{mapQuestDefDirectory}没有找到");
             }
-            var marketDefDirectory = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "Market_Def");
+            var marketDefDirectory = Path.Combine(
+                _configStore.ServerDirectory,
+                "Mir200",
+                "Envir",
+                "Market_Def"
+            );
             if (!Directory.Exists(marketDefDirectory))
             {
                 throw new DirectoryNotFoundException($"目录{marketDefDirectory}没有找到");
             }
-            var questDiaryDirectory = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "QuestDiary");
+            var questDiaryDirectory = Path.Combine(
+                _configStore.ServerDirectory,
+                "Mir200",
+                "Envir",
+                "QuestDiary"
+            );
             if (!Directory.Exists(questDiaryDirectory))
             {
                 throw new DirectoryNotFoundException($"目录{questDiaryDirectory}没有找到");
             }
-            var robotDefDirectory = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "Robot_Def");
+            var robotDefDirectory = Path.Combine(
+                _configStore.ServerDirectory,
+                "Mir200",
+                "Envir",
+                "Robot_Def"
+            );
             if (!Directory.Exists(robotDefDirectory))
             {
                 throw new DirectoryNotFoundException($"目录{robotDefDirectory}没有找到");
             }
-            var files = _fileService.GetFiles(mapQuestDefDirectory, ["*.txt"], SearchOption.AllDirectories);
-            files.AddRange(_fileService.GetFiles(marketDefDirectory, ["*.txt"], SearchOption.AllDirectories));
-            files.AddRange(_fileService.GetFiles(questDiaryDirectory, ["*.txt"], SearchOption.AllDirectories));
-            files.AddRange(_fileService.GetFiles(robotDefDirectory, ["*.txt"], SearchOption.AllDirectories));
+            var files = _fileService.GetFiles(
+                mapQuestDefDirectory,
+                ["*.txt"],
+                SearchOption.AllDirectories
+            );
+            files.AddRange(
+                _fileService.GetFiles(marketDefDirectory, ["*.txt"], SearchOption.AllDirectories)
+            );
+            files.AddRange(
+                _fileService.GetFiles(questDiaryDirectory, ["*.txt"], SearchOption.AllDirectories)
+            );
+            files.AddRange(
+                _fileService.GetFiles(robotDefDirectory, ["*.txt"], SearchOption.AllDirectories)
+            );
             return files;
         }
 
         public async Task DropRateCalculatorAsync()
         {
-
             _stdModes.Clear();
             _mapDatas.Clear();
             _monsters.Clear();
@@ -410,7 +520,7 @@ namespace Legend2Tool.WPF.Services
             progress.Report(_progressStore);
             await ProcessMongenAsync();
             _progressStore.ProgressPercentage = (int)((4 / 7.0) * 100);
-            _progressStore.ProgressText = $"获取怪物信息";
+            _progressStore.ProgressText = $"获取怪物爆率";
             progress.Report(_progressStore);
             await ProcessMonItemsAsync();
             _progressStore.ProgressPercentage = (int)((5 / 7.0) * 100);
@@ -424,11 +534,12 @@ namespace Legend2Tool.WPF.Services
             _progressStore.ProgressPercentage = (int)((7 / 7.0) * 100);
             _progressStore.ProgressText = $"处理完成";
             progress.Report(_progressStore);
-
         }
+
         private async Task ProcessDataWriteFileAsync()
         {
-            if (string.IsNullOrEmpty(_configStore.LauncherConfig.LauncherName)) _configStore.LauncherConfig.LauncherName = "热血传奇";
+            if (string.IsNullOrEmpty(_configStore.LauncherConfig.LauncherName))
+                _configStore.LauncherConfig.LauncherName = "热血传奇";
             var versionName = _configStore.LauncherConfig.LauncherName;
             var versionNamePinYin = _configStore.LauncherConfig.ResourcesDir;
 
@@ -440,7 +551,8 @@ namespace Legend2Tool.WPF.Services
             customBuilder.AppendLine("}");
 
             var folderPath = Path.Combine(_configStore.ServerDirectory, versionName);
-            if (!Directory.Exists(folderPath)) Directory.CreateDirectory(folderPath);
+            if (!Directory.Exists(folderPath))
+                Directory.CreateDirectory(folderPath);
             string filePath = Path.Combine(folderPath, "custom.js");
             await File.WriteAllTextAsync(filePath, customBuilder.ToString());
 
@@ -450,20 +562,22 @@ namespace Legend2Tool.WPF.Services
             dataBuilder.AppendLine($"var Stdlist = [");
             foreach (var stdmode in _stdModes.Values)
             {
-                string mons = string.Join(",", stdmode.Mons);
-                string npcs = string.Join(",", stdmode.Npcs);
-                string line = $@"{{ name: ""{stdmode.Name}"", type: ""{stdmode.Type}"", mon: ""{mons}"", npc: ""{npcs}"" }},";
+                string mons = string.Join(",", stdmode.Mons.Keys);
+                string npcs = string.Join(",", stdmode.Npcs.Keys);
+                string line =
+                    $@"{{ name: ""{stdmode.Name}"", type: ""{stdmode.Type}"", mon: ""{mons}"", npc: ""{npcs}"" }},";
                 dataBuilder.AppendLine(line);
             }
             dataBuilder.AppendLine("];");
             dataBuilder.AppendLine("var Monlist = [");
             foreach (var monster in _monsters.Values)
             {
-                string stds = string.Join(",", monster.Stds);
-                string maps = string.Join(",", monster.Maps);
-                string npcs = string.Join(",", monster.Npcs);
-                string bots = string.Join(",", monster.Bots);
-                string line = $@"{{ name: ""{monster.Name}"", std: ""{stds}"", map: ""{maps}"", npc: ""{npcs}"", bot: ""{bots}"" }},";
+                string stds = string.Join(",", monster.Stds.Keys);
+                string maps = string.Join(",", monster.Maps.Keys);
+                string npcs = string.Join(",", monster.Npcs.Keys);
+                string bots = string.Join(",", monster.Bots.Keys);
+                string line =
+                    $@"{{ name: ""{monster.Name}"", std: ""{stds}"", map: ""{maps}"", npc: ""{npcs}"", bot: ""{bots}"" }},";
                 dataBuilder.AppendLine(line);
             }
             dataBuilder.AppendLine("];");
@@ -473,8 +587,10 @@ namespace Legend2Tool.WPF.Services
                 string mapName = $"{mapData.Name}({mapData.Code})";
                 string mons = string.Join(",", mapData.Mons);
                 string npcs = string.Join(",", mapData.Npcs);
-                string paths = mapData.BestPaths.Count > 0 ? string.Join(",", mapData.BestPaths) : "没有找到";
-                string line = $@"{{ name: ""{mapName}"", code: ""{mapData.Code}"", mon: ""{mons}"", npc: ""{npcs}"", path: ""{paths}"" }},";
+                string paths =
+                    mapData.BestPaths.Count > 0 ? string.Join(",", mapData.BestPaths) : "没有找到";
+                string line =
+                    $@"{{ name: ""{mapName}"", code: ""{mapData.Code}"", mon: ""{mons}"", npc: ""{npcs}"", path: ""{paths}"" }},";
                 dataBuilder.AppendLine(line);
             }
             dataBuilder.AppendLine("];");
@@ -485,7 +601,8 @@ namespace Legend2Tool.WPF.Services
                 string gives = string.Join(",", npcdata.Gives);
                 string takes = string.Join(",", npcdata.Takes);
                 string moves = string.Join(",", npcdata.Moves);
-                string line = $@"{{ name: ""{name}"", mname: ""{npcdata.Mname}"", mxy: ""{npcdata.Mxy}"", give: ""{gives}"", take: ""{takes}"", move: ""{moves}"" }},";
+                string line =
+                    $@"{{ name: ""{name}"", mname: ""{npcdata.Mname}"", mxy: ""{npcdata.Mxy}"", give: ""{gives}"", take: ""{takes}"", move: ""{moves}"" }},";
                 dataBuilder.AppendLine(line);
             }
             dataBuilder.AppendLine("];");
@@ -499,12 +616,21 @@ namespace Legend2Tool.WPF.Services
                 mapDescBuilder.AppendLine($@"{mapDesc}$33FFFF,0");
                 mapDescBuilder.AppendLine($@"{mapDesc}$33FFFF,1");
             }
-            await File.WriteAllTextAsync(filePath, mapDescBuilder.ToString(), Encoding.GetEncoding("GB18030"));
+            await File.WriteAllTextAsync(
+                filePath,
+                mapDescBuilder.ToString(),
+                Encoding.GetEncoding("GB18030")
+            );
         }
 
         private async Task ProcessMapEventAsync()
         {
-            var filePath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "MapEvent.txt");
+            var filePath = Path.Combine(
+                _configStore.ServerDirectory,
+                "Mir200",
+                "Envir",
+                "MapEvent.txt"
+            );
             if (!Path.Exists(filePath))
             {
                 _logger.Warning($"找不到文件：{filePath}.");
@@ -514,9 +640,14 @@ namespace Legend2Tool.WPF.Services
             await foreach (var line in File.ReadLinesAsync(filePath, fileEncoding))
             {
                 var trimmedLine = line.Trim();
-                if (string.IsNullOrEmpty(trimmedLine) || _skipFieldRegex.IsMatch(trimmedLine)) continue;
-                var parts = trimmedLine.Split(AppConstants.EmptySeparator, StringSplitOptions.RemoveEmptyEntries);
-                if (!parts[5].StartsWith('4') && !parts[5].StartsWith('5')) continue;
+                if (string.IsNullOrEmpty(trimmedLine) || _skipFieldRegex.IsMatch(trimmedLine))
+                    continue;
+                var parts = trimmedLine.Split(
+                    AppConstants.EmptySeparator,
+                    StringSplitOptions.RemoveEmptyEntries
+                );
+                if (!parts[5].StartsWith('4') && !parts[5].StartsWith('5'))
+                    continue;
                 var mapCode = parts[0];
                 if (!_mapDatas.TryGetValue(mapCode, out var mapData))
                 {
@@ -538,9 +669,16 @@ namespace Legend2Tool.WPF.Services
             Encoding fileEncoding;
             foreach (var npcData in _npcDatas)
             {
-                if (string.IsNullOrEmpty(npcData.FilePath)) continue;
+                if (string.IsNullOrEmpty(npcData.FilePath))
+                    continue;
                 var npcFilePath = npcData.FilePath.Replace('/', '\\');
-                filePath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "Market_Def", $"{npcFilePath}-{npcData.Code}.txt");
+                filePath = Path.Combine(
+                    _configStore.ServerDirectory,
+                    "Mir200",
+                    "Envir",
+                    "Market_Def",
+                    $"{npcFilePath}-{npcData.Code}.txt"
+                );
                 fileEncoding = _encodingService.DetectFileEncoding(filePath);
                 await foreach (var line in File.ReadLinesAsync(filePath, fileEncoding))
                 {
@@ -548,10 +686,19 @@ namespace Legend2Tool.WPF.Services
                     if (trimmedLine.StartsWith("#call", StringComparison.OrdinalIgnoreCase))
                     {
                         ExtractCallPathAndField(trimmedLine, out var callPath, out var callField);
-                        if (string.IsNullOrEmpty(callPath) || string.IsNullOrEmpty(callField)) continue;
-                        var fullCallPath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "QuestDiary", callPath);
+                        if (string.IsNullOrEmpty(callPath) || string.IsNullOrEmpty(callField))
+                            continue;
+                        var fullCallPath = Path.Combine(
+                            _configStore.ServerDirectory,
+                            "Mir200",
+                            "Envir",
+                            "QuestDiary",
+                            callPath
+                        );
                         var callFileEncoding = _encodingService.DetectFileEncoding(fullCallPath);
-                        await foreach (var callLine in File.ReadLinesAsync(fullCallPath, callFileEncoding))
+                        await foreach (
+                            var callLine in File.ReadLinesAsync(fullCallPath, callFileEncoding)
+                        )
                         {
                             //if (callLine.StartsWith("#call", StringComparison.OrdinalIgnoreCase))
                             //{
@@ -573,16 +720,23 @@ namespace Legend2Tool.WPF.Services
 
         private async Task ProcessNpcFileCallAsync(string line, NpcData npcData)
         {
-            await GeneralProcessCallScript(line,
-                 callLine => ProcessNpcFileContent(callLine, npcData),
-                async callLine => await ProcessNpcFileCallAsync(callLine, npcData));
+            await GeneralProcessCallScript(
+                line,
+                callLine => ProcessNpcFileContent(callLine, npcData),
+                async callLine => await ProcessNpcFileCallAsync(callLine, npcData)
+            );
         }
 
         private void ProcessNpcFileContent(string trimmedLine, NpcData npcData)
         {
-            if (string.IsNullOrEmpty(trimmedLine) || _skipFieldRegex.IsMatch(trimmedLine)) return;
-            var parts = trimmedLine.Split(AppConstants.EmptySeparator, StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length < 2) return;
+            if (string.IsNullOrEmpty(trimmedLine) || _skipFieldRegex.IsMatch(trimmedLine))
+                return;
+            var parts = trimmedLine.Split(
+                AppConstants.EmptySeparator,
+                StringSplitOptions.RemoveEmptyEntries
+            );
+            if (parts.Length < 2)
+                return;
 
             var command = parts[0];
 
@@ -597,11 +751,13 @@ namespace Legend2Tool.WPF.Services
             if (AppConstants.GiveCommands.Contains(command))
             {
                 var item = parts[1];
-                if (item.Equals("金币")) return;
-                if (item.StartsWith("<$")) item = GetVariableValue(item);
+                if (item.Equals("金币"))
+                    return;
+                if (item.StartsWith("<$"))
+                    item = GetVariableValue(item);
                 if (!_stdModes.TryGetValue(item, out var stdMode))
                 {
-                    _logger.Warning($"无法获取物品：{trimmedLine}.");
+                    _logger.Warning($"物品 {item} 无法获取：{trimmedLine}.");
                     return;
                 }
                 NpcGiveStdmodeAssociation(npcData, stdMode);
@@ -610,11 +766,13 @@ namespace Legend2Tool.WPF.Services
             if (AppConstants.TakeCommands.Contains(command))
             {
                 var item = parts[1];
-                if (item.Equals("金币")) return;
-                if (item.StartsWith("<$")) item = GetVariableValue(item);
+                if (item.Equals("金币"))
+                    return;
+                if (item.StartsWith("<$"))
+                    item = GetVariableValue(item);
                 if (!_stdModes.TryGetValue(item, out var stdMode))
                 {
-                    _logger.Warning($"无法获取物品：{trimmedLine}.");
+                    _logger.Warning($"物品 {item} 无法获取：{trimmedLine}.");
                     return;
                 }
                 NpcTakeStdModeAssociation(npcData, stdMode);
@@ -623,7 +781,8 @@ namespace Legend2Tool.WPF.Services
             if (AppConstants.MapCommands.Contains(command))
             {
                 var mapCode = parts[1];
-                if (mapCode.StartsWith("<$")) mapCode = GetVariableValue(mapCode);
+                if (mapCode.StartsWith("<$"))
+                    mapCode = GetVariableValue(mapCode);
                 if (!_mapDatas.TryGetValue(mapCode, out var mapData))
                 {
                     _logger.Warning($"无法获取地图：{trimmedLine}.");
@@ -645,17 +804,24 @@ namespace Legend2Tool.WPF.Services
                 }
             }
             int startIndex = variable.IndexOf('(');
-            if (startIndex == -1) return string.Empty;
+            if (startIndex == -1)
+                return string.Empty;
             startIndex++;
             int endIndex = variable.LastIndexOf(')');
-            if (endIndex == -1) return string.Empty;
+            if (endIndex == -1)
+                return string.Empty;
             int length = endIndex - startIndex;
             return variable.Substring(startIndex, length);
         }
 
         private async Task ProcessMonItemsAsync()
         {
-            var directory = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "MonItems");
+            var directory = Path.Combine(
+                _configStore.ServerDirectory,
+                "Mir200",
+                "Envir",
+                "MonItems"
+            );
             var destinationFolder = Path.Combine(_configStore.ServerDirectory, "UnusedMonItems");
             if (!Directory.Exists(directory))
             {
@@ -666,7 +832,7 @@ namespace Legend2Tool.WPF.Services
             foreach (var filePath in files)
             {
                 var monName = Path.GetFileNameWithoutExtension(filePath);
-                var processedItems = new HashSet<string>();
+                var processedItems = new ConcurrentDictionary<string, byte>();
                 if (!_monsters.TryGetValue(monName, out var monster))
                 {
                     MovFileToUnused(filePath, destinationFolder);
@@ -676,9 +842,11 @@ namespace Legend2Tool.WPF.Services
                 await foreach (var line in File.ReadLinesAsync(filePath, fileEncoding))
                 {
                     var trimmedLine = line.Trim();
-                    if (string.IsNullOrWhiteSpace(trimmedLine) ||
-                        _burstSymbolRegex.IsMatch(trimmedLine)
-                        ) continue;
+                    if (
+                        string.IsNullOrWhiteSpace(trimmedLine)
+                        || _burstSymbolRegex.IsMatch(trimmedLine)
+                    )
+                        continue;
                     if (trimmedLine.StartsWith("#call", StringComparison.OrdinalIgnoreCase))
                     {
                         await ProcessCallBurstRateAsync(trimmedLine, processedItems, monster);
@@ -691,60 +859,100 @@ namespace Legend2Tool.WPF.Services
             }
         }
 
-        private async Task ProcessCallBurstRateAsync(string trimmedLine, HashSet<string> processedItems, Monster monster)
+        private async Task ProcessCallBurstRateAsync(
+            string trimmedLine,
+            ConcurrentDictionary<string, byte> processedItems,
+            Monster monster
+        )
         {
-            await GeneralProcessCallScript(trimmedLine,
+            await GeneralProcessCallScript(
+                trimmedLine,
                 callLine => ProcessBurstRateContent(callLine, processedItems, monster),
-               async callLine => await ProcessCallBurstRateAsync(callLine, processedItems, monster));
+                async callLine => await ProcessCallBurstRateAsync(callLine, processedItems, monster)
+            );
         }
 
-        private async Task GeneralProcessCallScript(string trimmedLine, Action<string> processContent, Action<string> processCall)
+        private async Task GeneralProcessCallScript(
+            string trimmedLine,
+            Action<string> processContent,
+            Action<string> processCall
+        )
         {
             ExtractCallPathAndField(trimmedLine, out var callPath, out var callField);
-            if (string.IsNullOrEmpty(callPath) || string.IsNullOrEmpty(callField)) return;
-            var fullCallPath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "QuestDiary", callPath);
+            if (string.IsNullOrEmpty(callPath) || string.IsNullOrEmpty(callField))
+                return;
+            var fullCallPath = Path.Combine(
+                _configStore.ServerDirectory,
+                "Mir200",
+                "Envir",
+                "QuestDiary",
+                callPath
+            );
             var fullCallPathEncoding = _encodingService.DetectFileEncoding(fullCallPath);
             bool isInSection = false;
             await foreach (var callLine in File.ReadLinesAsync(fullCallPath, fullCallPathEncoding))
             {
                 var trimmedCallLine = callLine.Trim();
-                if (string.IsNullOrWhiteSpace(trimmedCallLine) ||
-                    _burstSymbolRegex.IsMatch(trimmedCallLine)
-                    ) continue;
-                if (trimmedCallLine.StartsWith("#call", StringComparison.OrdinalIgnoreCase))
+                if (
+                    string.IsNullOrWhiteSpace(trimmedCallLine)
+                    || _burstSymbolRegex.IsMatch(trimmedCallLine)
+                )
+                    continue;
+                if (
+                    isInSection
+                    && trimmedCallLine.StartsWith("#call", StringComparison.OrdinalIgnoreCase)
+                )
                 {
                     if (trimmedCallLine.Contains(callPath, StringComparison.OrdinalIgnoreCase))
                     {
                         _logger.Warning($"产生循环Call,路径：{callPath}");
                     }
-                    processCall(trimmedLine);
+                    processCall(trimmedCallLine);
                 }
-                if (!trimmedCallLine.Contains(callField) && trimmedCallLine.StartsWith('[') && isInSection)
+                if (
+                    !trimmedCallLine.Contains(callField)
+                    && trimmedCallLine.StartsWith('[')
+                    && isInSection
+                )
                 {
+                    isInSection = false;
                     break;
                 }
                 if (isInSection)
                 {
                     processContent(trimmedCallLine);
                 }
-                if (trimmedCallLine.Contains(callField))
+                if (
+                    trimmedCallLine.Contains(callField)
+                    && trimmedCallLine.StartsWith('[')
+                    && !isInSection
+                )
                 {
                     isInSection = true;
                 }
             }
         }
 
-        private void ProcessBurstRateContent(string trimmedLine, HashSet<string> processedItems, Monster monster)
+        private void ProcessBurstRateContent(
+            string trimmedLine,
+            ConcurrentDictionary<string, byte> processedItems,
+            Monster monster
+        )
         {
-            var parts = trimmedLine.Split(AppConstants.EmptySeparator, StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length < 2) return;
+            var parts = trimmedLine.Split(
+                AppConstants.EmptySeparator,
+                StringSplitOptions.RemoveEmptyEntries
+            );
+            if (parts.Length < 2)
+                return;
 
             var itemName = parts[1];
             if (itemName.Contains("|@"))
             {
                 itemName = itemName.Split('|')[0];
             }
-            if (!processedItems.Add(itemName)) return;
+            if (!processedItems.TryAdd(itemName, 0))
+                return;
             if (_stdModes.TryGetValue(itemName, out var stdMode))
             {
                 StdModeMonsterAssociation(stdMode, monster);
@@ -786,9 +994,15 @@ namespace Legend2Tool.WPF.Services
 
         private async Task ProcessMongenAsync()
         {
-            var filePath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "Mongen.txt");
+            var filePath = Path.Combine(
+                _configStore.ServerDirectory,
+                "Mir200",
+                "Envir",
+                "Mongen.txt"
+            );
             Encoding fileEncoding = _encodingService.DetectFileEncoding(filePath);
-            if (!File.Exists(filePath)) throw new FileNotFoundException($"没有找到文件：{filePath}");
+            if (!File.Exists(filePath))
+                throw new FileNotFoundException($"没有找到文件：{filePath}");
 
             await foreach (var line in File.ReadLinesAsync(filePath, fileEncoding))
             {
@@ -798,7 +1012,10 @@ namespace Legend2Tool.WPF.Services
                     continue;
                 }
 
-                var parts = trimmedLine.Split(AppConstants.EmptySeparator, StringSplitOptions.RemoveEmptyEntries);
+                var parts = trimmedLine.Split(
+                    AppConstants.EmptySeparator,
+                    StringSplitOptions.RemoveEmptyEntries
+                );
 
                 if (parts.Length < 7)
                 {
@@ -815,24 +1032,25 @@ namespace Legend2Tool.WPF.Services
 
                 if (!_mapDatas.TryGetValue(mapCode, out var mapData))
                 {
-                    _logger.Warning($"地图代码 '{mapCode}' 不存在,请检测脚本.");
+                    _logger.Warning($"地图代码 {mapCode} 不存在,请检测脚本.");
                     continue;
                 }
                 if (!_monsters.TryGetValue(monName, out var monster))
                 {
-                    _logger.Warning($"怪物名称 '{monName}' 不存在,请检测数据库.");
+                    _logger.Warning($"怪物名称 {monName} 不存在,请检测数据库.");
                     continue;
                 }
-                var monBot = $"每 {interval} 分钟 刷新{count} 个 【{mapData.Name}({x}:{y})范围{range}】";
+                var monBot =
+                    $"每 {interval} 分钟 刷新{count} 个 【{mapData.Name}({x}:{y})范围{range}】";
                 MonsterMapAssociation(monster, mapData);
-                if (monster.Bots.Contains("-1"))
+                if (monster.Bots.ContainsKey("-1"))
                 {
-                    monster.Bots.Remove("-1");
-                    monster.Bots.Add(monBot);
+                    monster.Bots.TryRemove("-1", out _);
+                    monster.Bots.TryAdd(monBot, 0);
                 }
                 else
                 {
-                    monster.Bots.Add(monBot);
+                    monster.Bots.TryAdd(monBot, 0);
                 }
             }
         }
@@ -863,12 +1081,13 @@ namespace Legend2Tool.WPF.Services
             }
             npcData.Takes.Add(stdmodeId);
 
-            if (stdMode.Npcs.Contains("-1"))
+            if (stdMode.Npcs.ContainsKey("-1"))
             {
-                stdMode.Npcs.Remove("-1");
+                stdMode.Npcs.TryRemove("-1", out _);
             }
-            stdMode.Npcs.Add(npcdataId);
+            stdMode.Npcs.TryAdd(npcdataId, 0);
         }
+
         private void NpcGiveStdmodeAssociation(NpcData npcData, StdMode stdMode)
         {
             string stdmodeId = stdMode.Id.ToString();
@@ -879,27 +1098,28 @@ namespace Legend2Tool.WPF.Services
             }
             npcData.Gives.Add(stdmodeId);
 
-            if (stdMode.Npcs.Contains("-1"))
+            if (stdMode.Npcs.ContainsKey("-1"))
             {
-                stdMode.Npcs.Remove("-1");
+                stdMode.Npcs.TryRemove("-1", out _);
             }
-            stdMode.Npcs.Add(npcdataId);
+            stdMode.Npcs.TryAdd(npcdataId, 0);
         }
+
         private void StdModeMonsterAssociation(StdMode stdMode, Monster monster)
         {
             string monsterId = monster.Id.ToString();
             string stdmodeId = stdMode.Id.ToString();
-            if (stdMode.Mons.Contains("-1"))
+            if (stdMode.Mons.ContainsKey("-1"))
             {
-                stdMode.Mons.Remove("-1");
+                stdMode.Mons.TryRemove("-1", out _);
             }
-            stdMode.Mons.Add(monsterId);
+            stdMode.Mons.TryAdd(monsterId, 0);
 
-            if (monster.Stds.Contains("-1"))
+            if (monster.Stds.ContainsKey("-1"))
             {
-                monster.Stds.Remove("-1");
+                monster.Stds.TryRemove("-1", out _);
             }
-            monster.Stds.Add(stdmodeId);
+            monster.Stds.TryAdd(stdmodeId, 0);
         }
 
         private void MonsterMapAssociation(Monster monster, MapData mapData)
@@ -912,16 +1132,21 @@ namespace Legend2Tool.WPF.Services
             }
             mapData.Mons.Add(monsterId);
 
-            if (monster.Maps.Contains("-1"))
+            if (monster.Maps.ContainsKey("-1"))
             {
-                monster.Maps.Remove("-1");
+                monster.Maps.TryRemove("-1", out _);
             }
-            monster.Maps.Add(mapDataId);
+            monster.Maps.TryAdd(mapDataId, 0);
         }
 
         private async Task ProcessMerChantAsync()
         {
-            var filePath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "MerChant.txt");
+            var filePath = Path.Combine(
+                _configStore.ServerDirectory,
+                "Mir200",
+                "Envir",
+                "MerChant.txt"
+            );
             Encoding fileEncoding = _encodingService.DetectFileEncoding(filePath);
             if (!File.Exists(filePath))
             {
@@ -936,14 +1161,22 @@ namespace Legend2Tool.WPF.Services
                 {
                     continue;
                 }
-                var parts = trimmedLine.Split(AppConstants.EmptySeparator, StringSplitOptions.RemoveEmptyEntries);
+                var parts = trimmedLine.Split(
+                    AppConstants.EmptySeparator,
+                    StringSplitOptions.RemoveEmptyEntries
+                );
 
                 if (parts.Length >= 5 && _mapDatas.TryGetValue(parts[1], out var mapData))
                 {
                     var npcName = parts[4];
-                    if (int.TryParse(npcName, out _) || string.IsNullOrWhiteSpace(npcName) || npcName.Equals("-"))
+                    if (
+                        int.TryParse(npcName, out _)
+                        || string.IsNullOrWhiteSpace(npcName)
+                        || npcName.Equals("-")
+                    )
                     {
-                        var fileParts = parts[0].Split(AppConstants.MerchantSeparator, StringSplitOptions.None);
+                        var fileParts = parts[0]
+                            .Split(AppConstants.MerchantSeparator, StringSplitOptions.None);
                         npcName = fileParts.LastOrDefault();
                     }
 
@@ -961,7 +1194,7 @@ namespace Legend2Tool.WPF.Services
                         Name = npcName,
                         Code = parts[1],
                         Mname = mapData.Name,
-                        Mxy = coordinate
+                        Mxy = coordinate,
                     };
                     _npcDatas.Add(npc);
                 }
@@ -970,7 +1203,12 @@ namespace Legend2Tool.WPF.Services
 
         private async Task ProcessMapInfoAsync()
         {
-            string filePath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "MapInfo.txt");
+            string filePath = Path.Combine(
+                _configStore.ServerDirectory,
+                "Mir200",
+                "Envir",
+                "MapInfo.txt"
+            );
             Encoding fileEncoding = _encodingService.DetectFileEncoding(filePath);
             if (!File.Exists(filePath))
             {
@@ -999,9 +1237,14 @@ namespace Legend2Tool.WPF.Services
                         continue;
                     }
 
-                    string mapString = trimmedLine.Substring(1, trimmedLine.IndexOf(']') - 1).Trim();
+                    string mapString = trimmedLine
+                        .Substring(1, trimmedLine.IndexOf(']') - 1)
+                        .Trim();
 
-                    var mapParts = mapString.Split(AppConstants.EmptySeparator, StringSplitOptions.RemoveEmptyEntries);
+                    var mapParts = mapString.Split(
+                        AppConstants.EmptySeparator,
+                        StringSplitOptions.RemoveEmptyEntries
+                    );
 
                     if (mapParts.Length < 2)
                     {
@@ -1010,11 +1253,14 @@ namespace Legend2Tool.WPF.Services
                     }
 
                     string mapCode = mapParts[0].Trim();
-                    if (string.IsNullOrEmpty(mapCode)) continue;
+                    if (string.IsNullOrEmpty(mapCode))
+                        continue;
                     string mapName = mapParts[1].Trim();
-                    if (trimmedLine.Contains("FB")) mapCode = $"FB-{mapCode}";
+                    if (trimmedLine.Contains("FB"))
+                        mapName = $"{mapName}-副本";
+                        //    mapCode = $"FB-{mapCode}";
 
-                    if (mapCode.Contains('|'))
+                        if (mapCode.Contains('|'))
                     {
                         var codes = mapCode.Split('|');
                         mapCode = codes[0].Trim();
@@ -1034,7 +1280,7 @@ namespace Legend2Tool.WPF.Services
                     {
                         Id = index,
                         Name = mapName,
-                        Code = mapCode
+                        Code = mapCode,
                     };
 
                     if (!_mapDatas.ContainsKey(mapData.Code))
@@ -1070,16 +1316,19 @@ namespace Legend2Tool.WPF.Services
                 MapData toMap;
 
                 var fromPart = parts[0];
-                var fromParts = fromPart.Split(AppConstants.EmptySeparator, StringSplitOptions.RemoveEmptyEntries);
+                var fromParts = fromPart.Split(
+                    AppConstants.EmptySeparator,
+                    StringSplitOptions.RemoveEmptyEntries
+                );
                 if (fromParts.Length < 2)
                 {
-                    _logger.Warning($"fromPart内容不正确：{fromPart}");
+                    _logger.Warning($"路径格式不正确：{fromPart}");
                     continue;
                 }
                 fromMapCode = fromParts[0];
                 if (!_mapDatas.TryGetValue(fromMapCode, out fromMap!))
                 {
-                    _logger.Warning($"fromMapCode地图代码 '{fromMapCode}' 未找到，跳过路径：{mapPath}");
+                    _logger.Warning($"地图代码 {fromMapCode} 未找到，跳过路径：{mapPath}");
                     continue;
                 }
                 fromMapName = fromMap.Name!;
@@ -1088,7 +1337,7 @@ namespace Legend2Tool.WPF.Services
                 {
                     if (fromParts.Length < 3)
                     {
-                        _logger.Warning($"fromPart内容不正确：{fromPart}");
+                        _logger.Warning($"路径格式不正确：{fromPart}");
                         continue;
                     }
                     fromMapCoordinate = $"{fromParts[1]}:{fromParts[2]}";
@@ -1101,16 +1350,19 @@ namespace Legend2Tool.WPF.Services
                 symbol = "->";
 
                 var toPart = parts[1];
-                var toParts = toPart.Split(AppConstants.EmptySeparator, StringSplitOptions.RemoveEmptyEntries);
+                var toParts = toPart.Split(
+                    AppConstants.EmptySeparator,
+                    StringSplitOptions.RemoveEmptyEntries
+                );
                 if (toParts.Length < 2)
                 {
-                    _logger.Warning($"toParts内容不正确：{toPart},");
+                    _logger.Warning($"路径格式不正确：{toPart},");
                     continue;
                 }
                 toMapCode = toParts[0];
                 if (!_mapDatas.TryGetValue(toMapCode, out toMap!))
                 {
-                    _logger.Warning($"toMapCode地图代码 '{toMapCode}' 未找到，跳过路径： {mapPath}");
+                    _logger.Warning($"地图代码 {toMapCode} 未找到，跳过路径： {mapPath}");
                     continue;
                 }
                 toMapName = toMap.Name!;
@@ -1119,7 +1371,7 @@ namespace Legend2Tool.WPF.Services
                 {
                     if (toParts.Length < 3)
                     {
-                        _logger.Warning($"toParts内容不正确：{toPart},");
+                        _logger.Warning($"路径格式不正确：{toPart},");
                         continue;
                     }
                     toMapCoordinate = $"{toParts[1]}:{toParts[2]}";
@@ -1129,8 +1381,8 @@ namespace Legend2Tool.WPF.Services
                     toMapCoordinate = toMapCoordinate.Replace(',', ':');
                 }
 
-
-                string path = $"{fromMapName}({fromMapCode}:{fromMapCoordinate}){symbol}{toMapName}({toMapCode}:{toMapCoordinate})";
+                string path =
+                    $"{fromMapName}({fromMapCode}:{fromMapCoordinate}){symbol}{toMapName}({toMapCode}:{toMapCoordinate})";
 
                 string pathFlag = $"{fromMapCode}->{toMapCode}";
                 string coordinate = fromMapCoordinate.Replace(':', ',');
@@ -1187,7 +1439,10 @@ namespace Legend2Tool.WPF.Services
         {
             if (trimmedLine.StartsWith("mov", StringComparison.OrdinalIgnoreCase))
             {
-                var parts = trimmedLine.Split(AppConstants.EmptySeparator, StringSplitOptions.RemoveEmptyEntries);
+                var parts = trimmedLine.Split(
+                    AppConstants.EmptySeparator,
+                    StringSplitOptions.RemoveEmptyEntries
+                );
                 var variable = parts.Length > 1 ? parts[1] : string.Empty;
                 var value = parts.Length > 2 ? parts[2] : string.Empty;
                 _variables[variable] = value;
@@ -1197,7 +1452,8 @@ namespace Legend2Tool.WPF.Services
         public void GetBestPath(MapData currentMap)
         {
             // 起点地图（没有来源）
-            if (currentMap.FromMapLists.Count == 0 || !_visited.Add(currentMap.Code!)) return;
+            if (currentMap.FromMapLists.Count == 0 || !_visited.Add(currentMap.Code!))
+                return;
 
             if (currentMap.IsMainCity && !currentMap.Paths.Contains("没有找到"))
             {
@@ -1211,13 +1467,18 @@ namespace Legend2Tool.WPF.Services
 
             foreach (var fromMapCode in currentMap.FromMapLists)
             {
-                if (!_mapDatas.TryGetValue(fromMapCode, out var fromMapData)) { continue; }
+                if (!_mapDatas.TryGetValue(fromMapCode, out var fromMapData))
+                {
+                    continue;
+                }
                 GetBestPath(fromMapData);
                 if (fromMapData.IsMainCity)
                 {
                     foreach (var currentMapPath in currentMap.Paths)
                     {
-                        var (currentMapPathFromCode, currentMapPathToCode) = GetMapCodeForPath(currentMapPath);
+                        var (currentMapPathFromCode, currentMapPathToCode) = GetMapCodeForPath(
+                            currentMapPath
+                        );
                         if (fromMapData.Code!.Equals(currentMapPathFromCode))
                         {
                             bestPath = [currentMapPath];
@@ -1226,21 +1487,30 @@ namespace Legend2Tool.WPF.Services
                     }
                     break;
                 }
-                var path = fromMapData.BestPaths.Count > 0 ? fromMapData.BestPaths.ToList() : fromMapData.Paths.ToList();
+                var path =
+                    fromMapData.BestPaths.Count > 0
+                        ? fromMapData.BestPaths.ToList()
+                        : fromMapData.Paths.ToList();
                 var firstPath = path.FirstOrDefault();
-                if (string.IsNullOrEmpty(firstPath) || firstPath.Equals("没有找到")) continue;
+                if (string.IsNullOrEmpty(firstPath) || firstPath.Equals("没有找到"))
+                    continue;
                 var endPath = path.LastOrDefault();
-                if (string.IsNullOrEmpty(endPath)) continue;
+                if (string.IsNullOrEmpty(endPath))
+                    continue;
                 var (firstPathFromCode, firstPathToCode) = GetMapCodeForPath(firstPath);
                 var (endPathFromCode, endPathToCode) = GetMapCodeForPath(endPath);
                 if (!_mapDatas.TryGetValue(firstPathFromCode, out var firstFromMapData))
                 {
-                    _logger.Warning($"fristPathFromCode地图代码 '{firstPathFromCode}' 未找到，跳过路径: {firstPath}");
+                    _logger.Warning(
+                        $"fristPathFromCode地图代码 '{firstPathFromCode}' 未找到，跳过路径: {firstPath}"
+                    );
                     continue;
                 }
                 foreach (var currentMapPath in currentMap.Paths)
                 {
-                    var (currentMapPathFromCode, currentMapPathToCode) = GetMapCodeForPath(currentMapPath);
+                    var (currentMapPathFromCode, currentMapPathToCode) = GetMapCodeForPath(
+                        currentMapPath
+                    );
                     if (endPathToCode.Equals(currentMapPathFromCode))
                     {
                         if (path.Contains(currentMapPath))
@@ -1254,7 +1524,8 @@ namespace Legend2Tool.WPF.Services
                 {
                     bestPath = path;
                     currentMap.BestPaths = bestPath;
-                    if (firstFromMapData.IsMainCity) isMainCityFrom = true;
+                    if (firstFromMapData.IsMainCity)
+                        isMainCityFrom = true;
                 }
                 else if (firstFromMapData.IsMainCity && path.Count < bestPath.Count)
                 {
@@ -1271,7 +1542,8 @@ namespace Legend2Tool.WPF.Services
                 {
                     bestPath = path;
                     currentMap.BestPaths = bestPath;
-                    if (firstFromMapData.IsMainCity) isMainCityFrom = true;
+                    if (firstFromMapData.IsMainCity)
+                        isMainCityFrom = true;
                 }
             }
         }
@@ -1297,13 +1569,20 @@ namespace Legend2Tool.WPF.Services
 
         private void AddPathFromPreviousMap(MapData mapData, HashSet<string> visited)
         {
-            if (mapData.FromMapLists.Count == 0 || mapData.IsMainCity || !visited.Add(mapData.Code!)) return;
+            if (
+                mapData.FromMapLists.Count == 0
+                || mapData.IsMainCity
+                || !visited.Add(mapData.Code!)
+            )
+                return;
 
             foreach (var fromMapCode in mapData.FromMapLists)
             {
-                if (!_mapDatas.TryGetValue(fromMapCode, out var fromMapData)) continue;
+                if (!_mapDatas.TryGetValue(fromMapCode, out var fromMapData))
+                    continue;
                 AddPathFromPreviousMap(fromMapData, visited);
-                if (fromMapData.IsMainCity) continue;
+                if (fromMapData.IsMainCity)
+                    continue;
                 var pathList = fromMapData.Paths.ToList();
                 if (pathList[0] == "没有找到")
                 {
@@ -1316,34 +1595,43 @@ namespace Legend2Tool.WPF.Services
         {
             if (trimmedLine.StartsWith("mongenex", StringComparison.OrdinalIgnoreCase))
             {
-                var parts = trimmedLine.Split(AppConstants.EmptySeparator, StringSplitOptions.RemoveEmptyEntries);
+                var parts = trimmedLine.Split(
+                    AppConstants.EmptySeparator,
+                    StringSplitOptions.RemoveEmptyEntries
+                );
                 if (parts.Length < 5)
                 {
                     _logger.Warning($"{trimmedLine}格式不正确.");
                     return;
                 }
                 var mapCode = parts[1];
-                if (mapCode.StartsWith("<$")) mapCode = GetVariableValue(mapCode);
+                if (mapCode.StartsWith("<$"))
+                    mapCode = GetVariableValue(mapCode);
                 var monName = parts[4];
-                if (monName.StartsWith("<$")) monName = GetVariableValue(monName);
+                if (monName.StartsWith("<$"))
+                    monName = GetVariableValue(monName);
                 if (!_mapDatas.TryGetValue(mapCode, out var mapData))
                 {
-                    _logger.Warning($"{mapCode}不存在，无法对{trimmedLine}进行关联.");
+                    _logger.Warning($"地图 {mapCode} 不存在，无法对 {trimmedLine} 进行关联.");
                     return;
                 }
                 if (!_monsters.TryGetValue(monName, out var monster))
                 {
-                    _logger.Warning($"{monName}不存在，无法对{trimmedLine}进行关联.");
+                    _logger.Warning($"怪物 {monName} 不存在，无法对 {trimmedLine} 进行关联.");
                     return;
                 }
                 MonsterMapAssociation(monster, mapData);
             }
         }
+
         private void ProcessAddMapGate(string trimmedLine)
         {
             if (trimmedLine.StartsWith("addmapgate", StringComparison.OrdinalIgnoreCase))
             {
-                var parts = trimmedLine.Split(AppConstants.EmptySeparator, StringSplitOptions.RemoveEmptyEntries);
+                var parts = trimmedLine.Split(
+                    AppConstants.EmptySeparator,
+                    StringSplitOptions.RemoveEmptyEntries
+                );
                 if (parts.Length < 9)
                 {
                     _logger.Warning($"addmapgate格式错误: {trimmedLine}");
@@ -1352,23 +1640,32 @@ namespace Legend2Tool.WPF.Services
                 var fromMapCode = parts[2];
                 if (!_mapDatas.TryGetValue(fromMapCode, out var fromMap))
                 {
-                    _logger.Warning($"地图代码 '{fromMapCode}' 未找到，跳过addmapgate: {trimmedLine}");
+                    _logger.Warning(
+                        $"地图代码 '{fromMapCode}' 未找到，跳过addmapgate: {trimmedLine}"
+                    );
                     return;
                 }
-                if (!int.TryParse(parts[3], out _)) parts[3] = "-1";
-                if (!int.TryParse(parts[4], out _)) parts[4] = "-1";
+                if (!int.TryParse(parts[3], out _))
+                    parts[3] = "-1";
+                if (!int.TryParse(parts[4], out _))
+                    parts[4] = "-1";
                 var fromCoordinate = $"{parts[3]}:{parts[4]}";
                 var symbol = "->";
                 var toMapCode = parts[6];
                 if (!_mapDatas.TryGetValue(toMapCode, out var toMap))
                 {
-                    _logger.Warning($"地图代码 '{toMapCode}' 未找到，跳过addmapgate: {trimmedLine}");
+                    _logger.Warning(
+                        $"地图代码 '{toMapCode}' 未找到，跳过addmapgate: {trimmedLine}"
+                    );
                     return;
                 }
-                if (!int.TryParse(parts[7], out _)) parts[7] = "-1";
-                if (!int.TryParse(parts[8], out _)) parts[8] = "-1";
+                if (!int.TryParse(parts[7], out _))
+                    parts[7] = "-1";
+                if (!int.TryParse(parts[8], out _))
+                    parts[8] = "-1";
                 var toCoordinate = $"{parts[7]}:{parts[8]}";
-                string path = $"{fromMap.Name}({fromMapCode}:{fromCoordinate}){symbol}{toMap.Name}({toMapCode}:{toCoordinate})";
+                string path =
+                    $"{fromMap.Name}({fromMapCode}:{fromCoordinate}){symbol}{toMap.Name}({toMapCode}:{toCoordinate})";
                 string pathFlag = $"{fromMapCode}->{toMapCode}";
                 string coordinate = fromCoordinate.Replace(':', ',');
                 string mapDesc = $"{fromMap.Name},{coordinate},{toMap.Name},";
@@ -1376,10 +1673,17 @@ namespace Legend2Tool.WPF.Services
             }
         }
 
-        private void AddPathToMapData(string fromMapCode, MapData toMap, string path, string pathFlag, string mapDesc)
+        private void AddPathToMapData(
+            string fromMapCode,
+            MapData toMap,
+            string path,
+            string pathFlag,
+            string mapDesc
+        )
         {
             toMap.FromMapLists.Add(fromMapCode);
-            if (!toMap.AddedPaths.Add(pathFlag)) return;
+            if (!toMap.AddedPaths.Add(pathFlag))
+                return;
             if (toMap.Paths.Contains("没有找到"))
             {
                 toMap.Paths.Remove("没有找到");
@@ -1422,6 +1726,13 @@ namespace Legend2Tool.WPF.Services
                     stdmodeQuery = "SELECT Idx, Name, StdMode FROM StdItems";
                     monsterQuery = "SELECT Name FROM Monster";
                     break;
+                case EngineType.HGE:
+                    var hgeConfig = _configStore.M2Config as HGEConfig;
+                    dbPath = hgeConfig!.SQLiteName!;
+                    connectionString = $"Data Source={dbPath};";
+                    stdmodeQuery = "SELECT Idx, Name, StdMode FROM StdItems";
+                    monsterQuery = "SELECT Name FROM Monster";
+                    break;
                 default:
                     var geeConfig = _configStore.M2Config as GEEConfig;
                     dbPath = geeConfig!.SqliteDBName!;
@@ -1440,7 +1751,10 @@ namespace Legend2Tool.WPF.Services
 
             await Task.Run(() =>
             {
-                if (_configStore.EngineType.Equals(EngineType.GOM) || _configStore.EngineType.Equals(EngineType.NEWGOM))
+                if (
+                    _configStore.EngineType.Equals(EngineType.GOM)
+                    || _configStore.EngineType.Equals(EngineType.NEWGOM)
+                )
                 {
                     _stdModes = GetAccessStdList(connectionString, stdmodeQuery);
                     _monsters = GetAccessMonList(connectionString, monsterQuery);
@@ -1453,7 +1767,10 @@ namespace Legend2Tool.WPF.Services
             });
         }
 
-        private Dictionary<string, Monster> GetSqliteMonList(string connectionString, string monsterQuery)
+        private Dictionary<string, Monster> GetSqliteMonList(
+            string connectionString,
+            string monsterQuery
+        )
         {
             var monsters = new Dictionary<string, Monster>(StringComparer.OrdinalIgnoreCase);
             using SqliteConnection connection = new SqliteConnection(connectionString);
@@ -1479,7 +1796,10 @@ namespace Legend2Tool.WPF.Services
             return monsters;
         }
 
-        private Dictionary<string, StdMode> GetSqliteStdList(string connectionString, string stdmodeQuery)
+        private Dictionary<string, StdMode> GetSqliteStdList(
+            string connectionString,
+            string stdmodeQuery
+        )
         {
             var stdmodes = new Dictionary<string, StdMode>(StringComparer.OrdinalIgnoreCase);
             using SqliteConnection connection = new SqliteConnection(connectionString);
@@ -1495,7 +1815,9 @@ namespace Legend2Tool.WPF.Services
                 {
                     Id = index,
                     Name = Convert.ToString(reader["Name"])?.Trim() ?? string.Empty,
-                    Type = string.IsNullOrEmpty(reader["StdMode"].ToString()) ? "0" : reader["StdMode"].ToString()!.Trim()
+                    Type = string.IsNullOrEmpty(reader["StdMode"].ToString())
+                        ? "0"
+                        : reader["StdMode"].ToString()!.Trim(),
                 };
                 if (string.IsNullOrEmpty(std.Name) || stdmodes.ContainsKey(std.Name))
                 {
@@ -1507,7 +1829,10 @@ namespace Legend2Tool.WPF.Services
             return stdmodes;
         }
 
-        private Dictionary<string, Monster> GetAccessMonList(string connectionString, string monsterQuery)
+        private Dictionary<string, Monster> GetAccessMonList(
+            string connectionString,
+            string monsterQuery
+        )
         {
             var monsters = new Dictionary<string, Monster>(StringComparer.OrdinalIgnoreCase);
             using var connection = new OleDbConnection(connectionString);
@@ -1520,7 +1845,7 @@ namespace Legend2Tool.WPF.Services
                 var monster = new Monster
                 {
                     Id = index,
-                    Name = reader.IsDBNull(0) ? string.Empty : reader.GetString(0).Trim()
+                    Name = reader.IsDBNull(0) ? string.Empty : reader.GetString(0).Trim(),
                 };
                 if (string.IsNullOrEmpty(monster.Name) || monsters.ContainsKey(monster.Name))
                 {
@@ -1532,7 +1857,10 @@ namespace Legend2Tool.WPF.Services
             return monsters;
         }
 
-        private Dictionary<string, StdMode> GetAccessStdList(string connectionString, string stdmodeQuery)
+        private Dictionary<string, StdMode> GetAccessStdList(
+            string connectionString,
+            string stdmodeQuery
+        )
         {
             var stdmodes = new Dictionary<string, StdMode>(StringComparer.OrdinalIgnoreCase);
             using var connection = new OleDbConnection(connectionString);
@@ -1546,7 +1874,7 @@ namespace Legend2Tool.WPF.Services
                 {
                     Id = index,
                     Name = reader.IsDBNull(1) ? string.Empty : reader.GetString(1).Trim(),
-                    Type = reader.IsDBNull(2) ? "0" : reader.GetInt32(2).ToString().Trim()
+                    Type = reader.IsDBNull(2) ? "0" : reader.GetInt32(2).ToString().Trim(),
                 };
                 if (string.IsNullOrEmpty(std.Name) || stdmodes.ContainsKey(std.Name))
                 {
@@ -1561,6 +1889,11 @@ namespace Legend2Tool.WPF.Services
 
         public async Task OptimizingMinMonBurstRateAsync(int minMonBurstRate)
         {
+            if (_configStore.EngineType == EngineType.BLUE || _configStore.EngineType == EngineType.HGE)
+            {
+                MessageBox.Show("该引擎不支持该功能。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
             IProgress<ProgressStore> progress = new Progress<ProgressStore>(report =>
             {
                 _progressStore.ProgressPercentage = report.ProgressPercentage;
@@ -1569,20 +1902,37 @@ namespace Legend2Tool.WPF.Services
             _progressStore.ProgressPercentage = 0;
             _progressStore.ProgressText = string.Empty;
 
-            var folderPath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "MonItems");
+            var folderPath = Path.Combine(
+                _configStore.ServerDirectory,
+                "Mir200",
+                "Envir",
+                "MonItems"
+            );
             string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-            var zipPath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", $"MonItems_{timestamp}.zip");
+            var zipPath = Path.Combine(
+                _configStore.ServerDirectory,
+                "Mir200",
+                "Envir",
+                $"MonItems_{timestamp}.zip"
+            );
             ZipFile.CreateFromDirectory(folderPath, zipPath);
             var callBurstRateFilePaths = new HashSet<string>();
-            var files = _fileService.GetFiles(folderPath, new List<string> { "*.txt" }, SearchOption.AllDirectories);
+            var files = _fileService.GetFiles(
+                folderPath,
+                new List<string> { "*.txt" },
+                SearchOption.AllDirectories
+            );
             int currentProgress = 0;
             int totalFiles = files.Count;
 
             foreach (var file in files)
             {
-                await ProcessMinMOnBurstRateForFile(minMonBurstRate, file, callBurstRateFilePaths);
-                _progressStore.ProgressPercentage = (int)((++currentProgress / (double)totalFiles) * 100);
-                _progressStore.ProgressText = $"{currentProgress}/{totalFiles}：{Path.GetFileName(file)}";
+                await ProcessMinMonBurstRateForFile(minMonBurstRate, file, callBurstRateFilePaths);
+                _progressStore.ProgressPercentage = (int)(
+                    (++currentProgress / (double)totalFiles) * 100
+                );
+                _progressStore.ProgressText =
+                    $"{currentProgress}/{totalFiles}：{Path.GetFileName(file)}";
                 progress.Report(_progressStore);
             }
             if (callBurstRateFilePaths.Count > 0)
@@ -1592,14 +1942,21 @@ namespace Legend2Tool.WPF.Services
                 {
                     if (File.Exists(file))
                     {
-                        await ProcessMinMOnBurstRateForFile(minMonBurstRate, file, callBurstRateFilePaths);
+                        await ProcessMinMonBurstRateForFile(
+                            minMonBurstRate,
+                            file,
+                            callBurstRateFilePaths
+                        );
                     }
                     else
                     {
                         _logger.Warning($"文件 '{file}' 不存在，无法处理。");
                     }
-                    _progressStore.ProgressPercentage = (int)((++currentProgress / (double)totalFiles) * 100);
-                    _progressStore.ProgressText = $"{currentProgress}/{totalFiles}：{Path.GetFileName(file)}";
+                    _progressStore.ProgressPercentage = (int)(
+                        (++currentProgress / (double)totalFiles) * 100
+                    );
+                    _progressStore.ProgressText =
+                        $"{currentProgress}/{totalFiles}：{Path.GetFileName(file)}";
                     progress.Report(_progressStore);
                 }
             }
@@ -1608,7 +1965,11 @@ namespace Legend2Tool.WPF.Services
             progress.Report(_progressStore);
         }
 
-        private async Task ProcessMinMOnBurstRateForFile(int minMonBurstRate, string file, HashSet<string> callBurstRateFilePaths)
+        private async Task ProcessMinMonBurstRateForFile(
+            int minMonBurstRate,
+            string file,
+            HashSet<string> callBurstRateFilePaths
+        )
         {
             var unChangedLines = new List<string>();
             var changedLines = new Dictionary<string, List<string>>();
@@ -1623,14 +1984,25 @@ namespace Legend2Tool.WPF.Services
                     unChangedLines.Add(trimmedLine);
                     continue;
                 }
-                if (trimmedLine.StartsWith('}')) { endSymbol.Add(trimmedLine); continue; }
+                if (trimmedLine.StartsWith('}'))
+                {
+                    endSymbol.Add(trimmedLine);
+                    continue;
+                }
                 if (trimmedLine.Contains("#call", StringComparison.OrdinalIgnoreCase))
                 {
                     ExtractCallPathAndField(trimmedLine, out string callPath, out string field);
-                    if (string.IsNullOrEmpty(callPath)) continue;
+                    if (string.IsNullOrEmpty(callPath))
+                        continue;
                     while (callPath.StartsWith('\\'))
                         callPath = callPath[1..];
-                    var callBurstRateFilePath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "QuestDiary", callPath);
+                    var callBurstRateFilePath = Path.Combine(
+                        _configStore.ServerDirectory,
+                        "Mir200",
+                        "Envir",
+                        "QuestDiary",
+                        callPath
+                    );
                     callBurstRateFilePaths.Add(callBurstRateFilePath);
                 }
                 if (trimmedLine.StartsWith(')'))
@@ -1650,7 +2022,10 @@ namespace Legend2Tool.WPF.Services
                     unChangedLines.Add(trimmedLine);
                     continue;
                 }
-                var parts = trimmedLine.Split(AppConstants.EmptySeparator, StringSplitOptions.RemoveEmptyEntries);
+                var parts = trimmedLine.Split(
+                    AppConstants.EmptySeparator,
+                    StringSplitOptions.RemoveEmptyEntries
+                );
                 var ratePart = parts.Length > 0 ? parts[0] : string.Empty;
                 var itemPart = parts.Length > 1 ? parts[1] : string.Empty;
                 if (AppConstants.ExcludeItemName.Contains(itemPart))
@@ -1667,7 +2042,8 @@ namespace Legend2Tool.WPF.Services
                         {
                             changedLines[ratePart] = new List<string>();
                         }
-                        changedLines[ratePart].Add(trimmedLine);
+                        var newLine = $"1/1 {itemPart}";
+                        changedLines[ratePart].Add(newLine);
                     }
                     else
                     {
@@ -1708,8 +2084,12 @@ namespace Legend2Tool.WPF.Services
 
         public void UpdateMainCityLists(string mainCityLists)
         {
-            if (string.IsNullOrEmpty(mainCityLists)) return;
-            var mapCodes = mainCityLists.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            if (string.IsNullOrEmpty(mainCityLists))
+                return;
+            var mapCodes = mainCityLists.Split(
+                new[] { '\r', '\n' },
+                StringSplitOptions.RemoveEmptyEntries
+            );
             _mainCityLists.Clear();
             foreach (var code in mapCodes)
             {

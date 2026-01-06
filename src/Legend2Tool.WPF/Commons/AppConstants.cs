@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Legend2Tool.WPF.Commons
+﻿namespace Legend2Tool.WPF.Commons
 {
     public class AppConstants
     {

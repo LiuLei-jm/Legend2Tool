@@ -1,20 +1,12 @@
 ﻿using CommunityToolkit.Mvvm.Messaging;
-using HandyControl.Controls;
-using IniFileParser.Model;
 using Legend2Tool.WPF.Enums;
 using Legend2Tool.WPF.Messages;
 using Legend2Tool.WPF.Models.BackList;
 using Legend2Tool.WPF.Models.Launcher;
 using Legend2Tool.WPF.Models.M2Config;
-using Legend2Tool.WPF.Models.M2Config.M2Config;
 using Legend2Tool.WPF.Services;
 using Serilog;
-using System.IO;
-using System.Net;
-using System.Net.Sockets;
-using System.Text.RegularExpressions;
 using System.Windows;
-using TinyPinyin;
 using MessageBox = HandyControl.Controls.MessageBox;
 
 namespace Legend2Tool.WPF.State
@@ -26,7 +18,7 @@ namespace Legend2Tool.WPF.State
         private M2ConfigBase _m2Config = new();
         private LauncherConfigBase _launcherConfig = new();
 
-        public ConfigStore(IConfigService configService,  ILogger logger)
+        public ConfigStore(IConfigService configService, ILogger logger)
         {
             WeakReferenceMessenger.Default.Register<ServerDirectoryChangedMessage>(this);
             WeakReferenceMessenger.Default.Register<PatchDirectoryChangedMessage>(this);
@@ -62,7 +54,7 @@ namespace Legend2Tool.WPF.State
                 }
             }
         }
-        public Setup Setup { get; set; } = new(); 
+        public Setup Setup { get; set; } = new();
 
         public List<BackListBase> BackLists = [];
         public EngineType EngineType { get; set; }
@@ -77,7 +69,7 @@ namespace Legend2Tool.WPF.State
                 try
                 {
                     _configService.GetM2ConfigInfo(this);
-                    if (EngineType != EngineType.BLUE && EngineType != EngineType.NEWGOM)
+                    if (EngineType != EngineType.BLUE && EngineType != EngineType.HGE && EngineType != EngineType.NEWGOM && EngineType != EngineType.Unknown)
                         _configService.GetLauncherConfigInfo(this);
                 }
                 catch (Exception ex)

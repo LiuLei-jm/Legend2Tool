@@ -9,8 +9,6 @@ using Legend2Tool.WPF.State;
 using Serilog;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.ComponentModel.DataAnnotations;
-using System.Diagnostics.Eventing.Reader;
 using System.Windows.Data;
 
 namespace Legend2Tool.WPF.ViewModels
@@ -27,7 +25,7 @@ namespace Legend2Tool.WPF.ViewModels
 
         [ObservableProperty]
         int _minMonBurstRate = 10;
-        
+
         public string Head { get; } = "服务器脚本优化";
 
         public ObservableCollection<DuplicatedTriggerEntry> DuplicatedTriggers { get; set; }
@@ -59,13 +57,13 @@ namespace Legend2Tool.WPF.ViewModels
                     {
                         DuplicatedTriggers.Add(result);
                     }
-                    Growl.Success($"检测到 {results.Count} 个重复调用脚本。");
+                    Growl.SuccessGlobal($"检测到 {results.Count} 个重复调用脚本。");
                 }
             }
             catch (Exception ex)
             {
                 _logger.Error(ex, "查询重复调用脚本失败！");
-                Growl.Error("查询重复调用脚本失败！");
+                Growl.ErrorGlobal("查询重复调用脚本失败！");
             }
         }
 
@@ -102,11 +100,11 @@ namespace Legend2Tool.WPF.ViewModels
                     try
                     {
                         System.Windows.Clipboard.SetText(entry.TriggerField);
-                        Growl.Success("触发器名称已复制到剪贴板");
+                        Growl.SuccessGlobal("触发器名称已复制到剪贴板");
                     }
                     catch (System.Runtime.InteropServices.COMException ex)
                     {
-                        Growl.Error($"无法复制到剪贴板: {ex.Message}");
+                        Growl.ErrorGlobal($"无法复制到剪贴板: {ex.Message}");
                     }
                 });
             }
@@ -118,12 +116,12 @@ namespace Legend2Tool.WPF.ViewModels
             try
             {
                 await Task.Run(() => _scriptOptimizationService.OptimizingCallsAsync());
-                Growl.Success($"优化完成！");
+                Growl.SuccessGlobal($"优化完成！");
             }
             catch (Exception ex)
             {
                 _logger.Error(ex, $"优化CALL调用脚本失败！{ex.Message}");
-                Growl.Error("优化CALL调用脚本失败！");
+                Growl.ErrorGlobal("优化CALL调用脚本失败！");
             }
         }
         [RelayCommand(CanExecute = nameof(CanExecuteOptimization))]
@@ -132,25 +130,26 @@ namespace Legend2Tool.WPF.ViewModels
             try
             {
                 await Task.Run(() => _scriptOptimizationService.DropRateCalculatorAsync());
-                Growl.Success($"爆率查询生成完成！");
+                Growl.SuccessGlobal($"爆率查询生成完成！");
             }
             catch (Exception ex)
             {
                 _logger.Error(ex, $"爆率查询生成失败！{ex.Message}");
-                Growl.Error("爆率查询生成失败！");
+                Growl.ErrorGlobal("爆率查询生成失败！");
             }
         }
         [RelayCommand(CanExecute = nameof(CanExecuteOptimization))]
-        private async Task OptimizingMinMonBurstRateAsync() {
+        private async Task OptimizingMinMonBurstRateAsync()
+        {
             try
             {
                 await Task.Run(() => _scriptOptimizationService.OptimizingMinMonBurstRateAsync(MinMonBurstRate));
-                Growl.Success($"优化完成！");
+                Growl.SuccessGlobal($"优化完成！");
             }
             catch (Exception ex)
             {
                 _logger.Error(ex, $"优化爆率文件失败！{ex.Message}");
-                Growl.Error("优化爆率文件失败！");
+                Growl.ErrorGlobal("优化爆率文件失败！");
             }
         }
 

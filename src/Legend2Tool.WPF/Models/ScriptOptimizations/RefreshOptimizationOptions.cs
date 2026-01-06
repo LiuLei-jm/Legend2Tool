@@ -16,7 +16,7 @@
         public bool IsCommentMongen { get; set; }
         public bool IsClearMon { get; set; }
         public bool IsLimitRefreshInterval { get; set; }
-        public int MaxRefreshInterval { get; set; } 
+        public int MaxRefreshInterval { get; set; }
         public int MaxRefreshCount { get; set; }
     }
 }

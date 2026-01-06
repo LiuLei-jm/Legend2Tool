@@ -1,6 +1,5 @@
 ﻿using Legend2Tool.WPF.Enums;
 using Legend2Tool.WPF.State;
-using System.Text;
 
 namespace Legend2Tool.WPF.Services
 {
