@@ -1257,9 +1257,10 @@ namespace Legend2Tool.WPF.Services
                         continue;
                     string mapName = mapParts[1].Trim();
                     if (trimmedLine.Contains("FB"))
-                        mapCode = $"FB-{mapCode}";
+                        mapName = $"{mapName}-副本";
+                        //    mapCode = $"FB-{mapCode}";
 
-                    if (mapCode.Contains('|'))
+                        if (mapCode.Contains('|'))
                     {
                         var codes = mapCode.Split('|');
                         mapCode = codes[0].Trim();
