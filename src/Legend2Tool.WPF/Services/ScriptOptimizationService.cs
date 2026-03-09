@@ -822,7 +822,7 @@ namespace Legend2Tool.WPF.Services
                 "Envir",
                 "MonItems"
             );
-            var destinationFolder = Path.Combine(_configStore.ServerDirectory, "UnusedMonItems");
+            //var destinationFolder = Path.Combine(_configStore.ServerDirectory, "UnusedMonItems");
             if (!Directory.Exists(directory))
             {
                 _logger.Error($"目录不存在{directory}.");
@@ -835,7 +835,7 @@ namespace Legend2Tool.WPF.Services
                 var processedItems = new ConcurrentDictionary<string, byte>();
                 if (!_monsters.TryGetValue(monName, out var monster))
                 {
-                    MovFileToUnused(filePath, destinationFolder);
+                    //MovFileToUnused(filePath, destinationFolder);
                     continue;
                 }
                 Encoding fileEncoding = _encodingService.DetectFileEncoding(filePath);
@@ -1000,9 +1000,9 @@ namespace Legend2Tool.WPF.Services
                 "Envir",
                 "Mongen.txt"
             );
-            Encoding fileEncoding = _encodingService.DetectFileEncoding(filePath);
             if (!File.Exists(filePath))
                 throw new FileNotFoundException($"没有找到文件：{filePath}");
+            Encoding fileEncoding = _encodingService.DetectFileEncoding(filePath);
 
             await foreach (var line in File.ReadLinesAsync(filePath, fileEncoding))
             {
@@ -1012,47 +1012,71 @@ namespace Legend2Tool.WPF.Services
                     continue;
                 }
 
-                var parts = trimmedLine.Split(
-                    AppConstants.EmptySeparator,
-                    StringSplitOptions.RemoveEmptyEntries
-                );
-
-                if (parts.Length < 7)
+                if (trimmedLine.StartsWith("loadgen", StringComparison.OrdinalIgnoreCase))
                 {
-                    continue;
-                }
-
-                var mapCode = parts[0];
-                var x = parts[1];
-                var y = parts[2];
-                var monName = parts[3];
-                var range = parts[4];
-                var count = parts[5];
-                var interval = parts[6];
-
-                if (!_mapDatas.TryGetValue(mapCode, out var mapData))
-                {
-                    _logger.Warning($"地图代码 {mapCode} 不存在,请检测脚本.");
-                    continue;
-                }
-                if (!_monsters.TryGetValue(monName, out var monster))
-                {
-                    _logger.Warning($"怪物名称 {monName} 不存在,请检测数据库.");
-                    continue;
-                }
-                var monBot =
-                    $"每 {interval} 分钟 刷新{count} 个 【{mapData.Name}({x}:{y})范围{range}】";
-                MonsterMapAssociation(monster, mapData);
-                if (monster.Bots.ContainsKey("-1"))
-                {
-                    monster.Bots.TryRemove("-1", out _);
-                    monster.Bots.TryAdd(monBot, 0);
+                    var file = trimmedLine.Split(AppConstants.EmptySeparator, StringSplitOptions.RemoveEmptyEntries)[1];
+                    if (string.IsNullOrEmpty(file) || !file.Contains("txt")) continue;
+                    filePath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "Mongen", file);
+                    if (!File.Exists(filePath))
+                        throw new FileNotFoundException($"没有找到文件：{filePath}");
+                    fileEncoding = _encodingService.DetectFileEncoding(filePath);
+                    await foreach(var subLine in File.ReadLinesAsync(filePath, fileEncoding)){
+                        var trimmedSubLine = subLine.Trim();
+                        if (string.IsNullOrEmpty(trimmedSubLine) || trimmedSubLine.StartsWith(';')) continue;
+                        ProcessMongenPerLine(trimmedSubLine);
+                    }
                 }
                 else
                 {
-                    monster.Bots.TryAdd(monBot, 0);
+                    ProcessMongenPerLine(trimmedLine);
                 }
             }
+        }
+
+        private void ProcessMongenPerLine(string trimmedLine)
+        {
+            var parts = trimmedLine.Split(
+                AppConstants.EmptySeparator,
+                StringSplitOptions.RemoveEmptyEntries
+            );
+
+            if (parts.Length < 7)
+            {
+                return;
+            }
+
+            var mapCode = parts[0];
+            var x = parts[1];
+            var y = parts[2];
+            var monName = parts[3];
+            var range = parts[4];
+            var count = parts[5];
+            var interval = parts[6];
+
+            if (!_mapDatas.TryGetValue(mapCode, out var mapData))
+            {
+                _logger.Warning($"地图代码 {mapCode} 不存在,请检测脚本.");
+                return;
+            }
+            if (!_monsters.TryGetValue(monName, out var monster))
+            {
+                _logger.Warning($"怪物名称 {monName} 不存在,请检测数据库.");
+                return;
+            }
+            var monBot =
+                $"每 {interval} 分钟 刷新{count} 个 【{mapData.Name}({x}:{y})范围{range}】";
+            MonsterMapAssociation(monster, mapData);
+            if (monster.Bots.ContainsKey("-1"))
+            {
+                monster.Bots.TryRemove("-1", out _);
+                monster.Bots.TryAdd(monBot, 0);
+            }
+            else
+            {
+                monster.Bots.TryAdd(monBot, 0);
+            }
+
+            return;
         }
 
         private void MapNpcAssociation(MapData mapData, NpcData npcData)
@@ -1258,9 +1282,9 @@ namespace Legend2Tool.WPF.Services
                     string mapName = mapParts[1].Trim();
                     if (trimmedLine.Contains("FB"))
                         mapName = $"{mapName}-副本";
-                        //    mapCode = $"FB-{mapCode}";
+                    //    mapCode = $"FB-{mapCode}";
 
-                        if (mapCode.Contains('|'))
+                    if (mapCode.Contains('|'))
                     {
                         var codes = mapCode.Split('|');
                         mapCode = codes[0].Trim();
@@ -1422,17 +1446,17 @@ namespace Legend2Tool.WPF.Services
             }
             _visited.Clear();
 
-            string sourceDirectory = Path.Combine(_configStore.ServerDirectory, "Mir200", "Map");
-            string destinationDirectory = Path.Combine(_configStore.ServerDirectory, "UnusedMap");
+            //string sourceDirectory = Path.Combine(_configStore.ServerDirectory, "Mir200", "Map");
+            //string destinationDirectory = Path.Combine(_configStore.ServerDirectory, "UnusedMap");
 
-            foreach (string file in Directory.GetFiles(sourceDirectory))
-            {
-                string fileName = Path.GetFileNameWithoutExtension(file);
-                if (!UsedMaps.Contains(fileName, StringComparer.OrdinalIgnoreCase))
-                {
-                    MovFileToUnused(file, destinationDirectory);
-                }
-            }
+            //foreach (string file in Directory.GetFiles(sourceDirectory))
+            //{
+            //    string fileName = Path.GetFileNameWithoutExtension(file);
+            //    if (!UsedMaps.Contains(fileName, StringComparer.OrdinalIgnoreCase))
+            //    {
+            //        MovFileToUnused(file, destinationDirectory);
+            //    }
+            //}
         }
 
         private void ProcessVariable(string trimmedLine)
