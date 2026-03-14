@@ -81,139 +81,26 @@ namespace Legend2Tool.WPF.Services
                     continue;
                 }
 
-                var parts = trimmedLine.Split(AppConstants.EmptySeparator, StringSplitOptions.RemoveEmptyEntries);
-
-                // 怪物名称
-                string monName = parts.Length > 3 ? parts[3] : string.Empty;
-                if (string.IsNullOrEmpty(monName) || filterMonNames.Contains(monName))
+                if (trimmedLine.StartsWith("loadgen", StringComparison.OrdinalIgnoreCase))
                 {
-                    noClearMonLists.Add(monName);
-                    newMongen.Add(trimmedLine);
-                    continue;
-                }
-
-                // 刷新间隔
-                string interval = parts.Length > 6 ? parts[6] : options.MaxRefreshInterval.ToString();
-                if (string.IsNullOrEmpty(interval) || filterIntervals.Contains(interval) || !int.TryParse(interval, out _))
-                {
-                    noClearMonLists.Add(monName);
-                    newMongen.Add(trimmedLine);
-                    continue;
-                }
-                if (options.IsLimitRefreshInterval && int.TryParse(interval, out int refreshInterval))
-                {
-                    if (refreshInterval > options.MaxRefreshInterval && parts.Length > 6)
+                    var file = trimmedLine.Split(AppConstants.EmptySeparator, StringSplitOptions.RemoveEmptyEntries)[1];
+                    if (string.IsNullOrEmpty(file) || !file.Contains("txt")) continue;
+                    var filePath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "Mongen", file);
+                    if (!File.Exists(filePath))
+                        throw new FileNotFoundException($"没有找到文件：{filePath}");
+                    var fileEncoding = _encodingService.DetectFileEncoding(filePath);
+                    await foreach (var subLine in File.ReadLinesAsync(filePath, fileEncoding))
                     {
-                        parts[6] = options.MaxRefreshInterval.ToString();
-                        trimmedLine = string.Join(' ', parts);
+                        var trimmedSubLine = subLine.Trim();
+                        if (string.IsNullOrEmpty(trimmedSubLine) || trimmedSubLine.StartsWith(';')) continue;
+                        ProcessEachRowOfMonSpawning(options, mapMonsters, mapMonsterCounts, filterMapCodes, filterMonNames, filterMonCounts, filterIntervals, filterMonNameColors, noClearMonLists, newMongen, trimmedSubLine);
                     }
                 }
-
-                // 地图代码
-                string mapCode = parts.Length > 0 ? parts[0] : string.Empty;
-                if (string.IsNullOrEmpty(mapCode) || filterMapCodes.Contains(mapCode))
-                {
-                    noClearMonLists.Add(monName);
-                    newMongen.Add(trimmedLine);
-                    continue;
-                }
-
-                // 地图X坐标
-                string pointX = parts.Length > 1 ? parts[1] : AppConstants.DefaultPointRange;
-                if (int.TryParse(pointX, out int x))
-                {
-                    if (x < 0) pointX = AppConstants.DefaultPointRange;
-                }
                 else
                 {
-                    newMongen.Add(trimmedLine);
-                    continue;
+                    ProcessEachRowOfMonSpawning(options, mapMonsters, mapMonsterCounts, filterMapCodes, filterMonNames, filterMonCounts, filterIntervals, filterMonNameColors, noClearMonLists, newMongen, trimmedLine);
                 }
 
-
-                // 地图Y坐标
-                string pointY = parts.Length > 2 ? parts[2] : AppConstants.DefaultPointRange;
-                if (int.TryParse(pointY, out int y))
-                {
-                    if (y < 0) pointY = AppConstants.DefaultPointRange;
-                }
-                else
-                {
-                    newMongen.Add(trimmedLine);
-                    continue;
-                }
-
-
-                // 刷新范围
-                string range = parts.Length > 4 ? parts[4] : AppConstants.DefaultPointRange;
-                if (int.TryParse(range, out int r))
-                {
-                    if (r < 0) range = AppConstants.DefaultPointRange;
-                }
-                else
-                {
-                    newMongen.Add(trimmedLine);
-                    continue;
-                }
-
-                // 刷怪数量
-                string monCount = parts.Length > 5 ? parts[5] : "1";
-                if (filterMonCounts.Contains(monCount))
-                {
-                    noClearMonLists.Add(monName);
-                    newMongen.Add(trimmedLine);
-                    continue;
-                }
-                if (int.TryParse(monCount, out int count))
-                {
-                    if (count < 1)
-                    {
-                        count = 1;
-                    }
-                    else if (count > options.MaxRefreshCount)
-                    {
-                        count = options.MaxRefreshCount;
-                    }
-                    count *= options.RefreshMonMultiplier;
-                    monCount = count.ToString();
-                }
-                else continue;
-
-                // 怪物类型
-                string monType = parts.Length > 7 ? parts[7] : "0";
-
-                // 怪物名称颜色
-                string monNameColor = parts.Length > 8 ? parts[8] : "255";
-                if (string.IsNullOrEmpty(monNameColor) || filterMonNameColors.Contains(monNameColor))
-                {
-                    noClearMonLists.Add(monName);
-                    newMongen.Add(trimmedLine);
-                    continue;
-                }
-                if (options.IsCommentMongen)
-                {
-                    newMongen.Add($";{trimmedLine}");
-                }
-                else
-                {
-                    newMongen.Add(trimmedLine);
-                }
-
-                string mongenexScript = _configStore.EngineType switch
-                {
-                    EngineType.GOM => $"MonGenEX {mapCode} {pointX} {pointY} {monName} {range} {monCount} 0 {monNameColor}",
-                    EngineType.HGE => $"MonGenEX {mapCode} {pointX} {pointY} {monName}|{monType}|{monNameColor}|1,2 {range} {monCount} 0 1",
-                    _ => $"MonGenEX {mapCode} {pointX} {pointY} {monName} {range} {monCount} {monNameColor}"
-                };
-
-                if (!mapMonsters.TryGetValue(mapCode, out _))
-                {
-                    mapMonsters[mapCode] = [];
-                    mapMonsterCounts[mapCode] = 0;
-                }
-
-                mapMonsters[mapCode].Add(mongenexScript);
-                mapMonsterCounts[mapCode] += count;
             }
 
             if (options.IsCommentMongen || options.IsLimitRefreshInterval)
@@ -329,6 +216,143 @@ namespace Legend2Tool.WPF.Services
                 await autoRunRobotWriter.WriteLineAsync(AppConstants.EndWriteTitle);
             }
 
+        }
+
+        private void ProcessEachRowOfMonSpawning(RefreshOptimizationOptions options, Dictionary<string, List<string>> mapMonsters, Dictionary<string, int> mapMonsterCounts, HashSet<string> filterMapCodes, HashSet<string> filterMonNames, HashSet<string> filterMonCounts, HashSet<string> filterIntervals, HashSet<string> filterMonNameColors, HashSet<string> noClearMonLists, List<string> newMongen, string trimmedLine)
+        {
+            var parts = trimmedLine.Split(AppConstants.EmptySeparator, StringSplitOptions.RemoveEmptyEntries);
+
+            // 怪物名称
+            string monName = parts.Length > 3 ? parts[3] : string.Empty;
+            if (string.IsNullOrEmpty(monName) || filterMonNames.Contains(monName))
+            {
+                noClearMonLists.Add(monName);
+                newMongen.Add(trimmedLine);
+                return;
+            }
+
+            // 刷新间隔
+            string interval = parts.Length > 6 ? parts[6] : options.MaxRefreshInterval.ToString();
+            if (string.IsNullOrEmpty(interval) || filterIntervals.Contains(interval) || !int.TryParse(interval, out _))
+            {
+                noClearMonLists.Add(monName);
+                newMongen.Add(trimmedLine);
+                return;
+            }
+            if (options.IsLimitRefreshInterval && int.TryParse(interval, out int refreshInterval))
+            {
+                if (refreshInterval > options.MaxRefreshInterval && parts.Length > 6)
+                {
+                    parts[6] = options.MaxRefreshInterval.ToString();
+                    trimmedLine = string.Join(' ', parts);
+                }
+            }
+
+            // 地图代码
+            string mapCode = parts.Length > 0 ? parts[0] : string.Empty;
+            if (string.IsNullOrEmpty(mapCode) || filterMapCodes.Contains(mapCode))
+            {
+                noClearMonLists.Add(monName);
+                newMongen.Add(trimmedLine);
+                return;
+            }
+
+            // 地图X坐标
+            string pointX = parts.Length > 1 ? parts[1] : AppConstants.DefaultPointRange;
+            if (int.TryParse(pointX, out int x))
+            {
+                if (x < 0) pointX = AppConstants.DefaultPointRange;
+            }
+            else
+            {
+                newMongen.Add(trimmedLine);
+                return;
+            }
+
+
+            // 地图Y坐标
+            string pointY = parts.Length > 2 ? parts[2] : AppConstants.DefaultPointRange;
+            if (int.TryParse(pointY, out int y))
+            {
+                if (y < 0) pointY = AppConstants.DefaultPointRange;
+            }
+            else
+            {
+                newMongen.Add(trimmedLine);
+                return;
+            }
+
+
+            // 刷新范围
+            string range = parts.Length > 4 ? parts[4] : AppConstants.DefaultPointRange;
+            if (int.TryParse(range, out int r))
+            {
+                if (r < 0) range = AppConstants.DefaultPointRange;
+            }
+            else
+            {
+                newMongen.Add(trimmedLine);
+                return;
+            }
+
+            // 刷怪数量
+            string monCount = parts.Length > 5 ? parts[5] : "1";
+            if (filterMonCounts.Contains(monCount))
+            {
+                noClearMonLists.Add(monName);
+                newMongen.Add(trimmedLine);
+                return;
+            }
+            if (int.TryParse(monCount, out int count))
+            {
+                if (count < 1)
+                {
+                    count = 1;
+                }
+                else if (count > options.MaxRefreshCount)
+                {
+                    count = options.MaxRefreshCount;
+                }
+                count *= options.RefreshMonMultiplier;
+                monCount = count.ToString();
+            }
+            else return;
+
+            // 怪物类型
+            string monType = parts.Length > 7 ? parts[7] : "0";
+
+            // 怪物名称颜色
+            string monNameColor = parts.Length > 8 ? parts[8] : "255";
+            if (string.IsNullOrEmpty(monNameColor) || filterMonNameColors.Contains(monNameColor))
+            {
+                noClearMonLists.Add(monName);
+                newMongen.Add(trimmedLine);
+                return;
+            }
+            if (options.IsCommentMongen)
+            {
+                newMongen.Add($";{trimmedLine}");
+            }
+            else
+            {
+                newMongen.Add(trimmedLine);
+            }
+
+            string mongenexScript = _configStore.EngineType switch
+            {
+                EngineType.GOM => $"MonGenEX {mapCode} {pointX} {pointY} {monName} {range} {monCount} 0 {monNameColor}",
+                EngineType.HGE => $"MonGenEX {mapCode} {pointX} {pointY} {monName}|{monType}|{monNameColor}|1,2 {range} {monCount} 0 1",
+                _ => $"MonGenEX {mapCode} {pointX} {pointY} {monName} {range} {monCount} {monNameColor}"
+            };
+
+            if (!mapMonsters.TryGetValue(mapCode, out _))
+            {
+                mapMonsters[mapCode] = [];
+                mapMonsterCounts[mapCode] = 0;
+            }
+
+            mapMonsters[mapCode].Add(mongenexScript);
+            mapMonsterCounts[mapCode] += count;
         }
 
         public async Task ClearRefreshMonScriptAsync(RefreshOptimizationOptions options)
