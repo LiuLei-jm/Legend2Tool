@@ -1736,7 +1736,9 @@ namespace Legend2Tool.WPF.Services
             {
                 case EngineType.BLUE:
                     var blueConfig = _configStore.M2Config as BLUEConfig;
-                    dbPath = blueConfig!.DataTableFile!;
+                    dbPath = ConfigPathResolver.ResolveServerPath(
+                        _configStore.ServerDirectory, blueConfig!.DataTableFile, "Mud2"
+                    );
                     connectionString = $"Data Source={dbPath};";
                     stdmodeQuery = "SELECT ClassID, Name, StdMode FROM item";
                     monsterQuery = "SELECT Name FROM monster";
@@ -1744,7 +1746,9 @@ namespace Legend2Tool.WPF.Services
                 case EngineType.GOM:
                 case EngineType.NEWGOM:
                     var gomConfig = _configStore.M2Config as GOMConfig;
-                    dbPath = gomConfig!.AccessFileName!;
+                    dbPath = ConfigPathResolver.ResolveServerPath(
+                        _configStore.ServerDirectory, gomConfig!.AccessFileName, "Mud2"
+                    );
                     connectionString =
                         $@"Provider=Microsoft.ACE.OLEDB.12.0;Data Source={dbPath};Persist Security Info=False;";
                     stdmodeQuery = "SELECT Idx, Name, StdMode FROM StdItems";
@@ -1752,14 +1756,18 @@ namespace Legend2Tool.WPF.Services
                     break;
                 case EngineType.HGE:
                     var hgeConfig = _configStore.M2Config as HGEConfig;
-                    dbPath = hgeConfig!.SQLiteName!;
+                    dbPath = ConfigPathResolver.ResolveServerPath(
+                        _configStore.ServerDirectory, hgeConfig!.SQLiteName, "Mud2"
+                    );
                     connectionString = $"Data Source={dbPath};";
                     stdmodeQuery = "SELECT Idx, Name, StdMode FROM StdItems";
                     monsterQuery = "SELECT Name FROM Monster";
                     break;
                 default:
                     var geeConfig = _configStore.M2Config as GEEConfig;
-                    dbPath = geeConfig!.SqliteDBName!;
+                    dbPath = ConfigPathResolver.ResolveServerPath(
+                        _configStore.ServerDirectory, geeConfig!.SqliteDBName, "Mud2"
+                    );
                     connectionString = $"Data Source={dbPath};";
                     stdmodeQuery = "SELECT Idx, Name, StdMode FROM StdItems";
                     monsterQuery = "SELECT Name FROM Monster";

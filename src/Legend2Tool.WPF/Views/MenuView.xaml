@@ -22,6 +22,9 @@
             <Button Margin="5,0,0,0"
                     Command="{Binding SetServerDirectoryCommand}"
                     Content="浏览" />
+            <Button Margin="5,0,0,0"
+                    Command="{Binding LoadServerDirectoryCommand}"
+                    Content="加载" />
         </StackPanel>
         <StackPanel Grid.Column="0"
                     Height="28"

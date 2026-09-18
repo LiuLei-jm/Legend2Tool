@@ -3,6 +3,7 @@ using IniFileParser.Model;
 using Legend2Tool.WPF.Attributes;
 using Legend2Tool.WPF.Enums;
 using Legend2Tool.WPF.Messages;
+using Legend2Tool.WPF.Models;
 using Legend2Tool.WPF.Models.BackList;
 using Legend2Tool.WPF.Models.Launcher;
 using Legend2Tool.WPF.Models.M2Config;
@@ -10,6 +11,7 @@ using Legend2Tool.WPF.Models.M2Config.M2Config;
 using Legend2Tool.WPF.State;
 using Serilog;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -69,13 +71,13 @@ namespace Legend2Tool.WPF.Services
                 var indicators = new (string Keyword, EngineType EngineType)[]
                 {
                     ("gameofmir", EngineType.GOM),
-                    ("gamecenter", EngineType.NEWGOM),
                     ("gee", EngineType.GEE),
                     ("gxx", EngineType.GXX),
                     ("hao", EngineType.LF),
                     ("v8", EngineType.V8),
                     ("blue", EngineType.BLUE),
                     ("hge", EngineType.HGE),
+                    ("gamecenter", EngineType.NEWGOM),
                 };
                 string companyName = fileVersionInfo.CompanyName ?? string.Empty;
                 string fileDescription = fileVersionInfo.FileDescription ?? string.Empty;
@@ -161,115 +163,123 @@ namespace Legend2Tool.WPF.Services
             }
         }
 
-        private T ReadMultiSectionConfig<T>(string filePath, Encoding fileEncoding)
-            where T : class, new()
+        private static IniFileParser.IniFileParser CreateIniParser()
         {
             var parser = new IniFileParser.IniFileParser();
-            parser.Parser.Configuration.AssigmentSpacer = ""; // <-- THIS IS THE KEY FIX
-            parser.Parser.Configuration.CommentString = "#"; // Good practice
-            parser.Parser.Configuration.SkipInvalidLines = true; // Good practice
-            IniData data = parser.ReadFile(filePath, fileEncoding);
+            parser.Parser.Configuration.AssigmentSpacer = "";
+            parser.Parser.Configuration.CommentString = "#";
+            parser.Parser.Configuration.SkipInvalidLines = false;
+            return parser;
+        }
 
-            T settings = new T();
-            var properties = typeof(T).GetProperties();
-
-            foreach (var prop in properties)
-            {
-                var iniConfigAttribute = prop.GetCustomAttribute<IniConfigAttribute>();
-                if (iniConfigAttribute != null)
-                {
-                    string sectionName = iniConfigAttribute.SectionName;
-                    string keyName = iniConfigAttribute.KeyName;
-
-                    if (data.Sections.ContainsSection(sectionName))
-                    {
-                        string value = data[sectionName][keyName];
-                        if (value != null)
-                        {
-                            try
-                            {
-                                prop.SetValue(
-                                    settings,
-                                    Convert.ChangeType(value, prop.PropertyType)
-                                );
-                            }
-                            catch (InvalidCastException ex)
-                            {
-                                throw new InvalidOperationException(
-                                    $"无法将值 '{value}' 转换为属性 '{prop.Name}' 的类型 '{prop.PropertyType.Name}'。",
-                                    ex
-                                );
-                            }
-                        }
-                    }
-                    else
-                    {
-                        _logger.Warning($"在 INI 文件 {filePath} 中未找到节'{sectionName}'");
-                    }
-                }
-            }
-
+        internal T ReadMultiSectionConfig<T>(string filePath, Encoding fileEncoding)
+            where T : class, new()
+        {
+            IniData data = CreateIniParser().ReadFile(filePath, fileEncoding);
+            T settings = ReadProperties<T>(data, filePath);
             if (settings is GEEConfig geeConfig)
             {
-                geeConfig.MyGetTxtList.Clear();
-                var sectionName = "ClearServer";
-                for (int i = 0; i < geeConfig.MyGetTxtNum; i++)
-                {
-                    string keyName = $"MyGetTxt{i}";
-                    if (
-                        data.Sections.ContainsSection(sectionName)
-                        && data[sectionName].ContainsKey(keyName)
-                    )
-                    {
-                        string? value = data[sectionName][keyName];
-                        if (!string.IsNullOrEmpty(value))
-                        {
-                            geeConfig.MyGetTxtList.Add(value);
-                        }
-                    }
-                }
-                for (int i = 0; i < geeConfig.MyGetFileNum; i++)
-                {
-                    string keyName = $"MyGetFile{i}";
-                    if (
-                        data.Sections.ContainsSection(sectionName)
-                        && data[sectionName].ContainsKey(keyName)
-                    )
-                    {
-                        string? value = data[sectionName][keyName];
-                        if (!string.IsNullOrEmpty(value))
-                        {
-                            geeConfig.MyGetFileList.Add(value);
-                        }
-                    }
-                }
-                for (int i = 0; i < geeConfig.MyGetDirNum; i++)
-                {
-                    string keyName = $"MyGetDir{i}";
-                    if (
-                        data.Sections.ContainsSection(sectionName)
-                        && data[sectionName].ContainsKey(keyName)
-                    )
-                    {
-                        string? value = data[sectionName][keyName];
-                        if (!string.IsNullOrEmpty(value))
-                        {
-                            geeConfig.MyGetDirList.Add(value);
-                        }
-                    }
-                }
+                geeConfig.MyGetTxtList = ReadIndexedValues(
+                    data, filePath, "MyGetTxt", geeConfig.MyGetTxtNum
+                );
+                geeConfig.MyGetFileList = ReadIndexedValues(
+                    data, filePath, "MyGetFile", geeConfig.MyGetFileNum
+                );
+                geeConfig.MyGetDirList = ReadIndexedValues(
+                    data, filePath, "MyGetDir", geeConfig.MyGetDirNum
+                );
             }
-
             return settings;
         }
 
-        private void WriteMultiSectionConfig<T>(string filePath, T config, Encoding fileEncoding)
+        private T ReadProperties<T>(
+            IniData data,
+            string filePath,
+            string? sectionOverride = null
+        )
             where T : class, new()
         {
-            var parser = new IniFileParser.IniFileParser();
-            parser.Parser.Configuration.AssigmentSpacer = ""; // <-- THIS IS THE KEY FIX
-            parser.Parser.Configuration.CommentString = "#"; // Good practice
-            parser.Parser.Configuration.SkipInvalidLines = true; // Good practice
+            T settings = new();
+            List<string> missingKeys = [];
+            foreach (var prop in typeof(T).GetProperties())
+            {
+                var attribute = prop.GetCustomAttribute<IniConfigAttribute>();
+                if (attribute is null)
+                    continue;
+
+                string sectionName = sectionOverride ?? attribute.SectionName;
+                string keyName = attribute.KeyName;
+                if (!data.Sections.ContainsSection(sectionName)
+                    || !data[sectionName].ContainsKey(keyName))
+                {
+                    missingKeys.Add($"[{sectionName}] {keyName}");
+                    continue;
+                }
+
+                string? value = data[sectionName][keyName];
+                if (value is null)
+                    continue;
+
+                try
+                {
+                    Type valueType = Nullable.GetUnderlyingType(prop.PropertyType)
+                        ?? prop.PropertyType;
+                    prop.SetValue(
+                        settings,
+                        Convert.ChangeType(value, valueType, CultureInfo.InvariantCulture)
+                    );
+                }
+                catch (Exception ex) when (
+                    ex is FormatException or OverflowException or InvalidCastException
+                )
+                {
+                    throw new InvalidDataException(
+                        $"配置文件 '{filePath}' 的 [{sectionName}] {keyName} = '{value}' 无法转换为 {prop.PropertyType.Name}。",
+                        ex
+                    );
+                }
+            }
+            if (missingKeys.Count > 0)
+                _logger.Warning(
+                    "配置文件 {FilePath} 缺少配置项：{MissingKeys}",
+                    filePath,
+                    string.Join(", ", missingKeys)
+                );
+            return settings;
+        }
+
+        private static List<string> ReadIndexedValues(
+            IniData data,
+            string filePath,
+            string keyPrefix,
+            int count
+        )
+        {
+            if (count < 0 || count > 10000)
+                throw new InvalidDataException(
+                    $"配置文件 '{filePath}' 的 [ClearServer] {keyPrefix}Num 数量无效：{count}。"
+                );
+
+            List<string> values = new(count);
+            for (int i = 0; i < count; i++)
+            {
+                string keyName = $"{keyPrefix}{i}";
+                if (!data.Sections.ContainsSection("ClearServer")
+                    || !data["ClearServer"].ContainsKey(keyName)
+                    || string.IsNullOrWhiteSpace(data["ClearServer"][keyName]))
+                    throw new InvalidDataException(
+                        $"配置文件 '{filePath}' 缺少 [ClearServer] {keyName}。"
+                    );
+
+                values.Add(data["ClearServer"][keyName]);
+            }
+            return values;
+        }
+
+        internal void WriteMultiSectionConfig<T>(string filePath, T config, Encoding fileEncoding)
+            where T : class, new()
+        {
+            var parser = CreateIniParser();
             IniData data;
             if (File.Exists(filePath))
             {
@@ -278,6 +288,13 @@ namespace Legend2Tool.WPF.Services
             else
             {
                 data = new IniData();
+            }
+
+            if (config is GEEConfig countedConfig)
+            {
+                countedConfig.MyGetTxtNum = countedConfig.MyGetTxtList.Count;
+                countedConfig.MyGetFileNum = countedConfig.MyGetFileList.Count;
+                countedConfig.MyGetDirNum = countedConfig.MyGetDirList.Count;
             }
 
             var properties = typeof(T).GetProperties();
@@ -305,6 +322,15 @@ namespace Legend2Tool.WPF.Services
                 {
                     data.Sections.AddSection(sectionName);
                 }
+                foreach (var key in data[sectionName]
+                    .Select(item => item.KeyName)
+                    .Where(key => IsIndexedKey(key, "MyGetTxt")
+                        || IsIndexedKey(key, "MyGetFile")
+                        || IsIndexedKey(key, "MyGetDir"))
+                    .ToList())
+                {
+                    data[sectionName].RemoveKey(key);
+                }
                 for (int i = 0; i < geeConfig.MyGetTxtList.Count; i++)
                 {
                     string keyName = $"MyGetTxt{i}";
@@ -324,94 +350,22 @@ namespace Legend2Tool.WPF.Services
             parser.WriteFile(filePath, data, fileEncoding);
         }
 
-        private T ReadSectionConfig<T>(string filePath, Encoding fileEncoding, string sectionName)
-            where T : class, new()
-        {
-            var parser = new IniFileParser.IniFileParser();
-            parser.Parser.Configuration.AssigmentSpacer = ""; // <-- THIS IS THE KEY FIX
-            parser.Parser.Configuration.CommentString = "#"; // Good practice
-            parser.Parser.Configuration.SkipInvalidLines = true; // Good practice
-            IniData data = parser.ReadFile(filePath, fileEncoding);
-            if (data.Sections.ContainsSection(sectionName))
-            {
-                T settings = new T();
-                var properties = typeof(T).GetProperties();
+        private static bool IsIndexedKey(string key, string prefix) =>
+            key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+            && int.TryParse(key.AsSpan(prefix.Length), out _);
 
-                foreach (var prop in properties)
-                {
-                    var iniConfigAttribute = prop.GetCustomAttribute<IniConfigAttribute>();
-                    if (iniConfigAttribute != null)
-                    {
-                        string keyName = iniConfigAttribute.KeyName;
-
-                        string? value = data[sectionName][keyName];
-                        if (value != null)
-                        {
-                            try
-                            {
-                                prop.SetValue(
-                                    settings,
-                                    Convert.ChangeType(value, prop.PropertyType)
-                                );
-                            }
-                            catch (InvalidCastException ex)
-                            {
-                                throw new InvalidOperationException(
-                                    $"无法将值 '{value}' 转换为属性 '{prop.Name}' 的类型 '{prop.PropertyType.Name}'。",
-                                    ex
-                                );
-                            }
-                        }
-                    }
-                }
-                return settings;
-            }
-            else
-            {
-                return null!;
-            }
-        }
-
-        private void WriteSectionConfig<T>(
+        private T ReadSectionConfig<T>(
+            IniData data,
             string filePath,
-            T config,
-            Encoding fileEncoding,
             string sectionName
         )
             where T : class, new()
         {
-            var parser = new IniFileParser.IniFileParser();
-            parser.Parser.Configuration.AssigmentSpacer = ""; // <-- THIS IS THE KEY FIX
-            parser.Parser.Configuration.CommentString = "#"; // Good practice
-            parser.Parser.Configuration.SkipInvalidLines = true; // Good practice
-            IniData data;
-            if (File.Exists(filePath))
-            {
-                data = parser.ReadFile(filePath, fileEncoding);
-            }
-            else
-            {
-                data = new IniData();
-            }
-
-            var properties = typeof(T).GetProperties();
-
-            foreach (var prop in properties)
-            {
-                var iniConfigAttribute = prop.GetCustomAttribute<IniConfigAttribute>();
-                if (iniConfigAttribute != null)
-                {
-                    string KeyName = iniConfigAttribute.KeyName;
-                    object? value = prop.GetValue(config);
-
-                    if (!data.Sections.ContainsSection(sectionName))
-                    {
-                        data.Sections.AddSection(sectionName);
-                    }
-                    data[sectionName][KeyName] = value?.ToString() ?? string.Empty;
-                }
-            }
-            parser.WriteFile(filePath, data, fileEncoding);
+            if (!data.Sections.ContainsSection(sectionName))
+                throw new InvalidDataException(
+                    $"配置文件 '{filePath}' 缺少 [{sectionName}] 节。"
+                );
+            return ReadProperties<T>(data, filePath, sectionName);
         }
 
         public bool CheckPorts(int[] portsToCheck)
@@ -688,9 +642,7 @@ namespace Legend2Tool.WPF.Services
             }
 
             if (!CheckPorts(portsToCheck))
-            {
-                return;
-            }
+                throw new InvalidOperationException("端口检查未通过，未保存配置。");
 
             if (
                 !string.IsNullOrEmpty(configStore.PatchDirectory)
@@ -715,330 +667,222 @@ namespace Legend2Tool.WPF.Services
             {
                 SaveLauncherConfigToFile(configStore);
             }
-        }
-
-        public void GetLauncherConfigInfo(ConfigStore configStore)
-        {
-            string filePath = Path.Combine(configStore.ServerDirectory, "登录器", "config.ini");
-            if (!File.Exists(filePath))
+            if (configStore.AuxiliaryDefaultsPending)
             {
-                MessageBox.Show($"文件不存在：{filePath}");
-                return;
-            }
-            var fileEncoding = _encodingService.DetectFileEncoding(filePath);
-            configStore.LauncherConfig = configStore.EngineType switch
-            {
-                EngineType.GOM => ReadMultiSectionConfig<LauncherConfigGOM>(filePath, fileEncoding),
-                EngineType.GEE or EngineType.GXX or EngineType.LF or EngineType.V8 =>
-                    ReadMultiSectionConfig<LauncherConfigGEE>(filePath, fileEncoding),
-                _ => ReadMultiSectionConfig<LauncherConfigBase>(filePath, fileEncoding),
-            };
-
-            if (configStore.LauncherConfig is LauncherConfigGEE geeConfig)
-            {
-                geeConfig.BackgroundImage = Path.Combine(
-                    configStore.ServerDirectory,
-                    GetSourcePath(geeConfig.BackgroundImage, "登录器")
-                );
-                geeConfig.LauncherIcon = Path.Combine(
-                    configStore.ServerDirectory,
-                    GetSourcePath(geeConfig.LauncherIcon, "登录器")
-                );
-                geeConfig.GameCursor = Path.Combine(
-                    configStore.ServerDirectory,
-                    GetSourcePath(geeConfig.GameCursor, "登录器")
-                );
-                geeConfig.InlayCursor = Path.Combine(
-                    configStore.ServerDirectory,
-                    GetSourcePath(geeConfig.InlayCursor, "登录器")
-                );
-                geeConfig.DisassembleCursor = Path.Combine(
-                    configStore.ServerDirectory,
-                    GetSourcePath(geeConfig.DisassembleCursor, "登录器")
-                );
-            }
-            else if (configStore.LauncherConfig is LauncherConfigGOM gomConfig)
-            {
-                gomConfig.BackgroundImage = Path.Combine(
-                    configStore.ServerDirectory,
-                    GetSourcePath(gomConfig.BackgroundImage, "登录器")
-                );
-            }
-            else
-            {
-                _logger.Warning(
-                    $"尝试读取未知的 LauncherConfig 类型：{configStore.LauncherConfig?.GetType().Name ?? "null"}"
-                );
+                SaveAuxiliaryConfigFiles(configStore);
+                configStore.AuxiliaryDefaultsPending = false;
             }
         }
 
-        public void GetM2ConfigInfo(ConfigStore configStore)
+        public void ApplyDefaultAuxiliarySettings(ConfigStore configStore)
         {
-            string filePath = Path.Combine(configStore.ServerDirectory, "config.ini");
-            if (!File.Exists(filePath))
+            string serverDirectory = configStore.ServerDirectory;
+            if (string.IsNullOrWhiteSpace(serverDirectory))
+                throw new InvalidOperationException("请先加载服务端配置。");
+
+            switch (configStore.M2Config)
             {
-                MessageBox.Show($"文件不存在：{filePath}");
-                return;
+                case BLUEConfig blueConfig:
+                    blueConfig.Backup = 1;
+                    blueConfig.Mode = 0;
+                    blueConfig.Interval = 720;
+                    blueConfig.Attime = "0:0:00";
+                    blueConfig.数据备份目录 = 1;
+                    blueConfig.数据备份目录_path = Path.Combine(serverDirectory, "数据备份");
+                    blueConfig.WinRAR目录 = 1;
+                    blueConfig.WinRAR目录_path = Path.Combine(serverDirectory, "WinRAR");
+                    blueConfig.FDB目录 = 1;
+                    blueConfig.FDB目录_path = Path.Combine(serverDirectory, "DBServer", "FDB");
+                    blueConfig.IDDB目录 = 1;
+                    blueConfig.IDDB目录_path = Path.Combine(serverDirectory, "LoginSrv", "IDDB");
+                    blueConfig.行会目录 = 1;
+                    blueConfig.行会目录_path = Path.Combine(serverDirectory, "Mir200", "GuildBase");
+                    blueConfig.沙城目录 = 1;
+                    blueConfig.沙城目录_path = Path.Combine(serverDirectory, "Mir200", "Castle");
+                    blueConfig.脚本数据目录 = 1;
+                    blueConfig.脚本数据目录_path = Path.Combine(
+                        serverDirectory, "Mir200", "Envir", "QuestDiary", "数据文件"
+                    );
+                    break;
+                case HGEConfig hgeConfig:
+                    hgeConfig.DataDir1 = serverDirectory;
+                    hgeConfig.BakDir1 = Path.Combine(serverDirectory, "数据备份");
+                    hgeConfig.TimeCls1 = 0;
+                    hgeConfig.Hour1 = 6;
+                    hgeConfig.Minute1 = 0;
+                    hgeConfig.OnlyBakDatabase1 = 1;
+                    hgeConfig.Count = 1;
+                    hgeConfig.BakAuto = 1;
+                    hgeConfig.BakReduce = 1;
+                    break;
+                default:
+                    string setupPath = Path.Combine(serverDirectory, "Mir200", "!Setup.txt");
+                    if (File.Exists(setupPath))
+                    {
+                        configStore.Setup.ChatDir = Path.Combine(serverDirectory, "Mir200", "ChatLog");
+                        configStore.Setup.SortDir = Path.Combine(serverDirectory, "Mir200", "Sort");
+                        configStore.Setup.BoxsDir = Path.Combine(serverDirectory, "Mir200", "Envir", "Boxs");
+                        configStore.Setup.BoxsFile = Path.Combine(
+                            serverDirectory, "Mir200", "Envir", "Boxs", "BoxsList.txt"
+                        );
+                    }
+
+                    foreach (BackListBase backList in configStore.BackLists)
+                    {
+                        backList.Source = ConfigPathResolver.ResolveBackListPath(
+                            serverDirectory, backList.Source
+                        );
+                        backList.Save = ConfigPathResolver.ResolveBackListPath(
+                            serverDirectory, backList.Save
+                        );
+                        backList.Hour = 6;
+                        backList.Min = 0;
+                        backList.BackMode = 1;
+                        backList.GetBack = 1;
+                        if (backList is GEEBackList geeBackList)
+                            geeBackList.IsCompress = 1;
+                    }
+                    configStore.AuxiliaryDefaultsPending = true;
+                    break;
             }
-            var fileEncoding = _encodingService.DetectFileEncoding(filePath);
-            configStore.EngineType = CheckEngineType(configStore.ServerDirectory);
-            configStore.M2Config = configStore.EngineType switch
+        }
+
+        public LoadedServerConfig LoadServerConfig(string serverDirectory)
+        {
+            if (string.IsNullOrWhiteSpace(serverDirectory))
+                throw new ArgumentException("服务端目录不能为空", nameof(serverDirectory));
+
+            serverDirectory = Path.GetFullPath(serverDirectory);
+            string configPath = Path.Combine(serverDirectory, "config.ini");
+            if (!File.Exists(configPath))
+                throw new FileNotFoundException("服务端配置文件不存在", configPath);
+
+            Encoding configEncoding = _encodingService.DetectFileEncoding(configPath);
+            EngineType engineType = CheckEngineType(serverDirectory);
+            M2ConfigBase m2Config = engineType switch
             {
-                EngineType.GOM or EngineType.NEWGOM => ReadMultiSectionConfig<GOMConfig>(
-                    filePath,
-                    fileEncoding
-                ),
+                EngineType.GOM or EngineType.NEWGOM =>
+                    ReadMultiSectionConfig<GOMConfig>(configPath, configEncoding),
                 EngineType.GEE or EngineType.GXX or EngineType.LF or EngineType.V8 =>
-                    ReadMultiSectionConfig<GEEConfig>(filePath, fileEncoding),
-                EngineType.BLUE => ReadMultiSectionConfig<BLUEConfig>(filePath, fileEncoding),
-                EngineType.HGE => ReadMultiSectionConfig<HGEConfig>(filePath, fileEncoding),
+                    ReadMultiSectionConfig<GEEConfig>(configPath, configEncoding),
+                EngineType.BLUE =>
+                    ReadMultiSectionConfig<BLUEConfig>(configPath, configEncoding),
+                EngineType.HGE =>
+                    ReadMultiSectionConfig<HGEConfig>(configPath, configEncoding),
                 _ => throw new InvalidOperationException("不支持的引擎"),
             };
 
-            configStore.M2Config.GameDirectory = $"{configStore.ServerDirectory}\\";
+            LauncherConfigBase launcherConfig = new();
+            if (engineType is not (EngineType.BLUE or EngineType.HGE or EngineType.NEWGOM))
+            {
+                string launcherPath = Path.Combine(serverDirectory, "登录器", "config.ini");
+                if (!File.Exists(launcherPath))
+                    throw new FileNotFoundException("登录器配置文件不存在", launcherPath);
 
-            if (configStore.M2Config is GEEConfig geeConfig)
-            {
-                geeConfig.SqliteDBFile = Path.Combine(
-                    configStore.ServerDirectory,
-                    GetSourcePath(geeConfig.SqliteDBFile, "Mud2")
-                );
-                geeConfig.SqliteDBName = Path.Combine(
-                    configStore.ServerDirectory,
-                    GetSourcePath(geeConfig.SqliteDBName, "Mud2")
-                );
-                if (geeConfig.MyGetTxtNum > 0)
+                Encoding launcherEncoding = _encodingService.DetectFileEncoding(launcherPath);
+                launcherConfig = engineType switch
                 {
-                    for (int i = 0; i < geeConfig.MyGetTxtNum; i++)
-                    {
-                        geeConfig.MyGetTxtList[i] = Path.Combine(
-                            configStore.ServerDirectory,
-                            GetSourcePath(geeConfig.MyGetTxtList[i], "Mir200")
-                        );
-                    }
-                }
-                if (geeConfig.MyGetFileNum > 0)
-                {
-                    for (int i = 0; i < geeConfig.MyGetFileNum; i++)
-                    {
-                        geeConfig.MyGetFileList[i] = Path.Combine(
-                            configStore.ServerDirectory,
-                            GetSourcePath(geeConfig.MyGetFileList[i], "Mir200")
-                        );
-                    }
-                }
-                if (geeConfig.MyGetDirNum > 0)
-                {
-                    for (int i = 0; i < geeConfig.MyGetDirNum; i++)
-                    {
-                        geeConfig.MyGetDirList[i] = Path.Combine(
-                            configStore.ServerDirectory,
-                            GetSourcePath(geeConfig.MyGetDirList[i], "Mir200")
-                        );
-                    }
-                }
+                    EngineType.GOM =>
+                        ReadMultiSectionConfig<LauncherConfigGOM>(launcherPath, launcherEncoding),
+                    _ =>
+                        ReadMultiSectionConfig<LauncherConfigGEE>(launcherPath, launcherEncoding),
+                };
+            }
 
-                SetDefaultBackListPath(configStore);
-                SetDefaultSetupPath(configStore);
-            }
-            else if (configStore.M2Config is GOMConfig gomConfig)
+            Setup setup = new();
+            List<BackListBase> backLists = [];
+            if (engineType is not (EngineType.BLUE or EngineType.HGE))
             {
-                gomConfig.AccessFileName = Path.Combine(
-                    configStore.ServerDirectory,
-                    GetSourcePath(gomConfig.AccessFileName, "Mud2")
-                );
-                if (configStore.EngineType == EngineType.GOM)
-                    SetDefaultBackListPath(configStore);
-                SetDefaultSetupPath(configStore);
+                string setupPath = Path.Combine(serverDirectory, "Mir200", "!Setup.txt");
+                if (File.Exists(setupPath))
+                    setup = ReadMultiSectionConfig<Setup>(
+                        setupPath,
+                        _encodingService.DetectFileEncoding(setupPath)
+                    );
+
+                if (engineType != EngineType.NEWGOM)
+                {
+                    string backListPath = Path.Combine(serverDirectory, "BackList.txt");
+                    if (File.Exists(backListPath))
+                        backLists = ReadBackLists(
+                            backListPath,
+                            _encodingService.DetectFileEncoding(backListPath),
+                            engineType
+                        );
+                }
             }
-            else if (configStore.M2Config is BLUEConfig blueConfig)
-            {
-                blueConfig.DataTableFile = Path.Combine(
-                    configStore.ServerDirectory,
-                    GetSourcePath(blueConfig.DataTableFile, "Mud2")
-                );
-                blueConfig.Backup = 1;
-                blueConfig.Mode = 0;
-                blueConfig.Interval = 720;
-                blueConfig.Attime = "0:0:00";
-                blueConfig.数据备份目录 = 1;
-                blueConfig.数据备份目录_path = Path.Combine(
-                    configStore.ServerDirectory,
-                    "数据备份"
-                );
-                blueConfig.WinRAR目录 = 1;
-                blueConfig.WinRAR目录_path = Path.Combine(configStore.ServerDirectory, "WinRAR");
-                blueConfig.FDB目录 = 1;
-                blueConfig.FDB目录_path = Path.Combine(
-                    configStore.ServerDirectory,
-                    "DBServer",
-                    "FDB"
-                );
-                blueConfig.IDDB目录 = 1;
-                blueConfig.IDDB目录_path = Path.Combine(
-                    configStore.ServerDirectory,
-                    "LoginSrv",
-                    "IDDB"
-                );
-                blueConfig.行会目录 = 1;
-                blueConfig.行会目录_path = Path.Combine(
-                    configStore.ServerDirectory,
-                    "Mir200",
-                    "GuildBase"
-                );
-                blueConfig.沙城目录 = 1;
-                blueConfig.沙城目录_path = Path.Combine(
-                    configStore.ServerDirectory,
-                    "Mir200",
-                    "Castle"
-                );
-                blueConfig.脚本数据目录 = 1;
-                blueConfig.脚本数据目录_path = Path.Combine(
-                    configStore.ServerDirectory,
-                    "Mir200",
-                    "Envir",
-                    "QuestDiary",
-                    "数据文件"
-                );
-            }
-            else if (configStore.M2Config is HGEConfig hgeConfig)
-            {
-                hgeConfig.SQLiteName = Path.Combine(
-                    configStore.ServerDirectory,
-                    GetSourcePath(hgeConfig.SQLiteName, "Mud2")
-                );
-                hgeConfig.DataDir1 = configStore.ServerDirectory;
-                hgeConfig.BakDir1 = Path.Combine(configStore.ServerDirectory, "数据备份");
-                hgeConfig.TimeCls1 = 0;
-                hgeConfig.Hour1 = 6;
-                hgeConfig.Minute1 = 0;
-                hgeConfig.OnlyBakDatabase1 = 1;
-                hgeConfig.Count = 1;
-                hgeConfig.BakAuto = 1;
-                hgeConfig.BakReduce = 1;
-            }
-            else
-            {
-                _logger.Warning(
-                    $"尝试读取未知的 M2Config 类型：{configStore.M2Config?.GetType().Name ?? "null"}"
-                );
-            }
+
+            return new LoadedServerConfig(
+                serverDirectory,
+                engineType,
+                m2Config,
+                launcherConfig,
+                setup,
+                backLists
+            );
         }
 
-        private void SetDefaultSetupPath(ConfigStore configStore)
+        private List<BackListBase> ReadBackLists(
+            string filePath,
+            Encoding fileEncoding,
+            EngineType engineType
+        )
         {
-            var filePath = Path.Combine(configStore.ServerDirectory, "Mir200", "!Setup.txt");
-            if (!File.Exists(filePath))
-            {
-                MessageBox.Show($"文件不存在：{filePath}");
-                return;
-            }
-            var fileEncoding = _encodingService.DetectFileEncoding(filePath);
-
-            configStore.Setup = ReadMultiSectionConfig<Setup>(filePath, fileEncoding);
-
-            configStore.Setup.ChatDir = Path.Combine(
-                configStore.ServerDirectory,
-                "Mir200",
-                "ChatLog"
-            );
-            configStore.Setup.SortDir = Path.Combine(configStore.ServerDirectory, "Mir200", "Sort");
-            configStore.Setup.BoxsDir = Path.Combine(
-                configStore.ServerDirectory,
-                "Mir200",
-                "Envir",
-                "Boxs"
-            );
-            configStore.Setup.BoxsFile = Path.Combine(
-                configStore.ServerDirectory,
-                "Mir200",
-                "Envir",
-                "Boxs",
-                "BoxsList.txt"
-            );
-
-            WriteMultiSectionConfig(filePath, configStore.Setup, fileEncoding);
-        }
-
-        private void SetDefaultBackListPath(ConfigStore configStore)
-        {
-            string filePath = Path.Combine(configStore.ServerDirectory, "BackList.txt");
-            if (!File.Exists(filePath))
-            {
-                MessageBox.Show($"文件不存在：{filePath}");
-                return;
-            }
-            var fileEncoding = _encodingService.DetectFileEncoding(filePath);
-
-            var parser = new IniFileParser.IniFileParser();
-            parser.Parser.Configuration.AssigmentSpacer = ""; // <-- THIS IS THE KEY FIX
-            parser.Parser.Configuration.CommentString = "#"; // Good practice
-            parser.Parser.Configuration.SkipInvalidLines = true; // Good practice
-
+            var parser = CreateIniParser();
             IniData data = parser.ReadFile(filePath, fileEncoding);
-
-            configStore.BackLists.Clear();
-
+            List<BackListBase> backLists = [];
             foreach (var section in data.Sections)
             {
-                if (int.TryParse(section.SectionName, out _))
-                {
-                    var backList = new BackListBase();
-                    backList = configStore.EngineType switch
-                    {
-                        EngineType.GOM => ReadSectionConfig<BackListBase>(
-                            filePath,
-                            fileEncoding,
-                            section.SectionName
-                        ),
-                        EngineType.GEE or EngineType.GXX or EngineType.LF or EngineType.V8 =>
-                            ReadSectionConfig<GEEBackList>(
-                                filePath,
-                                fileEncoding,
-                                section.SectionName
-                            ),
-                        _ => ReadSectionConfig<BackListBase>(
-                            filePath,
-                            fileEncoding,
-                            section.SectionName
-                        ),
-                    };
-                    backList.sectionName = section.SectionName;
-                    configStore.BackLists.Add(backList);
-                }
-            }
-
-            foreach (var backList in configStore.BackLists)
-            {
-                backList.Source = Path.Combine(
-                    configStore.ServerDirectory,
-                    GetSourcePath(backList.Source, "mirserver")[10..]
-                );
-                backList.Save = Path.Combine(
-                    configStore.ServerDirectory,
-                    GetSourcePath(backList.Save, "mirserver")[10..]
-                );
-                backList.Hour = 6;
-                backList.Min = 0;
-                backList.BackMode = 1;
-                backList.GetBack = 1;
-                if (backList is GEEBackList geeBackList)
-                {
-                    geeBackList.IsCompress = 1;
-                    WriteSectionConfig<GEEBackList>(
-                        filePath,
-                        geeBackList,
-                        fileEncoding,
-                        backList.sectionName
-                    );
+                if (!int.TryParse(section.SectionName, out _))
                     continue;
-                }
-                WriteSectionConfig<BackListBase>(
-                    filePath,
-                    backList,
-                    fileEncoding,
-                    backList.sectionName
+
+                BackListBase backList = engineType switch
+                {
+                    EngineType.GOM => ReadSectionConfig<BackListBase>(
+                        data, filePath, section.SectionName
+                    ),
+                    _ => ReadSectionConfig<GEEBackList>(
+                        data, filePath, section.SectionName
+                    ),
+                };
+                backList.sectionName = section.SectionName;
+                backLists.Add(backList);
+            }
+            return backLists;
+        }
+
+        private void SaveAuxiliaryConfigFiles(ConfigStore configStore)
+        {
+            string setupPath = Path.Combine(configStore.ServerDirectory, "Mir200", "!Setup.txt");
+            if (File.Exists(setupPath))
+                WriteMultiSectionConfig(
+                    setupPath,
+                    configStore.Setup,
+                    _encodingService.DetectFileEncoding(setupPath)
                 );
+
+            string backListPath = Path.Combine(configStore.ServerDirectory, "BackList.txt");
+            if (File.Exists(backListPath) && configStore.BackLists.Count > 0)
+            {
+                Encoding encoding = _encodingService.DetectFileEncoding(backListPath);
+                var parser = CreateIniParser();
+                IniData data = parser.ReadFile(backListPath, encoding);
+                foreach (BackListBase backList in configStore.BackLists)
+                {
+                    if (!data.Sections.ContainsSection(backList.sectionName))
+                        throw new InvalidDataException(
+                            $"配置文件 '{backListPath}' 缺少 [{backList.sectionName}] 节。"
+                        );
+
+                    foreach (var prop in backList.GetType().GetProperties())
+                    {
+                        var attribute = prop.GetCustomAttribute<IniConfigAttribute>();
+                        if (attribute is not null)
+                            data[backList.sectionName][attribute.KeyName] =
+                                prop.GetValue(backList)?.ToString() ?? string.Empty;
+                    }
+                }
+                parser.WriteFile(backListPath, data, encoding);
             }
         }
 
@@ -1046,10 +890,7 @@ namespace Legend2Tool.WPF.Services
         {
             string filePath = Path.Combine(configStore.ServerDirectory, "config.ini");
             if (!File.Exists(filePath))
-            {
-                MessageBox.Show($"文件不存在：{filePath}");
-                return;
-            }
+                throw new FileNotFoundException("服务端配置文件不存在", filePath);
             var fileEncoding = _encodingService.DetectFileEncoding(filePath);
 
             if (configStore.M2Config is GEEConfig geeConfig)
@@ -1080,10 +921,7 @@ namespace Legend2Tool.WPF.Services
         {
             var filePath = Path.Combine(configStore.ServerDirectory, "登录器", "config.ini");
             if (!File.Exists(filePath))
-            {
-                MessageBox.Show($"文件不存在：{filePath}");
-                return;
-            }
+                throw new FileNotFoundException("登录器配置文件不存在", filePath);
             var fileEncoding = _encodingService.DetectFileEncoding(filePath);
             if (configStore.LauncherConfig is LauncherConfigGEE geeConfig)
             {

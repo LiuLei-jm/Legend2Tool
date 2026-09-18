@@ -40,8 +40,14 @@ namespace Legend2Tool.WPF.ViewModels
                 // 更新 ViewModel 中的属性
                 //ServerDirectory = selectedPath;
                 ServerDirectory = selectedPath;
-                WeakReferenceMessenger.Default.Send(new ServerDirectoryChangedMessage(ServerDirectory));
+                LoadServerDirectory();
             }
+        }
+        [RelayCommand]
+        void LoadServerDirectory()
+        {
+            if (!string.IsNullOrWhiteSpace(ServerDirectory))
+                WeakReferenceMessenger.Default.Send(new ServerDirectoryChangedMessage(ServerDirectory));
         }
         [RelayCommand]
         void SetPatchDirectory()

@@ -9,7 +9,7 @@
     xmlns:local="clr-namespace:Legend2Tool.WPF.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="clr-namespace:Legend2Tool.WPF.ViewModels"
-    Width="1050"
+    MinWidth="1050"
     d:DataContext="{d:DesignInstance vm:PortConfViewModel}"
     d:DesignHeight="400"
     mc:Ignorable="d">
@@ -196,7 +196,7 @@
                             <TextBox Width="50" Text="{Binding MainTcpPort}" />
 
                             <TextBlock Text="文件" />
-                            <TextBox Text="{Binding MainTcpConfigFile}" />
+                            <TextBox MinWidth="70" Text="{Binding MainTcpConfigFile}" />
 
                             <TextBlock Text="备TCP" />
                             <TextBox Width="120" Text="{Binding BackupTcpListServer}" />
@@ -205,7 +205,7 @@
                             <TextBox Width="50" Text="{Binding BackupTcpPort}" />
 
                             <TextBlock Text="文件" />
-                            <TextBox Width="70" Text="{Binding BackupTcpConfigFile}" />
+                            <TextBox MinWidth="70" Text="{Binding BackupTcpConfigFile}" />
                         </autogrid:AutoGrid>
                     </GroupBox>
                     <autogrid:AutoGrid
@@ -278,7 +278,7 @@
                             <Setter Property="Width" Value="110" />
                         </Style>
                         <Style BasedOn="{StaticResource {x:Type CheckBox}}" TargetType="CheckBox">
-                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                            <Setter Property="HorizontalAlignment" Value="Center" />
                         </Style>
                     </autogrid:AutoGrid.Resources>
 
@@ -287,6 +287,7 @@
                     <TextBlock Text="游戏服务器名称" />
                     <TextBox Text="{Binding GameName}" />
                     <Button Command="{Binding SetDefaultPortConfCommand}" Content="默认设置" />
+                    <Button Command="{Binding ApplyDefaultAuxiliarySettingsCommand}" Content="默认备份设置" />
                     <TextBlock FontWeight="Bold" Text="所有端口增加：" />
 
                     <hc:NumericUpDown

@@ -53,7 +53,6 @@ namespace Legend2Tool.WPF.ViewModels
         public EngineType EngineType
         {
             get => _configStore.EngineType;
-            set => SetProperty(_configStore.EngineType, value, _configStore, (m, v) => _configStore.EngineType = v);
         }
         public string? GameName
         {
@@ -286,6 +285,7 @@ namespace Legend2Tool.WPF.ViewModels
         {
             OnPropertyChanged(string.Empty);
             SetDefaultPortConfCommand.NotifyCanExecuteChanged();
+            ApplyDefaultAuxiliarySettingsCommand.NotifyCanExecuteChanged();
             BatchEditCommand.NotifyCanExecuteChanged();
             ConvertEncodingCommand.NotifyCanExecuteChanged();
             SaveConfigToFileCommand.NotifyCanExecuteChanged();
@@ -302,6 +302,21 @@ namespace Legend2Tool.WPF.ViewModels
         #endregion
 
         #region Commands
+        [RelayCommand(CanExecute = nameof(CanExecuteConfigCommands))]
+        private void ApplyDefaultAuxiliarySettings()
+        {
+            try
+            {
+                _configService.ApplyDefaultAuxiliarySettings(_configStore);
+                Growl.SuccessGlobal("默认备份设置已载入，请保存配置。");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "载入默认备份设置失败");
+                Growl.ErrorGlobal("载入默认备份设置失败，请查看日志。");
+            }
+        }
+
         [RelayCommand(CanExecute = nameof(CanExecuteConfigCommands))]
         private void SetDefaultPortConf()
         {

@@ -92,14 +92,6 @@ namespace Legend2Tool.WPF.Services
             {
                 return new UTF8Encoding(true); // UTF-8带BOM
             }
-            if (buffer.Length >= 2 && buffer[0] == 0xFF && buffer[1] == 0xFE)
-            {
-                return Encoding.Unicode; // UTF-16 LE
-            }
-            if (buffer.Length >= 2 && buffer[0] == 0xFE && buffer[1] == 0xFF)
-            {
-                return Encoding.BigEndianUnicode; // UTF-16 BE
-            }
             if (
                 buffer.Length >= 4
                 && buffer[0] == 0x00
@@ -119,6 +111,14 @@ namespace Legend2Tool.WPF.Services
             )
             {
                 return new UTF32Encoding(false, true); // UTF-32 LE
+            }
+            if (buffer.Length >= 2 && buffer[0] == 0xFF && buffer[1] == 0xFE)
+            {
+                return Encoding.Unicode; // UTF-16 LE
+            }
+            if (buffer.Length >= 2 && buffer[0] == 0xFE && buffer[1] == 0xFF)
+            {
+                return Encoding.BigEndianUnicode; // UTF-16 BE
             }
             return null!; // 未检测到BOM
         }

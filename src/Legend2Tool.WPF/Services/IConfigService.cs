@@ -1,4 +1,5 @@
 ﻿using Legend2Tool.WPF.Enums;
+using Legend2Tool.WPF.Models;
 using Legend2Tool.WPF.State;
 
 namespace Legend2Tool.WPF.Services
@@ -11,8 +12,8 @@ namespace Legend2Tool.WPF.Services
         string GetResourcesDirByGamePinyin(string launcherName);
         string GetLauncherName(ConfigStore configStore);
         Task SaveConfigFileAsync(ConfigStore configStore);
-        void GetM2ConfigInfo(ConfigStore configStore);
-        void GetLauncherConfigInfo(ConfigStore configStore);
+        LoadedServerConfig LoadServerConfig(string serverDirectory);
+        void ApplyDefaultAuxiliarySettings(ConfigStore configStore);
         Task GenerateCleanupScriptAsync(string baseDirectory);
     }
 }
