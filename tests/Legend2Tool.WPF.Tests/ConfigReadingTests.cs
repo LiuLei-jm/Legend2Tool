@@ -9,19 +9,50 @@ namespace Legend2Tool.WPF.Tests;
 public class ConfigReadingTests
 {
     [Fact]
-    public void ReadGeeConfig_MissingIndexedItem_ReportsFileAndKey()
+    public void ReadGeeConfig_MissingIndexedItem_SkipsEmptyItem()
     {
         using var file = new TemporaryIniFile(
             "[ClearServer]\nMyGetTxtNum=2\nMyGetTxt0=Mir200\\A.txt\n"
         );
         var service = CreateService();
 
-        var error = Assert.Throws<InvalidDataException>(
-            () => service.ReadMultiSectionConfig<GEEConfig>(file.Path, Encoding.UTF8)
+        GEEConfig config = service.ReadMultiSectionConfig<GEEConfig>(
+            file.Path,
+            Encoding.UTF8
         );
 
-        Assert.Contains(file.Path, error.Message);
-        Assert.Contains("MyGetTxt1", error.Message);
+        Assert.Equal([@"Mir200\A.txt"], config.MyGetTxtList);
+    }
+
+    [Fact]
+    public void ReadGeeConfig_EmptyIndexedCount_UsesDefaultEmptyList()
+    {
+        using var file = new TemporaryIniFile("[ClearServer]\nMyGetTxtNum=\n");
+        var service = CreateService();
+
+        GEEConfig config = service.ReadMultiSectionConfig<GEEConfig>(
+            file.Path,
+            Encoding.UTF8
+        );
+
+        Assert.Equal(0, config.MyGetTxtNum);
+        Assert.Empty(config.MyGetTxtList);
+    }
+
+    [Fact]
+    public void ReadGeeConfig_InvalidIndexedCount_UsesEmptyList()
+    {
+        using var file = new TemporaryIniFile(
+            "[ClearServer]\nMyGetTxtNum=-1\nMyGetTxt0=Mir200\\A.txt\n"
+        );
+        var service = CreateService();
+
+        GEEConfig config = service.ReadMultiSectionConfig<GEEConfig>(
+            file.Path,
+            Encoding.UTF8
+        );
+
+        Assert.Empty(config.MyGetTxtList);
     }
 
     [Fact]

@@ -68,7 +68,7 @@ namespace Legend2Tool.WPF
                 {
                     logging.ClearProviders();
                     Log.Logger = new LoggerConfiguration()
-                        .WriteTo.File("log.txt", rollingInterval: RollingInterval.Day)
+                        .WriteTo.File("logs/log-.txt", rollingInterval: RollingInterval.Day)
                         .WriteTo.Sink(LogSink.Create())
                         .MinimumLevel.Warning()
                         .CreateLogger();

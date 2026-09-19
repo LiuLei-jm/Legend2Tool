@@ -25,6 +25,16 @@ namespace Legend2Tool.WPF.Services
         };
         public void ConvertFileEncoding(string inputFilePath, string outputFilePath, Encoding inputFileEncoding, string targetEncodingName)
         {
+            ConvertFileEncodingCore(inputFilePath, outputFilePath, inputFileEncoding, targetEncodingName, null);
+        }
+
+        public void ConvertFileEncoding(string inputFilePath, string outputFilePath, Encoding inputFileEncoding, string targetEncodingName, string backupFilePath)
+        {
+            ConvertFileEncodingCore(inputFilePath, outputFilePath, inputFileEncoding, targetEncodingName, backupFilePath);
+        }
+
+        private void ConvertFileEncodingCore(string inputFilePath, string outputFilePath, Encoding inputFileEncoding, string targetEncodingName, string? backupFilePath)
+        {
             if (string.IsNullOrWhiteSpace(inputFilePath))
             {
                 throw new ArgumentException("输入文件路径不能为空", nameof(inputFilePath));
@@ -60,13 +70,32 @@ namespace Legend2Tool.WPF.Services
 
             try
             {
+                if (backupFilePath is not null)
+                {
+                    string? backupDirectory = Path.GetDirectoryName(backupFilePath);
+                    if (!string.IsNullOrEmpty(backupDirectory)) Directory.CreateDirectory(backupDirectory);
+                    File.Copy(inputFilePath, backupFilePath, false);
+                }
+
+                Encoding strictSourceEncoding = CreateStrictEncoding(inputFileEncoding);
+                Encoding strictTargetEncoding = CreateStrictEncoding(targetEncoding);
                 string content;
-                using (var reader = new StreamReader(inputFilePath, inputFileEncoding))
+                using (var reader = new StreamReader(inputFilePath, strictSourceEncoding, true))
                 {
                     content = reader.ReadToEnd();
                 }
-                using var writer = new StreamWriter(outputFilePath, false, targetEncoding);
-                writer.Write(content);
+
+                string outputDirectory = Path.GetDirectoryName(Path.GetFullPath(outputFilePath))!;
+                string tempFilePath = Path.Combine(outputDirectory, $".{Path.GetFileName(outputFilePath)}.{Guid.NewGuid():N}.tmp");
+                try
+                {
+                    using (var writer = new StreamWriter(tempFilePath, false, strictTargetEncoding)) writer.Write(content);
+                    File.Move(tempFilePath, outputFilePath, true);
+                }
+                finally
+                {
+                    if (File.Exists(tempFilePath)) File.Delete(tempFilePath);
+                }
             }
             catch (FileNotFoundException ex)
             {
@@ -86,6 +115,20 @@ namespace Legend2Tool.WPF.Services
             }
         }
 
+        private static Encoding CreateStrictEncoding(Encoding encoding)
+        {
+            bool emitBom = encoding.GetPreamble().Length > 0;
+            return encoding.CodePage switch
+            {
+                65001 => new UTF8Encoding(emitBom, true),
+                1200 => new UnicodeEncoding(false, emitBom, true),
+                1201 => new UnicodeEncoding(true, emitBom, true),
+                12000 => new UTF32Encoding(false, emitBom, true),
+                12001 => new UTF32Encoding(true, emitBom, true),
+                _ => Encoding.GetEncoding(encoding.CodePage, EncoderFallback.ExceptionFallback, DecoderFallback.ExceptionFallback)
+            };
+        }
+
         public Encoding DetectBom(byte[] buffer)
         {
             if (buffer.Length >= 3 && buffer[0] == 0xEF && buffer[1] == 0xBB && buffer[2] == 0xBF)
@@ -100,7 +143,7 @@ namespace Legend2Tool.WPF.Services
                 && buffer[3] == 0xFF
             )
             {
-                return Encoding.UTF32; // UTF-32 BE
+                return new UTF32Encoding(true, true); // UTF-32 BE
             }
             if (
                 buffer.Length >= 4
@@ -124,6 +167,14 @@ namespace Legend2Tool.WPF.Services
         }
 
         public Encoding DetectFileEncoding(string filePath)
+        {
+            EncodingDetectionResult result = DetectFileEncodingResult(filePath);
+            // ASCII and empty files have no byte-level encoding evidence. UTF-8 is a safe
+            // compatibility value for readers because their contents decode identically.
+            return result.Encoding ?? Encoding.UTF8;
+        }
+
+        public EncodingDetectionResult DetectFileEncodingResult(string filePath)
         {
             if (!File.Exists(filePath))
                 throw new FileNotFoundException($"文件未找到：{filePath}");
@@ -151,21 +202,19 @@ namespace Legend2Tool.WPF.Services
             // 检测BOM
             Encoding encoding = DetectBom(buffer);
             if (encoding != null)
-                return encoding;
+                return new EncodingDetectionResult(encoding, "BOM");
 
-            long fileSize = new FileInfo(filePath).Length;
-            if (fileSize < minLengthForUDE)
+            if (buffer.Length == 0)
+                return new EncodingDetectionResult(null, "空文件没有可用于判断编码的内容");
+
+            if (IsPureAscii(buffer))
+                return new EncodingDetectionResult(null, "纯 ASCII 内容无法区分 UTF-8 与 GB18030");
+
+            if (buffer.Length < minLengthForUDE)
             {
-                if (IsPureAscii(buffer))
-                {
-                    return Encoding.UTF8;
-                }
-                if (CanDecodeAsUtf8(buffer))
-                {
-                    return Encoding.UTF8;
-                }
-
-                return Encoding.GetEncoding("GB18030");
+                return CanDecodeAsUtf8(buffer)
+                    ? new EncodingDetectionResult(Encoding.UTF8, "严格 UTF-8 校验通过")
+                    : new EncodingDetectionResult(Encoding.GetEncoding("GB18030"), "严格 UTF-8 校验失败");
             }
 
             // 使用UDE库检测
@@ -177,13 +226,13 @@ namespace Legend2Tool.WPF.Services
                 var detected = charsetDetector.Charset.ToUpperInvariant();
                 if (cjkCompetitors.Contains(detected))
                 {
-                    return Encoding.GetEncoding("GB18030");
+                    return new EncodingDetectionResult(Encoding.GetEncoding("GB18030"), $"UDE: {detected}, {charsetDetector.Confidence:P0}");
                 }
 
                 var safeEncoding = GetSafeEncoding(detected);
-                if (safeEncoding != null) return safeEncoding;
+                if (safeEncoding != null) return new EncodingDetectionResult(safeEncoding, $"UDE: {detected}, {charsetDetector.Confidence:P0}");
             }
-            return Encoding.GetEncoding("GB18030");
+            return new EncodingDetectionResult(null, "检测结果置信度不足");
         }
 
         private bool CanDecodeAsUtf8(byte[] buffer)

@@ -461,6 +461,11 @@ namespace Legend2Tool.WPF.ViewModels
                 int currentProgress = 0;
                 int filesConvertedSuccessfully = 0;
                 int filesFailedToConvert = 0;
+                int filesSkipped = 0;
+                string backupRoot = Path.Combine(
+                    _configStore.ServerDirectory,
+                    "ConvertBackup",
+                    DateTime.Now.ToString("yyyyMMdd_HHmmss_fff"));
 
 
                 await Task.Run(() => Parallel.ForEach(files, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount, CancellationToken = cancellationToken }, (file) =>
@@ -469,10 +474,23 @@ namespace Legend2Tool.WPF.ViewModels
                     {
                         cancellationToken.ThrowIfCancellationRequested();
 
-                        Encoding fileEncoding = _encodingService.DetectFileEncoding(file);
-                        if (fileEncoding != _encodingService.GetEncodingByName(SelectedEncoding))
+                        EncodingDetectionResult detection = _encodingService.DetectFileEncodingResult(file);
+                        if (!detection.IsKnown)
                         {
-                            _encodingService.ConvertFileEncoding(file, file, fileEncoding, SelectedEncoding);
+                            Interlocked.Increment(ref filesSkipped);
+                            _logger.Information($"跳过无法可靠识别编码的文件: {file}; {detection.Reason}");
+                            return;
+                        }
+
+                        Encoding fileEncoding = detection.Encoding!;
+                        Encoding targetEncoding = _encodingService.GetEncodingByName(SelectedEncoding);
+                        bool hasBom = fileEncoding.GetPreamble().Length > 0;
+                        bool targetRequiresNoBom = targetEncoding.CodePage == Encoding.UTF8.CodePage;
+                        if (fileEncoding.CodePage != targetEncoding.CodePage || (targetRequiresNoBom && hasBom))
+                        {
+                            string relativePath = Path.GetRelativePath(convertDirectory, file);
+                            string backupPath = Path.Combine(backupRoot, relativePath);
+                            _encodingService.ConvertFileEncoding(file, file, fileEncoding, SelectedEncoding, backupPath);
                             Interlocked.Increment(ref filesConvertedSuccessfully);
                         }
                     }
@@ -500,7 +518,7 @@ namespace Legend2Tool.WPF.ViewModels
                     }
                 }), cancellationToken);
 
-                string finalMessage = $"转换完成。成功处理了{filesConvertedSuccessfully}个文件。";
+                string finalMessage = $"转换完成。成功处理了{filesConvertedSuccessfully}个文件，跳过了{filesSkipped}个无法可靠识别编码的文件。";
                 if (filesFailedToConvert > 0)
                 {
                     finalMessage += $"有 {filesFailedToConvert} 个文件未能成功转换，请查看日志获取详情。";

@@ -180,13 +180,13 @@ namespace Legend2Tool.WPF.Services
             if (settings is GEEConfig geeConfig)
             {
                 geeConfig.MyGetTxtList = ReadIndexedValues(
-                    data, filePath, "MyGetTxt", geeConfig.MyGetTxtNum
+                    data, "MyGetTxt", geeConfig.MyGetTxtNum
                 );
                 geeConfig.MyGetFileList = ReadIndexedValues(
-                    data, filePath, "MyGetFile", geeConfig.MyGetFileNum
+                    data, "MyGetFile", geeConfig.MyGetFileNum
                 );
                 geeConfig.MyGetDirList = ReadIndexedValues(
-                    data, filePath, "MyGetDir", geeConfig.MyGetDirNum
+                    data, "MyGetDir", geeConfig.MyGetDirNum
                 );
             }
             return settings;
@@ -217,7 +217,7 @@ namespace Legend2Tool.WPF.Services
                 }
 
                 string? value = data[sectionName][keyName];
-                if (value is null)
+                if (string.IsNullOrWhiteSpace(value))
                     continue;
 
                 try
@@ -250,26 +250,22 @@ namespace Legend2Tool.WPF.Services
 
         private static List<string> ReadIndexedValues(
             IniData data,
-            string filePath,
             string keyPrefix,
             int count
         )
         {
+            List<string> values = [];
             if (count < 0 || count > 10000)
-                throw new InvalidDataException(
-                    $"配置文件 '{filePath}' 的 [ClearServer] {keyPrefix}Num 数量无效：{count}。"
-                );
+                return values;
 
-            List<string> values = new(count);
+            values.EnsureCapacity(count);
             for (int i = 0; i < count; i++)
             {
                 string keyName = $"{keyPrefix}{i}";
                 if (!data.Sections.ContainsSection("ClearServer")
                     || !data["ClearServer"].ContainsKey(keyName)
                     || string.IsNullOrWhiteSpace(data["ClearServer"][keyName]))
-                    throw new InvalidDataException(
-                        $"配置文件 '{filePath}' 缺少 [ClearServer] {keyName}。"
-                    );
+                    continue;
 
                 values.Add(data["ClearServer"][keyName]);
             }
