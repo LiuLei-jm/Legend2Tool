@@ -298,6 +298,14 @@
                         Minimum="-99"
                         Value="{Binding ModifyNumberOfPort, UpdateSourceTrigger=PropertyChanged}" />
                     <Button Command="{Binding BatchEditCommand}" Content="批量修改" />
+                    <Button Command="{Binding GenerateCleanupScriptCommand}" Content="生成清理脚本" />
+                    <TextBlock Text="动态IP地址" />
+                    <CheckBox IsChecked="{Binding DynamicIPMode}" />
+                    <TextBlock Text="游戏外网IP地址" />
+                    <TextBox Text="{Binding ExtIPAddr}" />
+                    <Button Command="{Binding GetExtIpAddrCommand}" Content="获取外网IP" />
+                    <Button Command="{Binding SetLocalIpCommand}" Content="设置本地IP" />
+
                     <ComboBox
                         Height="28"
                         MinWidth="80"
@@ -311,13 +319,6 @@
                             <ToolTip Content="转换Envir下的所有文件" />
                         </Button.ToolTip>
                     </Button>
-                    <TextBlock Text="动态IP地址" />
-                    <CheckBox IsChecked="{Binding DynamicIPMode}" />
-                    <TextBlock Text="游戏外网IP地址" />
-                    <TextBox Text="{Binding ExtIPAddr}" />
-                    <Button Command="{Binding GetExtIpAddrCommand}" Content="获取外网IP" />
-                    <Button Command="{Binding SetLocalIpCommand}" Content="设置本地IP" />
-                    <Button Command="{Binding GenerateCleanupScriptCommand}" Content="生成清理脚本" />
                     <Button
                         Command="{Binding SaveConfigToFileCommand}"
                         Content="配置完成请保存"
