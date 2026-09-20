@@ -33,16 +33,7 @@ namespace Legend2Tool.WPF.Services
             if (!File.Exists(_configPath))
             {
                 AppConfig defaultConfig = new();
-                string? directory = Path.GetDirectoryName(_configPath);
-                if (!string.IsNullOrEmpty(directory))
-                {
-                    Directory.CreateDirectory(directory);
-                }
-
-                File.WriteAllText(
-                    _configPath,
-                    JsonSerializer.Serialize(defaultConfig, SerializerOptions)
-                );
+                Save(defaultConfig);
                 return defaultConfig;
             }
 
@@ -51,6 +42,48 @@ namespace Legend2Tool.WPF.Services
                 ?? new AppConfig();
             config.DynamicMonsterSpawning = Normalize(config.DynamicMonsterSpawning);
             return config;
+        }
+
+        public void Save(AppConfig config)
+        {
+            ArgumentNullException.ThrowIfNull(config);
+
+            string fullConfigPath = Path.GetFullPath(_configPath);
+            string directory = Path.GetDirectoryName(fullConfigPath)!;
+            Directory.CreateDirectory(directory);
+
+            string tempPath = Path.Combine(
+                directory,
+                $".{Path.GetFileName(fullConfigPath)}.{Guid.NewGuid():N}.tmp"
+            );
+
+            try
+            {
+                byte[] json = JsonSerializer.SerializeToUtf8Bytes(config, SerializerOptions);
+                using (
+                    var stream = new FileStream(
+                        tempPath,
+                        FileMode.CreateNew,
+                        FileAccess.Write,
+                        FileShare.None,
+                        4096,
+                        FileOptions.WriteThrough
+                    )
+                )
+                {
+                    stream.Write(json);
+                    stream.Flush(flushToDisk: true);
+                }
+
+                File.Move(tempPath, fullConfigPath, overwrite: true);
+            }
+            finally
+            {
+                if (File.Exists(tempPath))
+                {
+                    File.Delete(tempPath);
+                }
+            }
         }
 
         private static DynamicMonsterSpawningConfig Normalize(

@@ -8,6 +8,7 @@ using Legend2Tool.WPF.Models.ScriptOptimizations;
 using Legend2Tool.WPF.Services;
 using Legend2Tool.WPF.State;
 using Serilog;
+using System.Collections.ObjectModel;
 using System.ComponentModel.DataAnnotations;
 
 namespace Legend2Tool.WPF.ViewModels
@@ -18,6 +19,8 @@ namespace Legend2Tool.WPF.ViewModels
         private readonly IScriptOptimizationService _scriptOptimizationService;
         private readonly ConfigStore _configStore;
         private readonly ILogger _logger;
+        private readonly AppConfig _appConfig;
+        private readonly AppConfigService _appConfigService;
 
         [ObservableProperty]
         string _filterMapCode;
@@ -61,6 +64,7 @@ namespace Legend2Tool.WPF.ViewModels
         int _maxMonstersPerMap;
         [ObservableProperty]
         bool _isBusy;
+        public ObservableCollection<DynamicMonsterSpawningResult> GenerationResults { get; } = [];
         public string Head { get; } = "动态刷怪配置";
         private bool CanExecuteAction => _configStore.ServerDirectory != string.Empty;
         public DynamicMonsterSpawningViewModel(
@@ -68,14 +72,18 @@ namespace Legend2Tool.WPF.ViewModels
             ConfigStore configStore,
             ILogger logger,
             IScriptOptimizationService scriptOptimizationService,
-            DynamicMonsterSpawningConfig config
+            AppConfig appConfig,
+            AppConfigService appConfigService
         )
         {
+            DynamicMonsterSpawningConfig config = appConfig.DynamicMonsterSpawning;
             WeakReferenceMessenger.Default.Register<M2ConfigChangedMessage>(this);
             _dynamicMonsterSpawningService = dynamicMonsterSpawningService;
             _configStore = configStore;
             _logger = logger;
             _scriptOptimizationService = scriptOptimizationService;
+            _appConfig = appConfig;
+            _appConfigService = appConfigService;
             _filterMapCode = config.FilterMapCode;
             _filterMonName = config.FilterMonName;
             _filterMonCount = config.FilterMonCount;
@@ -95,6 +103,29 @@ namespace Legend2Tool.WPF.ViewModels
             _maxMonstersPerMap = config.MaxMonstersPerMap;
         }
 
+        [RelayCommand]
+        private void SaveConfig()
+        {
+            ValidateAllProperties();
+            if (HasErrors)
+            {
+                Growl.ErrorGlobal("请检查输入参数是否正确。");
+                return;
+            }
+
+            try
+            {
+                UpdateConfigFromViewModel();
+                _appConfigService.Save(_appConfig);
+                Growl.SuccessGlobal("配置保存成功！");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, $"保存配置时发生错误: {ex.Message}");
+                Growl.ErrorGlobal("保存配置时发生错误，请检查程序目录的写入权限。");
+            }
+        }
+
         [RelayCommand(CanExecute = nameof(CanExecuteAction))]
         async Task GenerateRefreshMonScript()
         {
@@ -108,8 +139,14 @@ namespace Legend2Tool.WPF.ViewModels
             IsBusy = true;
             try
             {
+                GenerationResults.Clear();
                 var options = CollectRefreshScriptOption();
-                await _dynamicMonsterSpawningService.GenerateRefreshMonScriptAsync(options);
+                IReadOnlyList<DynamicMonsterSpawningResult> results =
+                    await _dynamicMonsterSpawningService.GenerateRefreshMonScriptAsync(options);
+                foreach (DynamicMonsterSpawningResult result in results)
+                {
+                    GenerationResults.Add(result);
+                }
                 Growl.SuccessGlobal("脚本生成成功!");
             }
             catch (Exception ex)
@@ -131,6 +168,7 @@ namespace Legend2Tool.WPF.ViewModels
             {
                 var options = CollectRefreshScriptOption();
                 await _dynamicMonsterSpawningService.ClearRefreshMonScriptAsync(options);
+                GenerationResults.Clear();
                 Growl.SuccessGlobal("脚本清除成功！");
             }
             catch (Exception ex)
@@ -169,8 +207,31 @@ namespace Legend2Tool.WPF.ViewModels
             };
         }
 
+        private void UpdateConfigFromViewModel()
+        {
+            DynamicMonsterSpawningConfig config = _appConfig.DynamicMonsterSpawning;
+            config.FilterMapCode = FilterMapCode;
+            config.FilterMonName = FilterMonName;
+            config.FilterMonCount = FilterMonCount;
+            config.FilterInterval = FilterInterval;
+            config.FilterMonNameColor = FilterMonNameColor;
+            config.SelectedTimeUnit = SelectedTimeUnit;
+            config.RefreshMonInterval = RefreshMonInterval;
+            config.ClearMonInterval = ClearMonInterval;
+            config.RefreshMonMultiplier = RefreshMonMultiplier;
+            config.RefreshMonTrigger = RefreshMonTrigger;
+            config.ClearMonTrigger = ClearMonTrigger;
+            config.IsClearMon = IsClearMon;
+            config.IsCommentMongen = IsCommentMongen;
+            config.IsLimitRefreshInterval = IsLimitRefreshInterval;
+            config.MaxRefreshInterval = MaxRefreshInterval;
+            config.MaxRefreshCount = MaxRefreshCount;
+            config.MaxMonstersPerMap = MaxMonstersPerMap;
+        }
+
         public void Receive(M2ConfigChangedMessage message)
         {
+            GenerationResults.Clear();
             GenerateRefreshMonScriptCommand.NotifyCanExecuteChanged();
             ClearRefreshMonScriptCommand.NotifyCanExecuteChanged();
         }

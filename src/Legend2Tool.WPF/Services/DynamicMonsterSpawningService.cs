@@ -18,13 +18,15 @@ namespace Legend2Tool.WPF.Services
             _encodingService = encodingService;
         }
 
-        public async Task GenerateRefreshMonScriptAsync(RefreshOptimizationOptions options)
+        public async Task<IReadOnlyList<DynamicMonsterSpawningResult>> GenerateRefreshMonScriptAsync(
+            RefreshOptimizationOptions options
+        )
         {
             var mongenPath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "MonGen.txt");
             if (!File.Exists(mongenPath))
             {
                 MessageBox.Show("MonGen.txt 文件不存在，请检查服务器目录设置。");
-                return;
+                return [];
             }
             Encoding legacyEncoding = _encodingService.GetEncodingByName("GB18030");
             Encoding mongenEncoding = ResolveEncodingForWrite(
@@ -34,7 +36,7 @@ namespace Legend2Tool.WPF.Services
             if (!File.Exists(robotManagePath))
             {
                 MessageBox.Show("RobotManage.txt 文件不存在，请检查服务器目录设置。");
-                return;
+                return [];
             }
             Encoding robotManageEncoding = ResolveEncodingForWrite(
                 _encodingService.DetectFileEncodingResult(robotManagePath), mongenEncoding
@@ -48,14 +50,14 @@ namespace Legend2Tool.WPF.Services
             if (File.ReadAllText(robotManagePath, robotManageEncoding).Contains(generateScriptTrigger))
             {
                 MessageBox.Show($@"刷怪触发器已存在'{generateScriptTrigger}'，如果要重新生成脚本请先清除现有脚本。");
-                return;
+                return [];
             }
 
             var autoRunRobotPath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "Robot_def", "AutoRunRobot.txt");
             if (!File.Exists(autoRunRobotPath))
             {
                 MessageBox.Show("AutoRunRobot.txt 文件不存在，请检查服务器目录设置。");
-                return;
+                return [];
             }
             Encoding autoRunRobotEncoding = ResolveEncodingForWrite(
                 _encodingService.DetectFileEncodingResult(autoRunRobotPath), mongenEncoding
@@ -114,6 +116,13 @@ namespace Legend2Tool.WPF.Services
                 }
 
             }
+
+            IReadOnlyList<DynamicMonsterSpawningResult> generationResults =
+                CreateGenerationResults(
+                    mapMonsterCounts,
+                    LoadMapNames(legacyEncoding),
+                    options.MaxMonstersPerMap
+                );
 
             LimitMapMonsterCounts(
                 mapMonsters,
@@ -234,6 +243,7 @@ namespace Legend2Tool.WPF.Services
                 await autoRunRobotWriter.WriteLineAsync(AppConstants.EndWriteTitle);
             }
 
+            return generationResults;
         }
 
         private void ProcessEachRowOfMonSpawning(RefreshOptimizationOptions options, Dictionary<string, List<string>> mapMonsters, Dictionary<string, int> mapMonsterCounts, HashSet<string> filterMapCodes, HashSet<string> filterMonNames, HashSet<string> filterMonCounts, HashSet<string> filterIntervals, HashSet<string> filterMonNameColors, HashSet<string> noClearMonLists, List<string> newMongen, string trimmedLine)
@@ -372,6 +382,102 @@ namespace Legend2Tool.WPF.Services
             mapMonsters[mapCode].Add(mongenexScript);
             mapMonsterCounts[mapCode] += count;
         }
+
+        private IReadOnlyDictionary<string, string> LoadMapNames(Encoding fallback)
+        {
+            string mapInfoPath = Path.Combine(
+                _configStore.ServerDirectory,
+                "Mir200",
+                "Envir",
+                "MapInfo.txt"
+            );
+            if (!File.Exists(mapInfoPath))
+            {
+                return new Dictionary<string, string>();
+            }
+
+            try
+            {
+                Encoding encoding = ResolveEncodingForWrite(
+                    _encodingService.DetectFileEncodingResult(mapInfoPath),
+                    fallback
+                );
+                return ParseMapNames(File.ReadLines(mapInfoPath, encoding));
+            }
+            catch (IOException)
+            {
+                return new Dictionary<string, string>();
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return new Dictionary<string, string>();
+            }
+        }
+
+        internal static IReadOnlyDictionary<string, string> ParseMapNames(
+            IEnumerable<string> lines
+        )
+        {
+            var mapNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string line in lines)
+            {
+                string trimmedLine = line.Trim();
+                int closingBracketIndex = trimmedLine.IndexOf(']');
+                if (
+                    string.IsNullOrWhiteSpace(trimmedLine)
+                    || trimmedLine.StartsWith(';')
+                    || !trimmedLine.StartsWith('[')
+                    || closingBracketIndex <= 1
+                )
+                {
+                    continue;
+                }
+
+                string[] mapParts = trimmedLine[1..closingBracketIndex]
+                    .Split(
+                        AppConstants.EmptySeparator,
+                        StringSplitOptions.RemoveEmptyEntries
+                    );
+                if (mapParts.Length < 2)
+                {
+                    continue;
+                }
+
+                string mapName = mapParts[1].Trim();
+                if (trimmedLine.Contains("FB", StringComparison.OrdinalIgnoreCase))
+                {
+                    mapName = $"{mapName}-副本";
+                }
+
+                foreach (
+                    string mapCode in mapParts[0].Split(
+                        '|',
+                        StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
+                    )
+                )
+                {
+                    mapNames.TryAdd(mapCode, mapName);
+                }
+            }
+
+            return mapNames;
+        }
+
+        internal static IReadOnlyList<DynamicMonsterSpawningResult> CreateGenerationResults(
+            IReadOnlyDictionary<string, int> mapMonsterCounts,
+            IReadOnlyDictionary<string, string> mapNames,
+            int maxMonstersPerMap
+        ) => mapMonsterCounts
+            .Where(entry => entry.Value > maxMonstersPerMap)
+            .Select(entry => new DynamicMonsterSpawningResult
+            {
+                MapCode = entry.Key,
+                MapName = mapNames.GetValueOrDefault(entry.Key, entry.Key),
+                MonsterCount = entry.Value
+            })
+            .OrderByDescending(result => result.MonsterCount)
+            .ThenBy(result => result.MapName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
         internal static void LimitMapMonsterCounts(
             Dictionary<string, List<string>> mapMonsters,

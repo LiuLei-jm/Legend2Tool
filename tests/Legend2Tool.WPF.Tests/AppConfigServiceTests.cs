@@ -60,6 +60,35 @@ public sealed class AppConfigServiceTests
         }
     }
 
+    [Fact]
+    public void Save_ExistingFile_ReplacesWithNewConfigAndRemovesTemporaryFile()
+    {
+        string directory = CreateTempDirectory();
+        string path = Path.Combine(directory, "config.json");
+
+        try
+        {
+            File.WriteAllText(path, "{\"DynamicMonsterSpawning\":{}}");
+            var service = new AppConfigService(path);
+            var config = service.LoadOrCreate();
+            config.DynamicMonsterSpawning.RefreshMonInterval = 9;
+            config.DynamicMonsterSpawning.MaxRefreshCount = 45;
+            config.DynamicMonsterSpawning.MaxMonstersPerMap = 180;
+
+            service.Save(config);
+            var savedConfig = service.LoadOrCreate();
+
+            Assert.Equal(9, savedConfig.DynamicMonsterSpawning.RefreshMonInterval);
+            Assert.Equal(45, savedConfig.DynamicMonsterSpawning.MaxRefreshCount);
+            Assert.Equal(180, savedConfig.DynamicMonsterSpawning.MaxMonstersPerMap);
+            Assert.Empty(Directory.GetFiles(directory, "*.tmp"));
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
     private static string CreateTempDirectory()
     {
         string directory = Path.Combine(

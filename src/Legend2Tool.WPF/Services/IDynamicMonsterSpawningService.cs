@@ -4,7 +4,9 @@ namespace Legend2Tool.WPF.Services
 {
     public interface IDynamicMonsterSpawningService
     {
-        Task GenerateRefreshMonScriptAsync(RefreshOptimizationOptions options);
+        Task<IReadOnlyList<DynamicMonsterSpawningResult>> GenerateRefreshMonScriptAsync(
+            RefreshOptimizationOptions options
+        );
         Task ClearRefreshMonScriptAsync(RefreshOptimizationOptions options);
     }
 }

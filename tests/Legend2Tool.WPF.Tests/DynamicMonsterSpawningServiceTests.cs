@@ -1,4 +1,5 @@
 using System.Text;
+using Legend2Tool.WPF.Models.ScriptOptimizations;
 using Legend2Tool.WPF.Services;
 using Xunit;
 
@@ -102,6 +103,57 @@ public class DynamicMonsterSpawningServiceTests
         DynamicMonsterSpawningService.LimitMapMonsterCounts(scripts, totals, 100);
 
         Assert.Equal([50, 50], ReadCounts(scripts["MAP01"]));
+    }
+
+    [Fact]
+    public void ParseMapNames_ValidEntries_ReturnsNamesForPrimaryAndAliasCodes()
+    {
+        string[] lines =
+        [
+            ";comment",
+            "[MAP01|MAP01_1 比奇省] DAY",
+            "[FB02 地牢] FB",
+            "invalid"
+        ];
+
+        IReadOnlyDictionary<string, string> names =
+            DynamicMonsterSpawningService.ParseMapNames(lines);
+
+        Assert.Equal("比奇省", names["MAP01"]);
+        Assert.Equal("比奇省", names["map01_1"]);
+        Assert.Equal("地牢-副本", names["FB02"]);
+    }
+
+    [Fact]
+    public void CreateGenerationResults_OnlyReturnsMapsAboveLimit_WithOriginalTotals()
+    {
+        Dictionary<string, int> totals = new()
+        {
+            ["MAP01"] = 250,
+            ["MAP02"] = 200,
+            ["MAP03"] = 400
+        };
+        Dictionary<string, string> names = new()
+        {
+            ["MAP01"] = "比奇省"
+        };
+
+        IReadOnlyList<DynamicMonsterSpawningResult> results =
+            DynamicMonsterSpawningService.CreateGenerationResults(totals, names, 200);
+
+        Assert.Collection(
+            results,
+            result =>
+            {
+                Assert.Equal("MAP03", result.MapName);
+                Assert.Equal(400, result.MonsterCount);
+            },
+            result =>
+            {
+                Assert.Equal("比奇省", result.MapName);
+                Assert.Equal(250, result.MonsterCount);
+            }
+        );
     }
 
     [Fact]
