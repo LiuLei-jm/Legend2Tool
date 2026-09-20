@@ -47,6 +47,9 @@
                 <DataTemplate DataType="{x:Type vm:DynamicMonsterSpawningViewModel}">
                     <views:DynamicMonsterSpawningView />
                 </DataTemplate>
+                <DataTemplate DataType="{x:Type vm:InsertScriptViewModel}">
+                    <views:InsertScriptView />
+                </DataTemplate>
                 <DataTemplate DataType="{x:Type vm:ScriptOptimizationViewModel}">
                     <views:ScriptOptimizationView />
                 </DataTemplate>

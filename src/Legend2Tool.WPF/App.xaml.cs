@@ -45,6 +45,13 @@ namespace Legend2Tool.WPF
                         services.AddSingleton<IDialogService, DialogService>();
                         services.AddSingleton<IConfigService, ConfigService>();
                         services.AddSingleton<IEncodingService, EncodingService>();
+                        services.AddSingleton<ICredentialStore, CredentialStore>();
+                        services.AddSingleton<IAuthenticationService, AuthenticationService>();
+                        services.AddSingleton<IScriptSetService, ScriptSetService>();
+                        services.AddSingleton<
+                            IScriptSetInstallationService,
+                            ScriptSetInstallationService
+                        >();
                         services.AddSingleton<
                             IDynamicMonsterSpawningService,
                             DynamicMonsterSpawningService
@@ -58,6 +65,7 @@ namespace Legend2Tool.WPF
                         services.AddSingleton<MenuViewModel>();
                         services.AddSingleton<PortConfViewModel>();
                         services.AddSingleton<DynamicMonsterSpawningViewModel>();
+                        services.AddSingleton<InsertScriptViewModel>();
                         services.AddSingleton<ScriptOptimizationViewModel>();
                         services.AddSingleton<LogViewModel>();
 
