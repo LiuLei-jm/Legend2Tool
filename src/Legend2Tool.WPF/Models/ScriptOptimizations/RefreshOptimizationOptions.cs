@@ -18,5 +18,6 @@
         public bool IsLimitRefreshInterval { get; set; }
         public int MaxRefreshInterval { get; set; }
         public int MaxRefreshCount { get; set; }
+        public int MaxMonstersPerMap { get; set; }
     }
 }

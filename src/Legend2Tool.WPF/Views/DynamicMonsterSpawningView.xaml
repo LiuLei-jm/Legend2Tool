@@ -129,6 +129,12 @@
                         Maximum="500"
                         Minimum="0"
                         Value="{Binding MaxRefreshCount}" />
+
+                    <TextBlock Text="单个地图最大数量" />
+                    <hc:NumericUpDown
+                        Maximum="10000"
+                        Minimum="0"
+                        Value="{Binding MaxMonstersPerMap}" />
                 </autogrid:AutoGrid>
             </StackPanel>
 

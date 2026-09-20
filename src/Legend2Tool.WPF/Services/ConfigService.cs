@@ -26,6 +26,7 @@ namespace Legend2Tool.WPF.Services
 {
     public class ConfigService : IConfigService
     {
+        private const string ServerConfigEncodingName = "GB18030";
         private readonly ILogger _logger;
         private readonly IEncodingService _encodingService;
         private readonly IFileService _fileService;
@@ -743,6 +744,12 @@ namespace Legend2Tool.WPF.Services
             }
         }
 
+        internal T ReadServerConfig<T>(string filePath)
+            where T : class, new()
+        {
+            return ReadMultiSectionConfig<T>(filePath, _encodingService.GetEncodingByName(ServerConfigEncodingName));
+        }
+
         public LoadedServerConfig LoadServerConfig(string serverDirectory)
         {
             if (string.IsNullOrWhiteSpace(serverDirectory))
@@ -753,18 +760,17 @@ namespace Legend2Tool.WPF.Services
             if (!File.Exists(configPath))
                 throw new FileNotFoundException("服务端配置文件不存在", configPath);
 
-            Encoding configEncoding = _encodingService.DetectFileEncoding(configPath);
             EngineType engineType = CheckEngineType(serverDirectory);
             M2ConfigBase m2Config = engineType switch
             {
                 EngineType.GOM or EngineType.NEWGOM =>
-                    ReadMultiSectionConfig<GOMConfig>(configPath, configEncoding),
+                    ReadServerConfig<GOMConfig>(configPath),
                 EngineType.GEE or EngineType.GXX or EngineType.LF or EngineType.V8 =>
-                    ReadMultiSectionConfig<GEEConfig>(configPath, configEncoding),
+                    ReadServerConfig<GEEConfig>(configPath),
                 EngineType.BLUE =>
-                    ReadMultiSectionConfig<BLUEConfig>(configPath, configEncoding),
+                    ReadServerConfig<BLUEConfig>(configPath),
                 EngineType.HGE =>
-                    ReadMultiSectionConfig<HGEConfig>(configPath, configEncoding),
+                    ReadServerConfig<HGEConfig>(configPath),
                 _ => throw new InvalidOperationException("不支持的引擎"),
             };
 
@@ -887,7 +893,7 @@ namespace Legend2Tool.WPF.Services
             string filePath = Path.Combine(configStore.ServerDirectory, "config.ini");
             if (!File.Exists(filePath))
                 throw new FileNotFoundException("服务端配置文件不存在", filePath);
-            var fileEncoding = _encodingService.DetectFileEncoding(filePath);
+            var fileEncoding = _encodingService.GetEncodingByName(ServerConfigEncodingName);
 
             if (configStore.M2Config is GEEConfig geeConfig)
             {

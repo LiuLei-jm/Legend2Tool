@@ -2,8 +2,8 @@
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using HandyControl.Controls;
-using Legend2Tool.WPF.Commons;
 using Legend2Tool.WPF.Messages;
+using Legend2Tool.WPF.Models;
 using Legend2Tool.WPF.Models.ScriptOptimizations;
 using Legend2Tool.WPF.Services;
 using Legend2Tool.WPF.State;
@@ -20,33 +20,33 @@ namespace Legend2Tool.WPF.ViewModels
         private readonly ILogger _logger;
 
         [ObservableProperty]
-        string _filterMapCode = AppConstants.DefaultFilterMapCode;
+        string _filterMapCode;
         partial void OnFilterMapCodeChanged(string? oldValue, string newValue)
         {
             _scriptOptimizationService.UpdateMainCityLists(newValue);
         }
         [ObservableProperty]
-        string _filterMonName = AppConstants.DefaultFilterMonName;
+        string _filterMonName;
         [ObservableProperty]
-        string _filterMonCount = AppConstants.DefaultFilterMonCount;
+        string _filterMonCount;
         [ObservableProperty]
-        string _filterInterval = string.Empty;
+        string _filterInterval;
         [ObservableProperty]
-        string _filterMonNameColor = string.Empty;
+        string _filterMonNameColor;
         [ObservableProperty]
-        string _selectedTimeUnit = AppConstants.DefaultSelectedTimeUnit;
+        string _selectedTimeUnit;
         [ObservableProperty]
-        int _refreshMonInterval = 2;
+        int _refreshMonInterval;
         [ObservableProperty]
-        int _clearMonInterval = 15;
+        int _clearMonInterval;
         [ObservableProperty]
-        int _refreshMonMultiplier = 1;
+        int _refreshMonMultiplier;
         [ObservableProperty]
         [Required(ErrorMessage = "请填写刷怪触发器名称")]
-        string _refreshMonTrigger = AppConstants.DefaultRefreshMonTrigger;
+        string _refreshMonTrigger;
         [ObservableProperty]
         [Required(ErrorMessage = "请填写清怪触发器名称")]
-        string _clearMonTrigger = AppConstants.DefaultClearMonTrigger;
+        string _clearMonTrigger;
         [ObservableProperty]
         bool _isClearMon;
         [ObservableProperty]
@@ -54,20 +54,45 @@ namespace Legend2Tool.WPF.ViewModels
         [ObservableProperty]
         bool _isLimitRefreshInterval;
         [ObservableProperty]
-        int _maxRefreshInterval = 30;
+        int _maxRefreshInterval;
         [ObservableProperty]
-        int _maxRefreshCount = 500;
+        int _maxRefreshCount;
+        [ObservableProperty]
+        int _maxMonstersPerMap;
         [ObservableProperty]
         bool _isBusy;
         public string Head { get; } = "动态刷怪配置";
         private bool CanExecuteAction => _configStore.ServerDirectory != string.Empty;
-        public DynamicMonsterSpawningViewModel(IDynamicMonsterSpawningService dynamicMonsterSpawningService, ConfigStore configStore, ILogger logger, IScriptOptimizationService scriptOptimizationService)
+        public DynamicMonsterSpawningViewModel(
+            IDynamicMonsterSpawningService dynamicMonsterSpawningService,
+            ConfigStore configStore,
+            ILogger logger,
+            IScriptOptimizationService scriptOptimizationService,
+            DynamicMonsterSpawningConfig config
+        )
         {
             WeakReferenceMessenger.Default.Register<M2ConfigChangedMessage>(this);
             _dynamicMonsterSpawningService = dynamicMonsterSpawningService;
             _configStore = configStore;
             _logger = logger;
             _scriptOptimizationService = scriptOptimizationService;
+            _filterMapCode = config.FilterMapCode;
+            _filterMonName = config.FilterMonName;
+            _filterMonCount = config.FilterMonCount;
+            _filterInterval = config.FilterInterval;
+            _filterMonNameColor = config.FilterMonNameColor;
+            _selectedTimeUnit = config.SelectedTimeUnit;
+            _refreshMonInterval = config.RefreshMonInterval;
+            _clearMonInterval = config.ClearMonInterval;
+            _refreshMonMultiplier = config.RefreshMonMultiplier;
+            _refreshMonTrigger = config.RefreshMonTrigger;
+            _clearMonTrigger = config.ClearMonTrigger;
+            _isClearMon = config.IsClearMon;
+            _isCommentMongen = config.IsCommentMongen;
+            _isLimitRefreshInterval = config.IsLimitRefreshInterval;
+            _maxRefreshInterval = config.MaxRefreshInterval;
+            _maxRefreshCount = config.MaxRefreshCount;
+            _maxMonstersPerMap = config.MaxMonstersPerMap;
         }
 
         [RelayCommand(CanExecute = nameof(CanExecuteAction))]
@@ -139,7 +164,8 @@ namespace Legend2Tool.WPF.ViewModels
                 IsClearMon = IsClearMon,
                 IsLimitRefreshInterval = IsLimitRefreshInterval,
                 MaxRefreshInterval = MaxRefreshInterval,
-                MaxRefreshCount = MaxRefreshCount
+                MaxRefreshCount = MaxRefreshCount,
+                MaxMonstersPerMap = MaxMonstersPerMap
             };
         }
 

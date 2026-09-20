@@ -2,13 +2,6 @@
 {
     public class AppConstants
     {
-        public const string DefaultFilterMapCode = "0\r1\r2\r3\r4\r5\r6\r11\r12\r";
-        public const string DefaultFilterMonName = "弓箭手\r弓箭守卫\r虎卫\r鹰卫\r刀卫\r卫士\r带刀护卫\r";
-        public const string DefaultFilterMonCount = "1\r";
-        public const string DefaultSelectedTimeUnit = "分";
-        public const string DefaultRefreshMonTrigger = "XGD_动态刷怪";
-        public const string DefaultClearMonTrigger = "XGD_动态清怪";
-
         public const string DefaultPointRange = "50";
         public const string StartWriteTitle = ";---------------由小疙瘩制作QQ14699396,生成开始";
         public const string EndWriteTitle = ";---------------由小疙瘩制作QQ14699396,生成结束";

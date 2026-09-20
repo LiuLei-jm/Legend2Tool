@@ -1,5 +1,6 @@
 ﻿using Legend2Tool.WPF.Services;
 using Legend2Tool.WPF.State;
+using Legend2Tool.WPF.Models;
 using Legend2Tool.WPF.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -36,6 +37,13 @@ namespace Legend2Tool.WPF
                     {
                         services.AddSingleton<ConfigStore>();
                         services.AddSingleton<ProgressStore>();
+                        services.AddSingleton<AppConfigService>();
+                        services.AddSingleton(sp =>
+                            sp.GetRequiredService<AppConfigService>().LoadOrCreate()
+                        );
+                        services.AddSingleton(sp =>
+                            sp.GetRequiredService<AppConfig>().DynamicMonsterSpawning
+                        );
 
                         // Register your services here
                         services.AddSingleton<IFileService, FileService>();

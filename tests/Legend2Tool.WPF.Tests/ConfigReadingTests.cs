@@ -8,6 +8,11 @@ namespace Legend2Tool.WPF.Tests;
 
 public class ConfigReadingTests
 {
+    static ConfigReadingTests()
+    {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+    }
+
     [Fact]
     public void ReadGeeConfig_MissingIndexedItem_SkipsEmptyItem()
     {
@@ -22,6 +27,18 @@ public class ConfigReadingTests
         );
 
         Assert.Equal([@"Mir200\A.txt"], config.MyGetTxtList);
+    }
+
+    [Fact]
+    public void ReadServerConfig_Gb18030GameName_ReturnsChineseText()
+    {
+        Encoding gb18030 = Encoding.GetEncoding("GB18030");
+        using var file = new TemporaryIniFile("[GameConf]\nGameName=魔女探秘一区\n", gb18030);
+        var service = CreateService();
+
+        GEEConfig config = service.ReadServerConfig<GEEConfig>(file.Path);
+
+        Assert.Equal("魔女探秘一区", config.GameName);
     }
 
     [Fact]
@@ -123,7 +140,7 @@ public class ConfigReadingTests
 
     private static ConfigService CreateService() => new(
         Log.Logger,
-        null!,
+        new EncodingService(),
         null!
     );
 
@@ -133,11 +150,13 @@ public class ConfigReadingTests
             System.IO.Path.GetTempPath(), $"Legend2Tool-{Guid.NewGuid():N}.ini"
         );
 
-        public TemporaryIniFile(string contents) => File.WriteAllText(
-            Path,
-            contents,
-            Encoding.UTF8
-        );
+        public TemporaryIniFile(string contents)
+            : this(contents, Encoding.UTF8) { }
+
+        public TemporaryIniFile(string contents, Encoding encoding)
+        {
+            File.WriteAllText(Path, contents, encoding);
+        }
 
         public void Dispose() => File.Delete(Path);
     }

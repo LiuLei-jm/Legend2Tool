@@ -26,14 +26,19 @@ namespace Legend2Tool.WPF.Services
                 MessageBox.Show("MonGen.txt 文件不存在，请检查服务器目录设置。");
                 return;
             }
-            var mongenEncoding = _encodingService.DetectFileEncoding(mongenPath);
+            Encoding legacyEncoding = _encodingService.GetEncodingByName("GB18030");
+            Encoding mongenEncoding = ResolveEncodingForWrite(
+                _encodingService.DetectFileEncodingResult(mongenPath), legacyEncoding
+            );
             var robotManagePath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "Robot_def", "RobotManage.txt");
             if (!File.Exists(robotManagePath))
             {
                 MessageBox.Show("RobotManage.txt 文件不存在，请检查服务器目录设置。");
                 return;
             }
-            var robotManageEncoding = _encodingService.DetectFileEncoding(robotManagePath);
+            Encoding robotManageEncoding = ResolveEncodingForWrite(
+                _encodingService.DetectFileEncodingResult(robotManagePath), mongenEncoding
+            );
             var generateScriptTrigger = $@"@{options.RefreshMonTrigger}";
             var clearScriptTrigger = $@"@{options.ClearMonTrigger}";
 
@@ -52,9 +57,16 @@ namespace Legend2Tool.WPF.Services
                 MessageBox.Show("AutoRunRobot.txt 文件不存在，请检查服务器目录设置。");
                 return;
             }
-            var autoRunRobotEncoding = _encodingService.DetectFileEncoding(autoRunRobotPath);
+            Encoding autoRunRobotEncoding = ResolveEncodingForWrite(
+                _encodingService.DetectFileEncodingResult(autoRunRobotPath), mongenEncoding
+            );
 
             var noClearMonListPath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "NoClearMonList.txt");
+            Encoding noClearMonListEncoding = File.Exists(noClearMonListPath)
+                ? ResolveEncodingForWrite(
+                    _encodingService.DetectFileEncodingResult(noClearMonListPath), mongenEncoding
+                )
+                : mongenEncoding;
 
             var refreshMonScriptPath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "QuestDiary", "智能刷怪.txt");
             var clearMonScriptPath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "QuestDiary", "智能清怪.txt");
@@ -102,6 +114,12 @@ namespace Legend2Tool.WPF.Services
                 }
 
             }
+
+            LimitMapMonsterCounts(
+                mapMonsters,
+                mapMonsterCounts,
+                options.MaxMonstersPerMap
+            );
 
             if (options.IsCommentMongen || options.IsLimitRefreshInterval)
             {
@@ -175,7 +193,7 @@ namespace Legend2Tool.WPF.Services
 
             }
 
-            using (var noClearMonListWriter = new StreamWriter(noClearMonListPath, true, mongenEncoding))
+            using (var noClearMonListWriter = new StreamWriter(noClearMonListPath, true, noClearMonListEncoding))
             {
                 foreach (var monName in noClearMonLists)
                 {
@@ -355,6 +373,60 @@ namespace Legend2Tool.WPF.Services
             mapMonsterCounts[mapCode] += count;
         }
 
+        internal static void LimitMapMonsterCounts(
+            Dictionary<string, List<string>> mapMonsters,
+            Dictionary<string, int> mapMonsterCounts,
+            int maxMonstersPerMap
+        )
+        {
+            foreach (string mapCode in mapMonsters.Keys.ToList())
+            {
+                int mapMonsterTotal = mapMonsterCounts[mapCode];
+                if (mapMonsterTotal <= maxMonstersPerMap)
+                {
+                    continue;
+                }
+
+                decimal scale =
+                    (maxMonstersPerMap / (decimal)mapMonsterTotal * 100m) / 100m;
+                List<string> adjustedScripts = [];
+
+                foreach (string script in mapMonsters[mapCode])
+                {
+                    string[] parts = script.Split(
+                        ' ',
+                        StringSplitOptions.RemoveEmptyEntries
+                    );
+                    if (
+                        parts.Length <= 6
+                        || !int.TryParse(parts[6], out int originalCount)
+                    )
+                    {
+                        throw new InvalidDataException(
+                            $"无法读取地图 {mapCode} 的 MongenEX 怪物数量：{script}"
+                        );
+                    }
+
+                    int adjustedCount = decimal.ToInt32(
+                        decimal.Floor(originalCount * scale));
+                    if (adjustedCount < 1)
+                    {
+                        continue;
+                    }
+
+                    parts[6] = adjustedCount.ToString();
+                    adjustedScripts.Add(string.Join(' ', parts));
+                }
+
+                mapMonsters[mapCode] = adjustedScripts;
+            }
+        }
+
+        internal static Encoding ResolveEncodingForWrite(
+            EncodingDetectionResult detection,
+            Encoding fallback
+        ) => detection.Encoding ?? fallback;
+
         public async Task ClearRefreshMonScriptAsync(RefreshOptimizationOptions options)
         {
             var mongenPath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "MonGen.txt");
@@ -363,14 +435,19 @@ namespace Legend2Tool.WPF.Services
                 MessageBox.Show("MonGen.txt 文件不存在，请检查服务器目录设置。");
                 return;
             }
-            var mongenEncoding = _encodingService.DetectFileEncoding(mongenPath);
+            Encoding legacyEncoding = _encodingService.GetEncodingByName("GB18030");
+            Encoding mongenEncoding = ResolveEncodingForWrite(
+                _encodingService.DetectFileEncodingResult(mongenPath), legacyEncoding
+            );
             var robotManagePath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "Robot_def", "RobotManage.txt");
             if (!File.Exists(robotManagePath))
             {
                 MessageBox.Show("RobotManage.txt 文件不存在，请检查服务器目录设置。");
                 return;
             }
-            var robotManageEncoding = _encodingService.DetectFileEncoding(robotManagePath);
+            Encoding robotManageEncoding = ResolveEncodingForWrite(
+                _encodingService.DetectFileEncodingResult(robotManagePath), mongenEncoding
+            );
             var generateScriptTrigger = $@"@{options.RefreshMonTrigger}";
             var clearScriptTrigger = $@"@{options.ClearMonTrigger}";
 
@@ -383,11 +460,17 @@ namespace Legend2Tool.WPF.Services
                 MessageBox.Show("AutoRunRobot.txt 文件不存在，请检查服务器目录设置。");
                 return;
             }
-            var autoRunRobotEncoding = _encodingService.DetectFileEncoding(autoRunRobotPath);
+            Encoding autoRunRobotEncoding = ResolveEncodingForWrite(
+                _encodingService.DetectFileEncodingResult(autoRunRobotPath), mongenEncoding
+            );
 
             var noClearMonListPath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "NoClearMonList.txt");
 
-            var noClearMonListEncoding = _encodingService.DetectFileEncoding(noClearMonListPath);
+            Encoding noClearMonListEncoding = File.Exists(noClearMonListPath)
+                ? ResolveEncodingForWrite(
+                    _encodingService.DetectFileEncodingResult(noClearMonListPath), mongenEncoding
+                )
+                : mongenEncoding;
 
             var refreshMonScriptPath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "QuestDiary", "智能刷怪.txt");
             var clearMonScriptPath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "QuestDiary", "智能清怪.txt");
@@ -420,7 +503,11 @@ namespace Legend2Tool.WPF.Services
             File.Delete(clearMonScriptPath);
             await ClearScriptContentAsync(robotManagePath, robotManageEncoding, options);
             await ClearScriptContentAsync(autoRunRobotPath, autoRunRobotEncoding, options);
-            await File.WriteAllTextAsync(noClearMonListPath, string.Empty);
+            await File.WriteAllTextAsync(
+                noClearMonListPath,
+                string.Empty,
+                noClearMonListEncoding
+            );
         }
         private static async Task ClearScriptContentAsync(string path, Encoding encoding, RefreshOptimizationOptions options)
         {
