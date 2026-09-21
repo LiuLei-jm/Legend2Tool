@@ -5,6 +5,7 @@ namespace Legend2Tool.WPF.Services
     public interface IEncodingService
     {
         Encoding DetectFileEncoding(string filePath);
+        Encoding DetectFileEncoding(string filePath, Encoding fallbackEncoding);
         EncodingDetectionResult DetectFileEncodingResult(string filePath);
         Encoding DetectBom(byte[] buffer);
         void ConvertFileEncoding(

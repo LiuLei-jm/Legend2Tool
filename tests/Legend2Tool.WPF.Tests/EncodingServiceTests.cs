@@ -97,6 +97,44 @@ public sealed class EncodingServiceTests : IDisposable
     }
 
     [Fact]
+    public void DetectFileEncoding_LowConfidenceMongen_UsesProvidedFallback()
+    {
+        Encoding gb18030 = Encoding.GetEncoding("GB18030");
+        string[] monsterNames =
+        [
+            "暗之魔龙教皇",
+            "触龙神8",
+            "魔龙刺蛙",
+            "魔龙刀兵",
+            "魔龙教主",
+            "魔龙巨蛾",
+            "魔龙力士",
+            "魔龙破甲兵",
+            "魔龙射手",
+            "魔龙石碑",
+            "魔龙树妖",
+            "魔龙邪眼",
+            "魔龙战将",
+            "魔龙教皇"
+        ];
+        var content = new StringBuilder(";地图名：魔龙\r\n");
+        for (int index = 0; index < 200; index++)
+        {
+            content.AppendLine(
+                $"61\t51\t32\t{monsterNames[index % monsterNames.Length]}\t100\t50\t65"
+            );
+        }
+        string path = CreateFile("mongen.txt", gb18030.GetBytes(content.ToString()));
+
+        EncodingDetectionResult detection = _service.DetectFileEncodingResult(path);
+        Encoding result = _service.DetectFileEncoding(path, gb18030);
+
+        Assert.False(detection.IsKnown);
+        Assert.Equal(gb18030.CodePage, result.CodePage);
+        Assert.Contains("魔龙刀兵", File.ReadAllText(path, result));
+    }
+
+    [Fact]
     public void DetectBom_Utf32BigEndian_ReturnsBigEndianEncoding()
     {
         Encoding result = _service.DetectBom([0x00, 0x00, 0xFE, 0xFF]);

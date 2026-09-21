@@ -10,6 +10,10 @@ namespace Legend2Tool.WPF.Services
 {
     public class DynamicMonsterSpawningService : IDynamicMonsterSpawningService
     {
+        private const string BackupRootDirectoryName = "Legend2ToolBackups";
+        private const string MongenBackupDirectoryName = "Mongen";
+        private const string BackupIncompleteMarkerName = "backup.incomplete";
+        private const string BackupRestoredMarkerName = "restore.completed";
         private readonly ConfigStore _configStore;
         private readonly IEncodingService _encodingService;
         public DynamicMonsterSpawningService(ConfigStore configStore, IEncodingService encodingService)
@@ -84,6 +88,10 @@ namespace Legend2Tool.WPF.Services
             var noClearMonLists = new HashSet<string>();
 
             var newMongen = new List<string>();
+            var referencedFileUpdates = new Dictionary<
+                string,
+                (Encoding Encoding, List<string> Lines)
+            >(StringComparer.OrdinalIgnoreCase);
 
 
             foreach (var line in File.ReadLines(mongenPath, mongenEncoding))
@@ -91,24 +99,41 @@ namespace Legend2Tool.WPF.Services
                 var trimmedLine = line.Trim();
                 if (string.IsNullOrWhiteSpace(trimmedLine) || trimmedLine.StartsWith(';'))
                 {
-                    newMongen.Add(trimmedLine);
+                    newMongen.Add(line);
                     continue;
                 }
 
                 if (trimmedLine.StartsWith("loadgen", StringComparison.OrdinalIgnoreCase))
                 {
-                    var file = trimmedLine.Split(AppConstants.EmptySeparator, StringSplitOptions.RemoveEmptyEntries)[1];
+                    newMongen.Add(line);
+                    string[] loadGenParts = trimmedLine.Split(
+                        AppConstants.EmptySeparator,
+                        StringSplitOptions.RemoveEmptyEntries
+                    );
+                    if (loadGenParts.Length < 2)
+                        continue;
+
+                    var file = loadGenParts[1];
                     if (string.IsNullOrEmpty(file) || !file.Contains("txt")) continue;
                     var filePath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "Mongen", file);
                     if (!File.Exists(filePath))
                         throw new FileNotFoundException($"没有找到文件：{filePath}");
-                    var fileEncoding = _encodingService.DetectFileEncoding(filePath);
+                    var fileEncoding = _encodingService.DetectFileEncoding(
+                        filePath,
+                        mongenEncoding
+                    );
+                    var newReferencedFile = new List<string>();
                     await foreach (var subLine in File.ReadLinesAsync(filePath, fileEncoding))
                     {
                         var trimmedSubLine = subLine.Trim();
-                        if (string.IsNullOrEmpty(trimmedSubLine) || trimmedSubLine.StartsWith(';')) continue;
-                        ProcessEachRowOfMonSpawning(options, mapMonsters, mapMonsterCounts, filterMapCodes, filterMonNames, filterMonCounts, filterIntervals, filterMonNameColors, noClearMonLists, newMongen, trimmedSubLine);
+                        if (string.IsNullOrEmpty(trimmedSubLine) || trimmedSubLine.StartsWith(';'))
+                        {
+                            newReferencedFile.Add(subLine);
+                            continue;
+                        }
+                        ProcessEachRowOfMonSpawning(options, mapMonsters, mapMonsterCounts, filterMapCodes, filterMonNames, filterMonCounts, filterIntervals, filterMonNameColors, noClearMonLists, newReferencedFile, trimmedSubLine);
                     }
+                    referencedFileUpdates[filePath] = (fileEncoding, newReferencedFile);
                 }
                 else
                 {
@@ -132,11 +157,28 @@ namespace Legend2Tool.WPF.Services
 
             if (options.IsCommentMongen || options.IsLimitRefreshInterval)
             {
-                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                var backupPath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", $"Mongen_{timestamp}.txt");
-
-                File.Move(mongenPath, backupPath);
-                await File.WriteAllLinesAsync(mongenPath, newMongen, mongenEncoding);
+                referencedFileUpdates[mongenPath] = (mongenEncoding, newMongen);
+                string backupDirectory = CreateMongenBackup(referencedFileUpdates.Keys);
+                try
+                {
+                    foreach (
+                        KeyValuePair<string, (Encoding Encoding, List<string> Lines)> update
+                        in referencedFileUpdates
+                    )
+                    {
+                        await WriteAllLinesAtomicallyAsync(
+                            update.Key,
+                            update.Value.Lines,
+                            update.Value.Encoding
+                        );
+                    }
+                }
+                catch
+                {
+                    RestoreMongenBackup(backupDirectory);
+                    MarkBackupRestored(backupDirectory, "生成失败，已自动恢复");
+                    throw;
+                }
             }
 
             using (var refreshMonWriter = new StreamWriter(refreshMonScriptPath, false, mongenEncoding))
@@ -246,7 +288,7 @@ namespace Legend2Tool.WPF.Services
             return generationResults;
         }
 
-        private void ProcessEachRowOfMonSpawning(RefreshOptimizationOptions options, Dictionary<string, List<string>> mapMonsters, Dictionary<string, int> mapMonsterCounts, HashSet<string> filterMapCodes, HashSet<string> filterMonNames, HashSet<string> filterMonCounts, HashSet<string> filterIntervals, HashSet<string> filterMonNameColors, HashSet<string> noClearMonLists, List<string> newMongen, string trimmedLine)
+        private void ProcessEachRowOfMonSpawning(RefreshOptimizationOptions options, Dictionary<string, List<string>> mapMonsters, Dictionary<string, int> mapMonsterCounts, HashSet<string> filterMapCodes, HashSet<string> filterMonNames, HashSet<string> filterMonCounts, HashSet<string> filterIntervals, HashSet<string> filterMonNameColors, HashSet<string> noClearMonLists, List<string> outputLines, string trimmedLine)
         {
             var parts = trimmedLine.Split(AppConstants.EmptySeparator, StringSplitOptions.RemoveEmptyEntries);
 
@@ -255,7 +297,7 @@ namespace Legend2Tool.WPF.Services
             if (string.IsNullOrEmpty(monName) || filterMonNames.Contains(monName))
             {
                 noClearMonLists.Add(monName);
-                newMongen.Add(trimmedLine);
+                outputLines.Add(trimmedLine);
                 return;
             }
 
@@ -264,7 +306,7 @@ namespace Legend2Tool.WPF.Services
             if (string.IsNullOrEmpty(interval) || filterIntervals.Contains(interval) || !int.TryParse(interval, out _))
             {
                 noClearMonLists.Add(monName);
-                newMongen.Add(trimmedLine);
+                outputLines.Add(trimmedLine);
                 return;
             }
             if (options.IsLimitRefreshInterval && int.TryParse(interval, out int refreshInterval))
@@ -281,7 +323,7 @@ namespace Legend2Tool.WPF.Services
             if (string.IsNullOrEmpty(mapCode) || filterMapCodes.Contains(mapCode))
             {
                 noClearMonLists.Add(monName);
-                newMongen.Add(trimmedLine);
+                outputLines.Add(trimmedLine);
                 return;
             }
 
@@ -293,7 +335,7 @@ namespace Legend2Tool.WPF.Services
             }
             else
             {
-                newMongen.Add(trimmedLine);
+                outputLines.Add(trimmedLine);
                 return;
             }
 
@@ -306,7 +348,7 @@ namespace Legend2Tool.WPF.Services
             }
             else
             {
-                newMongen.Add(trimmedLine);
+                outputLines.Add(trimmedLine);
                 return;
             }
 
@@ -319,7 +361,7 @@ namespace Legend2Tool.WPF.Services
             }
             else
             {
-                newMongen.Add(trimmedLine);
+                outputLines.Add(trimmedLine);
                 return;
             }
 
@@ -328,7 +370,7 @@ namespace Legend2Tool.WPF.Services
             if (filterMonCounts.Contains(monCount))
             {
                 noClearMonLists.Add(monName);
-                newMongen.Add(trimmedLine);
+                outputLines.Add(trimmedLine);
                 return;
             }
             if (int.TryParse(monCount, out int count))
@@ -354,16 +396,16 @@ namespace Legend2Tool.WPF.Services
             if (string.IsNullOrEmpty(monNameColor) || filterMonNameColors.Contains(monNameColor))
             {
                 noClearMonLists.Add(monName);
-                newMongen.Add(trimmedLine);
+                outputLines.Add(trimmedLine);
                 return;
             }
             if (options.IsCommentMongen)
             {
-                newMongen.Add($";{trimmedLine}");
+                outputLines.Add($";{trimmedLine}");
             }
             else
             {
-                newMongen.Add(trimmedLine);
+                outputLines.Add(trimmedLine);
             }
 
             string mongenexScript = _configStore.EngineType switch
@@ -381,6 +423,150 @@ namespace Legend2Tool.WPF.Services
 
             mapMonsters[mapCode].Add(mongenexScript);
             mapMonsterCounts[mapCode] += count;
+        }
+
+        private string CreateMongenBackup(IEnumerable<string> filePaths)
+        {
+            string serverDirectory = Path.GetFullPath(_configStore.ServerDirectory);
+            string backupRoot = Path.Combine(
+                serverDirectory,
+                BackupRootDirectoryName,
+                MongenBackupDirectoryName
+            );
+            Directory.CreateDirectory(backupRoot);
+
+            string backupDirectory = Path.Combine(
+                backupRoot,
+                $"{DateTime.Now:yyyyMMdd_HHmmss_fff}_{Guid.NewGuid():N}"
+            );
+            Directory.CreateDirectory(backupDirectory);
+            string incompleteMarker = Path.Combine(
+                backupDirectory,
+                BackupIncompleteMarkerName
+            );
+            File.WriteAllText(incompleteMarker, DateTime.Now.ToString("O"), Encoding.UTF8);
+
+            foreach (string filePath in filePaths.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                string fullPath = Path.GetFullPath(filePath);
+                string relativePath = GetRelativePathWithinRoot(serverDirectory, fullPath);
+                string backupPath = Path.Combine(backupDirectory, relativePath);
+                Directory.CreateDirectory(Path.GetDirectoryName(backupPath)!);
+                File.Copy(fullPath, backupPath, overwrite: false);
+            }
+
+            File.Delete(incompleteMarker);
+            return backupDirectory;
+        }
+
+        private bool TryRestoreLatestMongenBackup()
+        {
+            string backupRoot = Path.Combine(
+                Path.GetFullPath(_configStore.ServerDirectory),
+                BackupRootDirectoryName,
+                MongenBackupDirectoryName
+            );
+            if (!Directory.Exists(backupRoot))
+                return false;
+
+            string? backupDirectory = Directory
+                .GetDirectories(backupRoot)
+                .Where(path =>
+                    !File.Exists(Path.Combine(path, BackupIncompleteMarkerName))
+                    && !File.Exists(Path.Combine(path, BackupRestoredMarkerName))
+                )
+                .OrderByDescending(Path.GetFileName, StringComparer.OrdinalIgnoreCase)
+                .FirstOrDefault();
+            if (backupDirectory is null)
+                return false;
+
+            RestoreMongenBackup(backupDirectory);
+            MarkBackupRestored(backupDirectory, "清除刷新脚本时已恢复");
+            return true;
+        }
+
+        private void RestoreMongenBackup(string backupDirectory)
+        {
+            string serverDirectory = Path.GetFullPath(_configStore.ServerDirectory);
+            foreach (
+                string backupPath in Directory.EnumerateFiles(
+                    backupDirectory,
+                    "*",
+                    SearchOption.AllDirectories
+                )
+            )
+            {
+                string fileName = Path.GetFileName(backupPath);
+                if (
+                    fileName.Equals(BackupIncompleteMarkerName, StringComparison.OrdinalIgnoreCase)
+                    || fileName.Equals(BackupRestoredMarkerName, StringComparison.OrdinalIgnoreCase)
+                )
+                {
+                    continue;
+                }
+
+                string relativePath = GetRelativePathWithinRoot(
+                    Path.GetFullPath(backupDirectory),
+                    Path.GetFullPath(backupPath)
+                );
+                string destinationPath = Path.Combine(serverDirectory, relativePath);
+                Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+                File.Copy(backupPath, destinationPath, overwrite: true);
+            }
+        }
+
+        private static void MarkBackupRestored(string backupDirectory, string reason)
+        {
+            File.WriteAllText(
+                Path.Combine(backupDirectory, BackupRestoredMarkerName),
+                $"{DateTime.Now:O}{Environment.NewLine}{reason}",
+                Encoding.UTF8
+            );
+        }
+
+        private static string GetRelativePathWithinRoot(string rootPath, string filePath)
+        {
+            string relativePath = Path.GetRelativePath(rootPath, filePath);
+            if (
+                Path.IsPathRooted(relativePath)
+                || relativePath.Equals("..", StringComparison.Ordinal)
+                || relativePath.StartsWith(
+                    $"..{Path.DirectorySeparatorChar}",
+                    StringComparison.Ordinal
+                )
+                || relativePath.StartsWith(
+                    $"..{Path.AltDirectorySeparatorChar}",
+                    StringComparison.Ordinal
+                )
+            )
+            {
+                throw new InvalidOperationException($"文件路径超出服务器目录：{filePath}");
+            }
+
+            return relativePath;
+        }
+
+        private static async Task WriteAllLinesAtomicallyAsync(
+            string path,
+            IEnumerable<string> lines,
+            Encoding encoding
+        )
+        {
+            string directory = Path.GetDirectoryName(path)!;
+            string temporaryPath = Path.Combine(
+                directory,
+                $".{Path.GetFileName(path)}.{Guid.NewGuid():N}.tmp"
+            );
+            try
+            {
+                await File.WriteAllLinesAsync(temporaryPath, lines, encoding);
+                File.Move(temporaryPath, path, overwrite: true);
+            }
+            finally
+            {
+                if (File.Exists(temporaryPath))
+                    File.Delete(temporaryPath);
+            }
         }
 
         private IReadOnlyDictionary<string, string> LoadMapNames(Encoding fallback)
@@ -581,7 +767,8 @@ namespace Legend2Tool.WPF.Services
             var refreshMonScriptPath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "QuestDiary", "智能刷怪.txt");
             var clearMonScriptPath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "QuestDiary", "智能清怪.txt");
 
-            if (options.IsCommentMongen)
+            bool restoredMongenFiles = TryRestoreLatestMongenBackup();
+            if (!restoredMongenFiles && options.IsCommentMongen)
             {
                 var backupDir = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir");
                 var backupFiles = Directory.GetFiles(backupDir, "Mongen_*.txt");

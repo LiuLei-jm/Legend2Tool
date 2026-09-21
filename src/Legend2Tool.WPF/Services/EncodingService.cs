@@ -173,10 +173,16 @@ namespace Legend2Tool.WPF.Services
 
         public Encoding DetectFileEncoding(string filePath)
         {
+            return DetectFileEncoding(filePath, Encoding.UTF8);
+        }
+
+        public Encoding DetectFileEncoding(string filePath, Encoding fallbackEncoding)
+        {
+            ArgumentNullException.ThrowIfNull(fallbackEncoding);
             EncodingDetectionResult result = DetectFileEncodingResult(filePath);
             // ASCII and empty files have no byte-level encoding evidence. UTF-8 is a safe
-            // compatibility value for readers because their contents decode identically.
-            return result.Encoding ?? Encoding.UTF8;
+            // compatibility value for readers when no domain-specific fallback is supplied.
+            return result.Encoding ?? fallbackEncoding;
         }
 
         public EncodingDetectionResult DetectFileEncodingResult(string filePath)

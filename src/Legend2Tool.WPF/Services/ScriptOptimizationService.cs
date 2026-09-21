@@ -1002,9 +1002,13 @@ namespace Legend2Tool.WPF.Services
             );
             if (!File.Exists(filePath))
                 throw new FileNotFoundException($"没有找到文件：{filePath}");
-            Encoding fileEncoding = _encodingService.DetectFileEncoding(filePath);
+            Encoding legacyEncoding = _encodingService.GetEncodingByName("GB18030");
+            Encoding mongenEncoding = _encodingService.DetectFileEncoding(
+                filePath,
+                legacyEncoding
+            );
 
-            await foreach (var line in File.ReadLinesAsync(filePath, fileEncoding))
+            await foreach (var line in File.ReadLinesAsync(filePath, mongenEncoding))
             {
                 var trimmedLine = line.Trim();
                 if (string.IsNullOrEmpty(trimmedLine) || trimmedLine.StartsWith(';'))
@@ -1016,11 +1020,23 @@ namespace Legend2Tool.WPF.Services
                 {
                     var file = trimmedLine.Split(AppConstants.EmptySeparator, StringSplitOptions.RemoveEmptyEntries)[1];
                     if (string.IsNullOrEmpty(file) || !file.Contains("txt")) continue;
-                    filePath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "Mongen", file);
-                    if (!File.Exists(filePath))
-                        throw new FileNotFoundException($"没有找到文件：{filePath}");
-                    fileEncoding = _encodingService.DetectFileEncoding(filePath);
-                    await foreach(var subLine in File.ReadLinesAsync(filePath, fileEncoding)){
+                    string subFilePath = Path.Combine(
+                        _configStore.ServerDirectory,
+                        "Mir200",
+                        "Envir",
+                        "Mongen",
+                        file
+                    );
+                    if (!File.Exists(subFilePath))
+                        throw new FileNotFoundException($"没有找到文件：{subFilePath}");
+                    Encoding subFileEncoding = _encodingService.DetectFileEncoding(
+                        subFilePath,
+                        mongenEncoding
+                    );
+                    await foreach (
+                        var subLine in File.ReadLinesAsync(subFilePath, subFileEncoding)
+                    )
+                    {
                         var trimmedSubLine = subLine.Trim();
                         if (string.IsNullOrEmpty(trimmedSubLine) || trimmedSubLine.StartsWith(';')) continue;
                         ProcessMongenPerLine(trimmedSubLine);
