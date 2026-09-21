@@ -8,6 +8,7 @@ namespace Legend2Tool.WPF.Services
     {
         private const int minLengthForUDE = 100;
         private const double minConfidenceThreshold = 0.7;
+        private const int maxBytesForDetection = 1024 * 1024;
         private HashSet<string> cjkCompetitors = new(StringComparer.OrdinalIgnoreCase)
         {
             "SHIFT_JIS",
@@ -23,6 +24,10 @@ namespace Legend2Tool.WPF.Services
             "Windows-1252",
             "KOI8-R"
         };
+        private static readonly HashSet<string> gbFamilyEncodings = new(
+            ["GB18030", "GB2312", "GBK"],
+            StringComparer.OrdinalIgnoreCase
+        );
         public void ConvertFileEncoding(string inputFilePath, string outputFilePath, Encoding inputFileEncoding, string targetEncodingName)
         {
             ConvertFileEncodingCore(inputFilePath, outputFilePath, inputFileEncoding, targetEncodingName, null);
@@ -179,15 +184,25 @@ namespace Legend2Tool.WPF.Services
             if (!File.Exists(filePath))
                 throw new FileNotFoundException($"文件未找到：{filePath}");
 
-            const int BytesToReadForDetection = 8192;
             byte[] buffer;
             try
             {
                 using (FileStream fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
-                    int bytesToRead = (int)Math.Min(fs.Length, BytesToReadForDetection);
+                    int bytesToRead = (int)Math.Min(fs.Length, maxBytesForDetection);
                     buffer = new byte[bytesToRead];
-                    fs.Read(buffer, 0, bytesToRead);
+                    int totalBytesRead = 0;
+                    while (totalBytesRead < bytesToRead)
+                    {
+                        int bytesRead = fs.Read(buffer, totalBytesRead, bytesToRead - totalBytesRead);
+                        if (bytesRead == 0)
+                            break;
+
+                        totalBytesRead += bytesRead;
+                    }
+
+                    if (totalBytesRead != bytesToRead)
+                        Array.Resize(ref buffer, totalBytesRead);
                 }
             }
             catch (IOException ex)
@@ -221,9 +236,9 @@ namespace Legend2Tool.WPF.Services
             var charsetDetector = new CharsetDetector();
             charsetDetector.Feed(buffer, 0, buffer.Length);
             charsetDetector.DataEnd();
-            if (charsetDetector.Charset != null && charsetDetector.Confidence >= minConfidenceThreshold)
+            string? detected = charsetDetector.Charset?.ToUpperInvariant();
+            if (detected != null && charsetDetector.Confidence >= minConfidenceThreshold)
             {
-                var detected = charsetDetector.Charset.ToUpperInvariant();
                 if (cjkCompetitors.Contains(detected))
                 {
                     return new EncodingDetectionResult(Encoding.GetEncoding("GB18030"), $"UDE: {detected}, {charsetDetector.Confidence:P0}");
@@ -232,6 +247,20 @@ namespace Legend2Tool.WPF.Services
                 var safeEncoding = GetSafeEncoding(detected);
                 if (safeEncoding != null) return new EncodingDetectionResult(safeEncoding, $"UDE: {detected}, {charsetDetector.Confidence:P0}");
             }
+
+            if (
+                detected != null
+                && gbFamilyEncodings.Contains(detected)
+                && !CanDecodeAsUtf8(buffer)
+                && CanDecodeAsGb18030(buffer)
+            )
+            {
+                return new EncodingDetectionResult(
+                    Encoding.GetEncoding("GB18030"),
+                    $"UDE: {detected}, {charsetDetector.Confidence:P0}; 严格 UTF-8 校验失败，GB18030 校验通过"
+                );
+            }
+
             return new EncodingDetectionResult(null, "检测结果置信度不足");
         }
 
@@ -241,6 +270,24 @@ namespace Legend2Tool.WPF.Services
             {
                 var utf8 = new UTF8Encoding(false, true); // ThrowOnInvalidBytes = true
                 string text = utf8.GetString(buffer);     // 尝试解码
+                return true;
+            }
+            catch (DecoderFallbackException)
+            {
+                return false;
+            }
+        }
+
+        private bool CanDecodeAsGb18030(byte[] buffer)
+        {
+            try
+            {
+                Encoding gb18030 = Encoding.GetEncoding(
+                    "GB18030",
+                    EncoderFallback.ExceptionFallback,
+                    DecoderFallback.ExceptionFallback
+                );
+                gb18030.GetString(buffer);
                 return true;
             }
             catch (DecoderFallbackException)

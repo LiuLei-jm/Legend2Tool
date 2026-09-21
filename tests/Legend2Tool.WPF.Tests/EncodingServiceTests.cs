@@ -61,6 +61,42 @@ public sealed class EncodingServiceTests : IDisposable
     }
 
     [Fact]
+    public void DetectFileEncodingResult_Gb18030AfterInitialAscii_InspectsBeyondEightKilobytes()
+    {
+        Encoding gb18030 = Encoding.GetEncoding("GB18030");
+        string asciiPrefix = string.Concat(Enumerable.Repeat("A=1\r\n", 2_000));
+        string chineseContent = ";传奇世界游戏服务器配置数据库连接地图怪物角色账号登录设置物品装备技能任务管理系统测试中文内容\r\n";
+        string path = CreateFile(
+            "gb-after-ascii.txt",
+            gb18030.GetBytes(asciiPrefix + chineseContent)
+        );
+
+        EncodingDetectionResult result = _service.DetectFileEncodingResult(path);
+
+        Assert.True(result.IsKnown);
+        Assert.Equal(gb18030.CodePage, result.Encoding!.CodePage);
+        Assert.Contains("UDE", result.Reason);
+    }
+
+    [Fact]
+    public void DetectFileEncodingResult_LowConfidenceGb18030_UsesStrictValidation()
+    {
+        Encoding gb18030 = Encoding.GetEncoding("GB18030");
+        string asciiContent = string.Concat(Enumerable.Repeat("A=1\r\n", 1_200));
+        string chineseContent = string.Concat(Enumerable.Repeat(";输入注册码\r\n", 20));
+        string path = CreateFile(
+            "low-confidence-gb.txt",
+            gb18030.GetBytes(asciiContent + chineseContent)
+        );
+
+        EncodingDetectionResult result = _service.DetectFileEncodingResult(path);
+
+        Assert.True(result.IsKnown);
+        Assert.Equal(gb18030.CodePage, result.Encoding!.CodePage);
+        Assert.Contains("严格 UTF-8 校验失败", result.Reason);
+    }
+
+    [Fact]
     public void DetectBom_Utf32BigEndian_ReturnsBigEndianEncoding()
     {
         Encoding result = _service.DetectBom([0x00, 0x00, 0xFE, 0xFF]);
