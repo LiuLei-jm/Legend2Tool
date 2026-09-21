@@ -1,5 +1,6 @@
 ﻿using Microsoft.Win32;
 using Serilog;
+using System.IO;
 
 namespace Legend2Tool.WPF.Services
 {
@@ -29,6 +30,32 @@ namespace Legend2Tool.WPF.Services
                 return fullPathToFolder;
             }
             return null;
+        }
+
+        public string? ShowFileBrowserDialog(
+            string initialPath = null!,
+            string filter = "所有文件|*.*"
+        )
+        {
+            var dialog = new OpenFileDialog
+            {
+                CheckFileExists = true,
+                Filter = filter,
+                Multiselect = false,
+                Title = "选择数据库文件"
+            };
+
+            if (File.Exists(initialPath))
+            {
+                dialog.InitialDirectory = Path.GetDirectoryName(initialPath);
+                dialog.FileName = Path.GetFileName(initialPath);
+            }
+            else if (Directory.Exists(initialPath))
+            {
+                dialog.InitialDirectory = initialPath;
+            }
+
+            return dialog.ShowDialog() == true ? dialog.FileName : null;
         }
     }
 }

@@ -36,18 +36,38 @@ namespace Legend2Tool.WPF.Models.ScriptSets
         string DataJson
     );
 
+    public sealed record MaterialFileInfo(
+        Guid Id,
+        string FileName,
+        string TargetPath,
+        string? Password,
+        long FileSize,
+        string? Sha256
+    );
+
     public sealed record ScriptSetDeploymentData(
         IReadOnlyList<ScriptFileInfo> ScriptFiles,
-        IReadOnlyList<ScriptSetDatabaseDataInfo> DatabaseRows
-    );
+        IReadOnlyList<ScriptSetDatabaseDataInfo> DatabaseRows,
+        IReadOnlyList<MaterialFileInfo> MaterialFiles
+    )
+    {
+        public ScriptSetDeploymentData(
+            IReadOnlyList<ScriptFileInfo> scriptFiles,
+            IReadOnlyList<ScriptSetDatabaseDataInfo> databaseRows
+        ) : this(scriptFiles, databaseRows, [])
+        {
+        }
+    }
 
     public sealed record ScriptSetInstallationResult(
         int ScriptFileCount,
-        int DatabaseRowCount
+        int DatabaseRowCount,
+        int MaterialFileCount = 0
     );
 
     public sealed record ScriptSetRemovalResult(
         int ScriptFileCount,
-        int DatabaseRowCount
+        int DatabaseRowCount,
+        int MaterialFileCount = 0
     );
 }

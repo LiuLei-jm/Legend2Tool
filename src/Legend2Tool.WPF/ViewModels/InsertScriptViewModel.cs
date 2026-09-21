@@ -271,7 +271,7 @@ namespace Legend2Tool.WPF.ViewModels
             }
 
             MessageBoxResult confirmation = System.Windows.MessageBox.Show(
-                $"确定要将脚本套“{scriptSet.Name}”插入当前服务端吗？\n\n全量脚本会替换目标文件内容，数据库数据会直接追加。",
+                $"确定要将脚本套“{scriptSet.Name}”插入当前服务端吗？\n\n全量脚本会替换目标文件内容，数据库数据会直接追加，素材文件会写入登录器补丁目录。",
                 "确认插入脚本套",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning
@@ -288,7 +288,7 @@ namespace Legend2Tool.WPF.ViewModels
                 ScriptSetInstallationResult result =
                     await _scriptSetInstallationService.InstallAsync(scriptSet);
                 ScriptSetStatusMessage =
-                    $"“{scriptSet.Name}”插入完成：脚本文件 {result.ScriptFileCount} 个，数据库数据 {result.DatabaseRowCount} 条。";
+                    $"“{scriptSet.Name}”插入完成：脚本文件 {result.ScriptFileCount} 个，数据库数据 {result.DatabaseRowCount} 条，素材文件 {result.MaterialFileCount} 个。";
                 Growl.SuccessGlobal($"脚本套“{scriptSet.Name}”插入成功！");
             }
             catch (ScriptSetInstallationException ex)
@@ -341,7 +341,7 @@ namespace Legend2Tool.WPF.ViewModels
             }
 
             MessageBoxResult confirmation = System.Windows.MessageBox.Show(
-                $"确定要从当前服务端删除脚本套“{scriptSet.Name}”吗？\n\n片段脚本只会删除带有本脚本套标识的内容；已被修改的全量脚本不会删除。",
+                $"确定要从当前服务端删除脚本套“{scriptSet.Name}”吗？\n\n片段脚本只会删除带有本脚本套标识的内容；已被修改的全量脚本或素材文件不会删除。",
                 "确认删除已插入脚本套",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning
@@ -358,7 +358,7 @@ namespace Legend2Tool.WPF.ViewModels
                 ScriptSetRemovalResult result =
                     await _scriptSetInstallationService.RemoveAsync(scriptSet);
                 ScriptSetStatusMessage =
-                    $"“{scriptSet.Name}”删除完成：脚本文件 {result.ScriptFileCount} 个，数据库数据 {result.DatabaseRowCount} 条。";
+                    $"“{scriptSet.Name}”删除完成：脚本文件 {result.ScriptFileCount} 个，数据库数据 {result.DatabaseRowCount} 条，素材文件 {result.MaterialFileCount} 个。";
                 Growl.SuccessGlobal($"脚本套“{scriptSet.Name}”删除完成！");
             }
             catch (ScriptSetInstallationException ex)

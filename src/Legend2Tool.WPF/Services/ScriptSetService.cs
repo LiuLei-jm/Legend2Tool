@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.IO;
 using System.Text.Json;
 
 namespace Legend2Tool.WPF.Services
@@ -98,7 +99,56 @@ namespace Legend2Tool.WPF.Services
                     $"api/scripts/db-datas/by-set/{scriptSetId:D}",
                     cancellationToken
                 );
-            return new ScriptSetDeploymentData(scriptFiles, databaseRows);
+            List<MaterialFileInfo> materialFiles = await GetAsync<List<MaterialFileInfo>>(
+                $"api/scripts/material/by-set/{scriptSetId:D}",
+                cancellationToken
+            );
+            return new ScriptSetDeploymentData(scriptFiles, databaseRows, materialFiles);
+        }
+
+        public async Task DownloadMaterialFileAsync(
+            Guid materialFileId,
+            Stream destination,
+            CancellationToken cancellationToken = default
+        )
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (materialFileId == Guid.Empty)
+            {
+                throw new ArgumentException("素材文件 ID 不能为空。", nameof(materialFileId));
+            }
+            ArgumentNullException.ThrowIfNull(destination);
+            if (!destination.CanWrite)
+            {
+                throw new ArgumentException("素材文件目标流不可写。", nameof(destination));
+            }
+
+            string path = $"api/scripts/material/{materialFileId:D}/content";
+            AuthenticationSession session = _authenticationService.CurrentSession
+                ?? throw new AuthenticationException("登录状态已失效，请重新登录。");
+            using HttpResponseMessage response = await SendGetRequestAsync(
+                path,
+                session.AccessToken,
+                cancellationToken
+            );
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                AuthenticationSession refreshedSession =
+                    await _authenticationService.RefreshTokenAsync(cancellationToken);
+                using HttpResponseMessage retryResponse = await SendGetRequestAsync(
+                    path,
+                    refreshedSession.AccessToken,
+                    cancellationToken
+                );
+                await CopyResponseContentAsync(
+                    retryResponse,
+                    destination,
+                    cancellationToken
+                );
+                return;
+            }
+
+            await CopyResponseContentAsync(response, destination, cancellationToken);
         }
 
         private Task<PagedScriptSetResponse> GetPageAsync(
@@ -144,7 +194,11 @@ namespace Legend2Tool.WPF.Services
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, path);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-            return await _httpClient.SendAsync(request, cancellationToken);
+            return await _httpClient.SendAsync(
+                request,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken
+            );
         }
 
         private static async Task<T> ReadResponseAsync<T>(
@@ -171,6 +225,27 @@ namespace Legend2Tool.WPF.Services
             }
 
             return result;
+        }
+
+        private static async Task CopyResponseContentAsync(
+            HttpResponseMessage response,
+            Stream destination,
+            CancellationToken cancellationToken
+        )
+        {
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new HttpRequestException(
+                    $"下载素材文件失败（HTTP {(int)response.StatusCode}）。",
+                    null,
+                    response.StatusCode
+                );
+            }
+
+            await using Stream source = await response.Content.ReadAsStreamAsync(
+                cancellationToken
+            );
+            await source.CopyToAsync(destination, cancellationToken);
         }
 
         public void Dispose()

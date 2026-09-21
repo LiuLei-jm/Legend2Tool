@@ -227,6 +227,7 @@
                                 <Setter Property="Width" Value="110" />
                             </Style>
                         </autogrid:AutoGrid.Resources>
+
                         <TextBlock Text="快捷方式名" />
                         <TextBox Text="{Binding LauncherName}" />
 
@@ -247,13 +248,15 @@
                         <TextBlock Text="微端更新密码" />
                         <TextBox Text="{Binding UpdatePassword}" />
 
-                        <TextBlock Text="多开数量" />
-                        <hc:NumericUpDown
-                            Width="60"
-                            Margin="0,5,0,0"
-                            Maximum="8"
-                            Minimum="0"
-                            Value="{Binding MultiInstanceCount, UpdateSourceTrigger=PropertyChanged}" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="多开数量" />
+                            <hc:NumericUpDown
+                                Width="60"
+                                Margin="0,5,0,0"
+                                Maximum="8"
+                                Minimum="0"
+                                Value="{Binding MultiInstanceCount, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
                     </autogrid:AutoGrid>
                 </Grid>
             </GroupBox>
@@ -261,69 +264,106 @@
 
         <Grid Grid.Row="2">
             <GroupBox Header="服务端设置" Style="{StaticResource GroupBoxTab}">
-                <autogrid:AutoGrid ColumnCount="10" RowCount="2">
-                    <autogrid:AutoGrid.Resources>
-                        <Style BasedOn="{StaticResource {x:Type TextBlock}}" TargetType="TextBlock">
-                            <Setter Property="Margin" Value="5" />
-                            <Setter Property="VerticalAlignment" Value="Center" />
-                            <Setter Property="FontWeight" Value="Bold" />
-                        </Style>
-                        <Style BasedOn="{StaticResource {x:Type TextBox}}" TargetType="TextBox">
-                            <Setter Property="Margin" Value="5" />
-                            <Setter Property="Width" Value="120" />
-                            <Setter Property="Height" Value="28" />
-                        </Style>
-                        <Style BasedOn="{StaticResource {x:Type Button}}" TargetType="Button">
-                            <Setter Property="Margin" Value="5" />
-                            <Setter Property="Width" Value="110" />
-                        </Style>
-                        <Style BasedOn="{StaticResource {x:Type CheckBox}}" TargetType="CheckBox">
-                            <Setter Property="HorizontalAlignment" Value="Center" />
-                        </Style>
-                    </autogrid:AutoGrid.Resources>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
 
-                    <TextBlock Text="引擎类型：" />
-                    <TextBlock d:Text="领风引擎" Text="{Binding EngineType, Converter={StaticResource EnumDescriptionConverter}}" />
-                    <TextBlock Text="游戏服务器名称" />
-                    <TextBox Text="{Binding GameName}" />
-                    <Button Command="{Binding SetDefaultPortConfCommand}" Content="默认设置" />
-                    <Button Command="{Binding ApplyDefaultAuxiliarySettingsCommand}" Content="默认备份设置" />
-                    <TextBlock FontWeight="Bold" Text="所有端口增加：" />
+                    <StackPanel
+                        Margin="5,0,5,2"
+                        IsEnabled="{Binding IsDatabasePathEditable}"
+                        Orientation="Horizontal">
 
-                    <hc:NumericUpDown
-                        Width="60"
-                        Height="28"
-                        Margin="0,5,0,2"
-                        Maximum="99"
-                        Minimum="-99"
-                        Value="{Binding ModifyNumberOfPort, UpdateSourceTrigger=PropertyChanged}" />
-                    <Button Command="{Binding BatchEditCommand}" Content="批量修改" />
-                    <Button Command="{Binding GenerateCleanupScriptCommand}" Content="生成清理脚本" />
-                    <TextBlock Text="动态IP地址" />
-                    <CheckBox IsChecked="{Binding DynamicIPMode}" />
-                    <TextBlock Text="游戏外网IP地址" />
-                    <TextBox Text="{Binding ExtIPAddr}" />
-                    <Button Command="{Binding GetExtIpAddrCommand}" Content="获取外网IP" />
-                    <Button Command="{Binding SetLocalIpCommand}" Content="设置本地IP" />
+                        <TextBlock
+                            Margin="5"
+                            VerticalAlignment="Center"
+                            FontWeight="Bold"
+                            Text="DB路径" />
+                        <TextBox
+                            Height="28"
+                            MinWidth="260"
+                            Margin="5"
+                            Text="{Binding DatabasePath, UpdateSourceTrigger=PropertyChanged}"
+                            ToolTip="{Binding ResolvedDatabasePath}" />
+                        <Button
+                            Width="90"
+                            Margin="5"
+                            Command="{Binding SelectDatabaseFileCommand}"
+                            Content="浏览选择" />
+                        <TextBlock
+                            Margin="5"
+                            Foreground="OrangeRed"
+                            Text="{Binding DatabasePathWarning}" />
+                    </StackPanel>
 
-                    <ComboBox
-                        Height="28"
-                        MinWidth="80"
-                        SelectedValue="{Binding SelectedEncoding, Mode=TwoWay}"
-                        SelectedValuePath="Content">
-                        <ComboBoxItem Content="GB18030" />
-                        <ComboBoxItem Content="UTF-8" />
-                    </ComboBox>
-                    <Button Command="{Binding ConvertEncodingCommand}" Content="转换编码">
-                        <Button.ToolTip>
-                            <ToolTip Content="转换Envir下的所有文件" />
-                        </Button.ToolTip>
-                    </Button>
-                    <Button
-                        Command="{Binding SaveConfigToFileCommand}"
-                        Content="配置完成请保存"
-                        Style="{StaticResource ButtonPrimary}" />
-                </autogrid:AutoGrid>
+                    <autogrid:AutoGrid
+                        Grid.Row="1"
+                        ColumnCount="10"
+                        RowCount="2">
+                        <autogrid:AutoGrid.Resources>
+                            <Style BasedOn="{StaticResource {x:Type TextBlock}}" TargetType="TextBlock">
+                                <Setter Property="Margin" Value="5" />
+                                <Setter Property="VerticalAlignment" Value="Center" />
+                                <Setter Property="FontWeight" Value="Bold" />
+                            </Style>
+                            <Style BasedOn="{StaticResource {x:Type TextBox}}" TargetType="TextBox">
+                                <Setter Property="Margin" Value="5" />
+                                <Setter Property="Width" Value="120" />
+                                <Setter Property="Height" Value="28" />
+                            </Style>
+                            <Style BasedOn="{StaticResource {x:Type Button}}" TargetType="Button">
+                                <Setter Property="Margin" Value="5" />
+                                <Setter Property="Width" Value="110" />
+                            </Style>
+                            <Style BasedOn="{StaticResource {x:Type CheckBox}}" TargetType="CheckBox">
+                                <Setter Property="HorizontalAlignment" Value="Center" />
+                            </Style>
+                        </autogrid:AutoGrid.Resources>
+
+                        <TextBlock Text="引擎类型：" />
+                        <TextBlock d:Text="领风引擎" Text="{Binding EngineType, Converter={StaticResource EnumDescriptionConverter}}" />
+                        <TextBlock Text="游戏服务器名称" />
+                        <TextBox Text="{Binding GameName}" />
+                        <Button Command="{Binding SetDefaultPortConfCommand}" Content="默认设置" />
+                        <Button Command="{Binding ApplyDefaultAuxiliarySettingsCommand}" Content="默认备份设置" />
+                        <TextBlock FontWeight="Bold" Text="所有端口增加：" />
+
+                        <hc:NumericUpDown
+                            Width="60"
+                            Height="28"
+                            Margin="0,5,0,2"
+                            Maximum="99"
+                            Minimum="-99"
+                            Value="{Binding ModifyNumberOfPort, UpdateSourceTrigger=PropertyChanged}" />
+                        <Button Command="{Binding BatchEditCommand}" Content="批量修改" />
+                        <Button Command="{Binding GenerateCleanupScriptCommand}" Content="生成清理脚本" />
+                        <TextBlock Text="动态IP地址" />
+                        <CheckBox IsChecked="{Binding DynamicIPMode}" />
+                        <TextBlock Text="游戏外网IP地址" />
+                        <TextBox Text="{Binding ExtIPAddr}" />
+                        <Button Command="{Binding GetExtIpAddrCommand}" Content="获取外网IP" />
+                        <Button Command="{Binding SetLocalIpCommand}" Content="设置本地IP" />
+
+                        <ComboBox
+                            Height="28"
+                            MinWidth="80"
+                            SelectedValue="{Binding SelectedEncoding, Mode=TwoWay}"
+                            SelectedValuePath="Content">
+                            <ComboBoxItem Content="GB18030" />
+                            <ComboBoxItem Content="UTF-8" />
+                        </ComboBox>
+                        <Button Command="{Binding ConvertEncodingCommand}" Content="转换编码">
+                            <Button.ToolTip>
+                                <ToolTip Content="转换Envir下的所有文件" />
+                            </Button.ToolTip>
+                        </Button>
+                        <Button
+                            Command="{Binding SaveConfigToFileCommand}"
+                            Content="配置完成请保存"
+                            Style="{StaticResource ButtonPrimary}" />
+                    </autogrid:AutoGrid>
+                </Grid>
             </GroupBox>
         </Grid>
 

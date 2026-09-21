@@ -97,7 +97,7 @@ public sealed class ScriptSetServiceTests
     }
 
     [Fact]
-    public async Task GetDeploymentDataAsync_ReturnsScriptDetailsAndDatabaseRows()
+    public async Task GetDeploymentDataAsync_ReturnsScriptsDatabaseRowsAndMaterials()
     {
         Guid scriptSetId = Guid.Parse("11111111-1111-1111-1111-111111111111");
         Guid scriptFileId = Guid.Parse("22222222-2222-2222-2222-222222222222");
@@ -149,6 +149,19 @@ public sealed class ScriptSetServiceTests
                       }
                     ]
                     """,
+                "/api/scripts/material/by-set/11111111-1111-1111-1111-111111111111" =>
+                    """
+                    [
+                      {
+                        "id": "44444444-4444-4444-4444-444444444444",
+                        "fileName": "custom.pak",
+                        "targetPath": "Data/Custom",
+                        "password": "pak-password",
+                        "fileSize": 128,
+                        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                      }
+                    ]
+                    """,
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected API path: {path}")
             };
             return Task.FromResult(JsonResponse(json));
@@ -167,11 +180,44 @@ public sealed class ScriptSetServiceTests
         ScriptSetDatabaseDataInfo databaseRow =
             Assert.Single(deploymentData.DatabaseRows);
         Assert.Equal(GameDatabaseTableType.StdItems, databaseRow.TableType);
-        Assert.Equal(3, requestedPaths.Count);
-        Assert.DoesNotContain(
-            requestedPaths,
-            path => path.Contains("material", StringComparison.OrdinalIgnoreCase)
+        MaterialFileInfo materialFile = Assert.Single(deploymentData.MaterialFiles);
+        Assert.Equal("custom.pak", materialFile.FileName);
+        Assert.Equal("Data/Custom", materialFile.TargetPath);
+        Assert.Equal("pak-password", materialFile.Password);
+        Assert.Equal(128, materialFile.FileSize);
+        Assert.Equal(4, requestedPaths.Count);
+        Assert.Contains(
+            "/api/scripts/material/by-set/11111111-1111-1111-1111-111111111111",
+            requestedPaths
         );
+    }
+
+    [Fact]
+    public async Task DownloadMaterialFileAsync_ValidResponse_CopiesBinaryContent()
+    {
+        Guid materialFileId = Guid.Parse("44444444-4444-4444-4444-444444444444");
+        byte[] expectedContent = [0, 1, 2, 127, 128, 255];
+        var handler = new StubHttpMessageHandler((request, _) =>
+        {
+            Assert.Equal("Bearer", request.Headers.Authorization?.Scheme);
+            Assert.Equal("access-1", request.Headers.Authorization?.Parameter);
+            Assert.Equal(
+                "/api/scripts/material/44444444-4444-4444-4444-444444444444/content",
+                request.RequestUri?.AbsolutePath
+            );
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(expectedContent)
+            });
+        });
+        var authenticationService = new StubAuthenticationService("access-1");
+        using var httpClient = CreateHttpClient(handler);
+        using var service = new ScriptSetService(authenticationService, httpClient);
+        using var destination = new MemoryStream();
+
+        await service.DownloadMaterialFileAsync(materialFileId, destination);
+
+        Assert.Equal(expectedContent, destination.ToArray());
     }
 
     private static HttpClient CreateHttpClient(HttpMessageHandler handler) => new(handler)

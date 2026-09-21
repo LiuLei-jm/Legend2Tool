@@ -9,6 +9,7 @@ using Legend2Tool.WPF.State;
 using Microsoft.Data.Sqlite;
 using Serilog;
 using SQLitePCL;
+using System.Security.Cryptography;
 using System.Text;
 using Xunit;
 using GeeConfig = Legend2Tool.WPF.Models.M2Config.M2Config.GEEConfig;
@@ -242,6 +243,21 @@ public sealed class ScriptSetInstallationServiceTests
     }
 
     [Fact]
+    public void ResolveMaterialPath_ParentTraversal_Throws()
+    {
+        string serverDirectory = Path.Combine(Path.GetTempPath(), "server");
+
+        Assert.Throws<ScriptSetInstallationException>(() =>
+            ScriptSetInstallationService.ResolveMaterialPath(
+                serverDirectory,
+                "TestResource",
+                "../../outside",
+                "material.pak"
+            )
+        );
+    }
+
+    [Fact]
     public void ParseDatabaseValues_JsonObject_PreservesValueTypes()
     {
         Dictionary<string, object?> values =
@@ -405,6 +421,137 @@ public sealed class ScriptSetInstallationServiceTests
     }
 
     [Fact]
+    public async Task InstallAsync_MaterialFile_InstallsContentAndAppendsPakEntry()
+    {
+        string serverDirectory = CreateTempDirectory();
+        try
+        {
+            Encoding gb18030 = Encoding.GetEncoding("GB18030");
+            string launcherDirectory = Path.Combine(serverDirectory, "登录器");
+            Directory.CreateDirectory(launcherDirectory);
+            string pakPath = Path.Combine(launcherDirectory, "pak.txt");
+            File.WriteAllText(pakPath, "existing.pak|old-password\r\n", gb18030);
+
+            Guid materialId = Guid.NewGuid();
+            byte[] materialContent = [0, 1, 2, 127, 128, 255];
+            string sha256 = Convert.ToHexString(
+                SHA256.HashData(materialContent)
+            ).ToLowerInvariant();
+            ScriptSetInfo scriptSet = new(Guid.NewGuid(), "素材脚本套", null);
+            ScriptSetDeploymentData deploymentData = new(
+                [],
+                [],
+                [
+                    new MaterialFileInfo(
+                        materialId,
+                        "custom.pak",
+                        "Data/Custom",
+                        "new-password",
+                        materialContent.Length,
+                        sha256
+                    )
+                ]
+            );
+            ScriptSetInstallationService service = CreateInstallationService(
+                serverDirectory,
+                deploymentData,
+                new Dictionary<Guid, byte[]> { [materialId] = materialContent }
+            );
+
+            ScriptSetInstallationResult result = await service.InstallAsync(scriptSet);
+
+            string installedPath = Path.Combine(
+                serverDirectory,
+                "登录器",
+                "补丁文件夹",
+                "TestResource",
+                "Data",
+                "Custom",
+                "custom.pak"
+            );
+            Assert.Equal(materialContent, File.ReadAllBytes(installedPath));
+            string pakContent = File.ReadAllText(pakPath, gb18030);
+            Assert.Equal(
+                $"existing.pak|old-password\r\n{installedPath}|new-password\r\n",
+                pakContent
+            );
+            Assert.Equal(0, result.ScriptFileCount);
+            Assert.Equal(0, result.DatabaseRowCount);
+            Assert.Equal(1, result.MaterialFileCount);
+        }
+        finally
+        {
+            Directory.Delete(serverDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task RemoveAsync_MaterialFile_RemovesContentAndPakEntry()
+    {
+        string serverDirectory = CreateTempDirectory();
+        try
+        {
+            Encoding gb18030 = Encoding.GetEncoding("GB18030");
+            Guid materialId = Guid.NewGuid();
+            byte[] materialContent = [0, 1, 2, 127, 128, 255];
+            string installedPath = Path.Combine(
+                serverDirectory,
+                "登录器",
+                "补丁文件夹",
+                "TestResource",
+                "Data",
+                "Custom",
+                "custom.pak"
+            );
+            Directory.CreateDirectory(Path.GetDirectoryName(installedPath)!);
+            File.WriteAllBytes(installedPath, materialContent);
+
+            string launcherDirectory = Path.Combine(serverDirectory, "登录器");
+            Directory.CreateDirectory(launcherDirectory);
+            string pakPath = Path.Combine(launcherDirectory, "pak.txt");
+            File.WriteAllText(
+                pakPath,
+                $"keep.pak|keep-password\r\n{installedPath}|material-password\r\n",
+                gb18030
+            );
+            ScriptSetInfo scriptSet = new(Guid.NewGuid(), "可删除素材脚本套", null);
+            ScriptSetDeploymentData deploymentData = new(
+                [],
+                [],
+                [
+                    new MaterialFileInfo(
+                        materialId,
+                        "custom.pak",
+                        "Data/Custom",
+                        "material-password",
+                        materialContent.Length,
+                        Convert.ToHexString(SHA256.HashData(materialContent)).ToLowerInvariant()
+                    )
+                ]
+            );
+            ScriptSetInstallationService service = CreateInstallationService(
+                serverDirectory,
+                deploymentData
+            );
+
+            ScriptSetRemovalResult result = await service.RemoveAsync(scriptSet);
+
+            Assert.False(File.Exists(installedPath));
+            Assert.Equal(
+                "keep.pak|keep-password\r\n",
+                File.ReadAllText(pakPath, gb18030)
+            );
+            Assert.Equal(0, result.ScriptFileCount);
+            Assert.Equal(0, result.DatabaseRowCount);
+            Assert.Equal(1, result.MaterialFileCount);
+        }
+        finally
+        {
+            Directory.Delete(serverDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task InstallAsync_DatabaseInsertFails_RestoresChangedScriptFiles()
     {
         string serverDirectory = CreateTempDirectory();
@@ -418,6 +565,12 @@ public sealed class ScriptSetInstallationServiceTests
                 "原始脚本",
                 Encoding.GetEncoding("GB18030")
             );
+            string launcherDirectory = Path.Combine(serverDirectory, "登录器");
+            Directory.CreateDirectory(launcherDirectory);
+            string pakPath = Path.Combine(launcherDirectory, "pak.txt");
+            File.WriteAllText(pakPath, "原始PAK配置", Encoding.GetEncoding("GB18030"));
+            Guid materialId = Guid.NewGuid();
+            byte[] materialContent = [10, 20, 30, 40];
             ScriptSetInfo scriptSet = new(Guid.NewGuid(), "回滚测试", null);
             ScriptSetDeploymentData deploymentData = new(
                 [
@@ -438,11 +591,22 @@ public sealed class ScriptSetInstallationServiceTests
                         "缺少名称",
                         """{"Idx":101}"""
                     )
+                ],
+                [
+                    new MaterialFileInfo(
+                        materialId,
+                        "rollback.pak",
+                        "Data",
+                        "rollback-password",
+                        materialContent.Length,
+                        Convert.ToHexString(SHA256.HashData(materialContent)).ToLowerInvariant()
+                    )
                 ]
             );
             ScriptSetInstallationService service = CreateInstallationService(
                 serverDirectory,
-                deploymentData
+                deploymentData,
+                new Dictionary<Guid, byte[]> { [materialId] = materialContent }
             );
 
             await Assert.ThrowsAsync<ScriptSetInstallationException>(() =>
@@ -452,6 +616,18 @@ public sealed class ScriptSetInstallationServiceTests
             Assert.Equal(
                 "原始脚本",
                 File.ReadAllText(scriptPath, Encoding.GetEncoding("GB18030"))
+            );
+            Assert.False(File.Exists(Path.Combine(
+                serverDirectory,
+                "登录器",
+                "补丁文件夹",
+                "TestResource",
+                "Data",
+                "rollback.pak"
+            )));
+            Assert.Equal(
+                "原始PAK配置",
+                File.ReadAllText(pakPath, Encoding.GetEncoding("GB18030"))
             );
             Assert.Null(ReadDatabaseName(databasePath, 42));
             Assert.Equal("已有数据", ReadDatabaseName(databasePath, 41));
@@ -545,14 +721,15 @@ public sealed class ScriptSetInstallationServiceTests
 
     private static ScriptSetInstallationService CreateInstallationService(
         string serverDirectory,
-        ScriptSetDeploymentData deploymentData
+        ScriptSetDeploymentData deploymentData,
+        IReadOnlyDictionary<Guid, byte[]>? materialContents = null
     )
     {
         var loadedConfig = new LoadedServerConfig(
             serverDirectory,
             EngineType.GEE,
             new GeeConfig { SqliteDBName = "Mud2/game.db" },
-            new LauncherConfigBase(),
+            new LauncherConfigBase { ResourcesDir = "TestResource" },
             new Setup(),
             []
         );
@@ -560,7 +737,7 @@ public sealed class ScriptSetInstallationServiceTests
         var configStore = new ConfigStore(configService, Logger);
         configStore.Receive(new ServerDirectoryChangedMessage(serverDirectory));
         return new ScriptSetInstallationService(
-            new StubScriptSetService(deploymentData),
+            new StubScriptSetService(deploymentData, materialContents),
             configStore,
             new EncodingService(),
             Logger
@@ -627,10 +804,15 @@ public sealed class ScriptSetInstallationServiceTests
     private sealed class StubScriptSetService : IScriptSetService
     {
         private readonly ScriptSetDeploymentData _deploymentData;
+        private readonly IReadOnlyDictionary<Guid, byte[]> _materialContents;
 
-        public StubScriptSetService(ScriptSetDeploymentData deploymentData)
+        public StubScriptSetService(
+            ScriptSetDeploymentData deploymentData,
+            IReadOnlyDictionary<Guid, byte[]>? materialContents
+        )
         {
             _deploymentData = deploymentData;
+            _materialContents = materialContents ?? new Dictionary<Guid, byte[]>();
         }
 
         public Task<IReadOnlyList<ScriptSetInfo>> GetScriptSetsAsync(
@@ -641,6 +823,21 @@ public sealed class ScriptSetInstallationServiceTests
             Guid scriptSetId,
             CancellationToken cancellationToken = default
         ) => Task.FromResult(_deploymentData);
+
+        public async Task DownloadMaterialFileAsync(
+            Guid materialFileId,
+            Stream destination,
+            CancellationToken cancellationToken = default
+        )
+        {
+            if (!_materialContents.TryGetValue(materialFileId, out byte[]? content))
+            {
+                throw new InvalidOperationException(
+                    $"No test material content for {materialFileId}."
+                );
+            }
+            await destination.WriteAsync(content, cancellationToken);
+        }
     }
 
     private sealed class StubConfigService : IConfigService

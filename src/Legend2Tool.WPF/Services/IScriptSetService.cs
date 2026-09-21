@@ -1,4 +1,5 @@
 using Legend2Tool.WPF.Models.ScriptSets;
+using System.IO;
 
 namespace Legend2Tool.WPF.Services
 {
@@ -10,6 +11,12 @@ namespace Legend2Tool.WPF.Services
 
         Task<ScriptSetDeploymentData> GetDeploymentDataAsync(
             Guid scriptSetId,
+            CancellationToken cancellationToken = default
+        );
+
+        Task DownloadMaterialFileAsync(
+            Guid materialFileId,
+            Stream destination,
             CancellationToken cancellationToken = default
         );
     }

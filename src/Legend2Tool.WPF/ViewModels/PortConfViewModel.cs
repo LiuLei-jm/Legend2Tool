@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using HandyControl.Controls;
 using Legend2Tool.WPF.Enums;
 using Legend2Tool.WPF.Messages;
+using Legend2Tool.WPF.Models.M2Config;
 using Legend2Tool.WPF.Models.M2Config.M2Config;
 using Legend2Tool.WPF.Services;
 using Legend2Tool.WPF.State;
@@ -21,6 +22,7 @@ namespace Legend2Tool.WPF.ViewModels
         private readonly IEncodingService _encodingService;
         private readonly ILogger _logger;
         private readonly IConfigService _configService;
+        private readonly IDialogService _dialogService;
         private ConfigStore _configStore;
         private ProgressStore _progressStore;
 
@@ -33,7 +35,15 @@ namespace Legend2Tool.WPF.ViewModels
         #endregion
 
         #region Constructor
-        public PortConfViewModel(ConfigStore configStore, IFileService fileService, IEncodingService encodingService, ILogger logger, ProgressStore progressStore, IConfigService configService)
+        public PortConfViewModel(
+            ConfigStore configStore,
+            IFileService fileService,
+            IEncodingService encodingService,
+            ILogger logger,
+            ProgressStore progressStore,
+            IConfigService configService,
+            IDialogService dialogService
+        )
         {
             WeakReferenceMessenger.Default.Register<M2ConfigChangedMessage>(this);
             WeakReferenceMessenger.Default.Register<PatchDirectoryChangedMessage>(this);
@@ -43,6 +53,7 @@ namespace Legend2Tool.WPF.ViewModels
             _logger = logger;
             _progressStore = progressStore;
             _configService = configService;
+            _dialogService = dialogService;
         }
         #endregion
 
@@ -53,6 +64,114 @@ namespace Legend2Tool.WPF.ViewModels
         public EngineType EngineType
         {
             get => _configStore.EngineType;
+        }
+        public bool IsDatabasePathEditable =>
+            CanExecuteConfigCommands
+            && _configStore.EngineType != EngineType.Unknown;
+        public string DatabasePath
+        {
+            get => GetDatabasePath(_configStore.EngineType, _configStore.M2Config)
+                ?? string.Empty;
+            set
+            {
+                string normalizedValue = value ?? string.Empty;
+                if (string.Equals(DatabasePath, normalizedValue, StringComparison.Ordinal))
+                {
+                    return;
+                }
+
+                SetDatabasePath(
+                    _configStore.EngineType,
+                    _configStore.M2Config,
+                    normalizedValue
+                );
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(ResolvedDatabasePath));
+                OnPropertyChanged(nameof(DatabasePathWarning));
+            }
+        }
+        public string ResolvedDatabasePath
+        {
+            get
+            {
+                try
+                {
+                    return ConfigPathResolver.ResolveServerPath(
+                        _configStore.ServerDirectory,
+                        DatabasePath,
+                        "Mud2"
+                    );
+                }
+                catch (Exception)
+                {
+                    return string.Empty;
+                }
+            }
+        }
+        public string DatabasePathWarning
+        {
+            get
+            {
+                if (string.IsNullOrWhiteSpace(DatabasePath))
+                {
+                    return "当前引擎未配置 DB 路径。";
+                }
+
+                string resolvedPath = ResolvedDatabasePath;
+                if (string.IsNullOrWhiteSpace(resolvedPath))
+                {
+                    return $"DB 路径无效：{DatabasePath}";
+                }
+                return File.Exists(resolvedPath)
+                    ? string.Empty
+                    : $"警告：DB 文件不存在：{resolvedPath}";
+            }
+        }
+
+        internal static string? GetDatabasePath(
+            EngineType engineType,
+            M2ConfigBase config
+        ) => (engineType, config) switch
+        {
+            (EngineType.BLUE, BLUEConfig blueConfig) => blueConfig.DataTableFile,
+            (EngineType.GOM or EngineType.NEWGOM, GOMConfig gomConfig) =>
+                gomConfig.AccessFileName,
+            (EngineType.HGE, HGEConfig hgeConfig) => hgeConfig.SQLiteName,
+            (
+                EngineType.GEE or EngineType.GXX or EngineType.LF or EngineType.V8,
+                GEEConfig geeConfig
+            ) => geeConfig.SqliteDBName,
+            _ => null
+        };
+
+        internal static void SetDatabasePath(
+            EngineType engineType,
+            M2ConfigBase config,
+            string value
+        )
+        {
+            switch (engineType, config)
+            {
+                case (EngineType.BLUE, BLUEConfig blueConfig):
+                    blueConfig.DataTableFile = value;
+                    break;
+                case (EngineType.GOM or EngineType.NEWGOM, GOMConfig gomConfig):
+                    gomConfig.AccessFileName = value;
+                    break;
+                case (EngineType.HGE, HGEConfig hgeConfig):
+                    hgeConfig.SQLiteName = value;
+                    break;
+                case (
+                    EngineType.GEE or EngineType.GXX or EngineType.LF or EngineType.V8,
+                    GEEConfig geeConfig
+                ):
+                    geeConfig.SqliteDBName = value;
+                    break;
+                default:
+                    throw new InvalidOperationException(
+                        $"当前引擎不支持 DB 路径配置：{engineType}"
+                    );
+            }
         }
         public string? GameName
         {
@@ -293,15 +412,54 @@ namespace Legend2Tool.WPF.ViewModels
             SetLocalIpCommand.NotifyCanExecuteChanged();
             SetByServerNameCommand.NotifyCanExecuteChanged();
             GenerateCleanupScriptCommand.NotifyCanExecuteChanged();
+            SelectDatabaseFileCommand.NotifyCanExecuteChanged();
+            WarnIfDatabaseFileMissing();
         }
         public void Receive(PatchDirectoryChangedMessage message)
         {
             OnPropertyChanged(string.Empty);
             GenerateByGamePinyinCommand.NotifyCanExecuteChanged();
         }
+
+        private void WarnIfDatabaseFileMissing()
+        {
+            string warning = DatabasePathWarning;
+            if (string.IsNullOrWhiteSpace(warning))
+            {
+                return;
+            }
+
+            _logger.Warning(
+                "服务端数据库路径检查失败：{DatabasePathWarning}",
+                warning
+            );
+            Growl.WarningGlobal(warning);
+        }
         #endregion
 
         #region Commands
+        [RelayCommand(CanExecute = nameof(CanExecuteConfigCommands))]
+        private void SelectDatabaseFile()
+        {
+            string initialPath = string.IsNullOrWhiteSpace(ResolvedDatabasePath)
+                ? _configStore.ServerDirectory
+                : ResolvedDatabasePath;
+            string filter = _configStore.EngineType is EngineType.GOM or EngineType.NEWGOM
+                ? "Access 数据库|*.mdb;*.accdb|所有文件|*.*"
+                : "SQLite 数据库|*.db;*.sqlite;*.sqlite3|所有文件|*.*";
+            string? selectedPath = _dialogService.ShowFileBrowserDialog(
+                initialPath,
+                filter
+            );
+            if (selectedPath is null)
+            {
+                return;
+            }
+
+            DatabasePath = Path.GetFullPath(selectedPath);
+            Growl.SuccessGlobal("DB 路径已更新，请保存配置。");
+        }
+
         [RelayCommand(CanExecute = nameof(CanExecuteConfigCommands))]
         private void ApplyDefaultAuxiliarySettings()
         {
@@ -557,6 +715,11 @@ namespace Legend2Tool.WPF.ViewModels
             {
                 Growl.ErrorGlobal("请检查输入参数是否正确。");
                 return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(DatabasePathWarning))
+            {
+                WarnIfDatabaseFileMissing();
             }
 
             try

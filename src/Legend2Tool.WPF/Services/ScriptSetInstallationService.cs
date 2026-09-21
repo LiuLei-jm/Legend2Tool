@@ -7,6 +7,7 @@ using Serilog;
 using SQLitePCL;
 using System.Data.OleDb;
 using System.IO;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using BlueConfig = Legend2Tool.WPF.Models.M2Config.M2Config.BLUEConfig;
@@ -20,6 +21,9 @@ namespace Legend2Tool.WPF.Services
         private const string ScriptStartMarker = ";---脚本插入---";
         private const string ScriptEndMarker = ";---插入结束---";
         private const string DatabaseIndexColumn = "Idx";
+        private const string LauncherDirectoryName = "登录器";
+        private const string PatchDirectoryName = "补丁文件夹";
+        private const string PakFileName = "pak.txt";
 
         private readonly IScriptSetService _scriptSetService;
         private readonly ConfigStore _configStore;
@@ -55,10 +59,36 @@ namespace Legend2Tool.WPF.Services
                     scriptSet.Id,
                     cancellationToken
                 );
-            return await Task.Run(
-                () => InstallLocal(scriptSet, deploymentData, cancellationToken),
-                cancellationToken
+            List<MaterialFilePlan> materialPlans = CreateMaterialPlans(
+                deploymentData.MaterialFiles
             );
+            string? stagingDirectory = null;
+            try
+            {
+                if (materialPlans.Count > 0)
+                {
+                    stagingDirectory = CreateMaterialStagingDirectory();
+                    await StageMaterialFilesAsync(
+                        materialPlans,
+                        stagingDirectory,
+                        cancellationToken
+                    );
+                }
+
+                return await Task.Run(
+                    () => InstallLocal(
+                        scriptSet,
+                        deploymentData,
+                        materialPlans,
+                        cancellationToken
+                    ),
+                    cancellationToken
+                );
+            }
+            finally
+            {
+                DeleteMaterialStagingDirectory(stagingDirectory);
+            }
         }
 
         public async Task<ScriptSetRemovalResult> RemoveAsync(
@@ -74,15 +104,37 @@ namespace Legend2Tool.WPF.Services
                     scriptSet.Id,
                     cancellationToken
                 );
-            return await Task.Run(
-                () => RemoveLocal(scriptSet, deploymentData, cancellationToken),
-                cancellationToken
+            List<MaterialFilePlan> materialPlans = CreateMaterialPlans(
+                deploymentData.MaterialFiles
             );
+            string? stagingDirectory = null;
+            try
+            {
+                if (materialPlans.Count > 0)
+                {
+                    stagingDirectory = CreateMaterialStagingDirectory();
+                    AssignMaterialBackupPaths(materialPlans, stagingDirectory);
+                }
+                return await Task.Run(
+                    () => RemoveLocal(
+                        scriptSet,
+                        deploymentData,
+                        materialPlans,
+                        cancellationToken
+                    ),
+                    cancellationToken
+                );
+            }
+            finally
+            {
+                DeleteMaterialStagingDirectory(stagingDirectory);
+            }
         }
 
         private ScriptSetInstallationResult InstallLocal(
             ScriptSetInfo scriptSet,
             ScriptSetDeploymentData deploymentData,
+            IReadOnlyList<MaterialFilePlan> materialPlans,
             CancellationToken cancellationToken
         )
         {
@@ -94,10 +146,14 @@ namespace Legend2Tool.WPF.Services
             List<DatabaseRowPlan> databasePlans = CreateDatabasePlans(
                 deploymentData.DatabaseRows
             );
-            if (scriptPlans.Count == 0 && databasePlans.Count == 0)
+            if (
+                scriptPlans.Count == 0
+                && databasePlans.Count == 0
+                && materialPlans.Count == 0
+            )
             {
                 throw new ScriptSetInstallationException(
-                    $"脚本套“{scriptSet.Name}”没有可插入的脚本或数据库数据。"
+                    $"脚本套“{scriptSet.Name}”没有可插入的脚本、数据库数据或素材文件。"
                 );
             }
             DatabaseTarget? databaseTarget = databasePlans.Count > 0
@@ -109,12 +165,29 @@ namespace Legend2Tool.WPF.Services
             }
 
             Dictionary<string, byte[]?> snapshots = CaptureFileSnapshots(scriptPlans);
+            List<MaterialFileSnapshot> materialSnapshots =
+                CaptureMaterialFileSnapshots(materialPlans);
+            if (materialPlans.Count > 0)
+            {
+                string pakPath = ResolvePakPath();
+                snapshots[pakPath] = File.ReadAllBytes(pakPath);
+            }
             try
             {
                 foreach (ScriptFilePlan plan in scriptPlans)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     ApplyScriptFile(plan);
+                }
+
+                foreach (MaterialFilePlan plan in materialPlans)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    ApplyMaterialFile(plan);
+                }
+                if (materialPlans.Count > 0)
+                {
+                    AppendPakEntries(ResolvePakPath(), materialPlans);
                 }
 
                 if (databaseTarget is not null)
@@ -124,20 +197,21 @@ namespace Legend2Tool.WPF.Services
 
                 return new ScriptSetInstallationResult(
                     scriptPlans.Count,
-                    databasePlans.Count
+                    databasePlans.Count,
+                    materialPlans.Count
                 );
             }
             catch (Exception ex)
             {
                 try
                 {
-                    RestoreFileSnapshots(snapshots);
+                    RestoreInstallationSnapshots(snapshots, materialSnapshots);
                 }
                 catch (Exception rollbackException)
                 {
                     _logger.Error(
                         rollbackException,
-                        "脚本套 {ScriptSetId} 安装失败后回滚脚本文件失败",
+                        "脚本套 {ScriptSetId} 安装失败后回滚部署文件失败",
                         scriptSet.Id
                     );
                     throw new ScriptSetInstallationException(
@@ -165,6 +239,7 @@ namespace Legend2Tool.WPF.Services
         private ScriptSetRemovalResult RemoveLocal(
             ScriptSetInfo scriptSet,
             ScriptSetDeploymentData deploymentData,
+            IReadOnlyList<MaterialFilePlan> materialPlans,
             CancellationToken cancellationToken
         )
         {
@@ -176,10 +251,14 @@ namespace Legend2Tool.WPF.Services
             List<DatabaseRowPlan> databasePlans = CreateDatabasePlans(
                 deploymentData.DatabaseRows
             );
-            if (scriptPlans.Count == 0 && databasePlans.Count == 0)
+            if (
+                scriptPlans.Count == 0
+                && databasePlans.Count == 0
+                && materialPlans.Count == 0
+            )
             {
                 throw new ScriptSetInstallationException(
-                    $"脚本套“{scriptSet.Name}”没有可删除的脚本或数据库数据。"
+                    $"脚本套“{scriptSet.Name}”没有可删除的脚本、数据库数据或素材文件。"
                 );
             }
 
@@ -196,15 +275,34 @@ namespace Legend2Tool.WPF.Services
                 scriptPlans,
                 cancellationToken
             );
+            List<MaterialFilePlan> materialRemovalPlans =
+                CreateMaterialFileRemovalPlans(materialPlans, cancellationToken);
             Dictionary<string, byte[]?> snapshots = CaptureFileSnapshots(
                 fileRemovalPlans
             );
+            List<MaterialFileSnapshot> materialSnapshots =
+                CaptureMaterialFileSnapshots(materialRemovalPlans);
+            if (materialPlans.Count > 0)
+            {
+                string pakPath = ResolvePakPath();
+                snapshots[pakPath] = File.ReadAllBytes(pakPath);
+            }
             try
             {
                 foreach (ScriptFileRemovalPlan plan in fileRemovalPlans)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     ApplyFileRemoval(plan);
+                }
+
+                foreach (MaterialFilePlan plan in materialRemovalPlans)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    File.Delete(plan.TargetPath);
+                }
+                if (materialPlans.Count > 0)
+                {
+                    RemovePakEntries(ResolvePakPath(), materialPlans);
                 }
 
                 int removedDatabaseRows = databaseTarget is null
@@ -216,20 +314,21 @@ namespace Legend2Tool.WPF.Services
                     );
                 return new ScriptSetRemovalResult(
                     fileRemovalPlans.Count,
-                    removedDatabaseRows
+                    removedDatabaseRows,
+                    materialRemovalPlans.Count
                 );
             }
             catch (Exception ex)
             {
                 try
                 {
-                    RestoreFileSnapshots(snapshots);
+                    RestoreInstallationSnapshots(snapshots, materialSnapshots);
                 }
                 catch (Exception rollbackException)
                 {
                     _logger.Error(
                         rollbackException,
-                        "脚本套 {ScriptSetId} 删除失败后回滚脚本文件失败",
+                        "脚本套 {ScriptSetId} 删除失败后回滚部署文件失败",
                         scriptSet.Id
                     );
                     throw new ScriptSetInstallationException(
@@ -316,6 +415,297 @@ namespace Legend2Tool.WPF.Services
             }
 
             return plans;
+        }
+
+        private List<MaterialFilePlan> CreateMaterialPlans(
+            IReadOnlyList<MaterialFileInfo> materialFiles
+        )
+        {
+            if (materialFiles.Count == 0)
+            {
+                return [];
+            }
+
+            string resourcesDirectory = _configStore.LauncherConfig.ResourcesDir
+                ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(resourcesDirectory))
+            {
+                throw new ScriptSetInstallationException(
+                    "登录器 Resource 目录未配置，无法安装素材文件。"
+                );
+            }
+
+            string pakPath = ResolvePakPath();
+            if (!File.Exists(pakPath))
+            {
+                throw new ScriptSetInstallationException(
+                    $"登录器 PAK 配置文件不存在：{pakPath}"
+                );
+            }
+
+            var plans = new List<MaterialFilePlan>(materialFiles.Count);
+            var targetPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (MaterialFileInfo materialFile in materialFiles)
+            {
+                if (materialFile.Id == Guid.Empty)
+                {
+                    throw new ScriptSetInstallationException("素材文件 ID 不能为空。");
+                }
+                if (materialFile.FileSize < 0)
+                {
+                    throw new ScriptSetInstallationException(
+                        $"素材文件“{materialFile.FileName}”的文件大小无效。"
+                    );
+                }
+                if (
+                    !string.IsNullOrWhiteSpace(materialFile.Sha256)
+                    && (
+                        materialFile.Sha256.Length != 64
+                        || materialFile.Sha256.Any(character => !Uri.IsHexDigit(character))
+                    )
+                )
+                {
+                    throw new ScriptSetInstallationException(
+                        $"素材文件“{materialFile.FileName}”的 SHA-256 无效。"
+                    );
+                }
+                if (
+                    materialFile.Password?.Contains('\r') == true
+                    || materialFile.Password?.Contains('\n') == true
+                )
+                {
+                    throw new ScriptSetInstallationException(
+                        $"素材文件“{materialFile.FileName}”的密码不能包含换行符。"
+                    );
+                }
+
+                string targetPath = ResolveMaterialPath(
+                    _configStore.ServerDirectory,
+                    resourcesDirectory,
+                    materialFile.TargetPath,
+                    materialFile.FileName
+                );
+                if (!targetPaths.Add(targetPath))
+                {
+                    throw new ScriptSetInstallationException(
+                        $"脚本套中存在重复的素材目标文件：{targetPath}"
+                    );
+                }
+                plans.Add(new MaterialFilePlan(materialFile, targetPath, string.Empty));
+            }
+            return plans;
+        }
+
+        internal static string ResolveMaterialPath(
+            string serverDirectory,
+            string resourcesDirectory,
+            string relativeDirectory,
+            string fileName
+        )
+        {
+            if (string.IsNullOrWhiteSpace(serverDirectory))
+            {
+                throw new ScriptSetInstallationException("服务端目录不能为空。");
+            }
+            if (string.IsNullOrWhiteSpace(resourcesDirectory))
+            {
+                throw new ScriptSetInstallationException("Resource 目录不能为空。");
+            }
+            if (Path.IsPathRooted(resourcesDirectory))
+            {
+                throw new ScriptSetInstallationException(
+                    $"Resource 目录必须是相对路径：{resourcesDirectory}"
+                );
+            }
+            if (
+                string.IsNullOrWhiteSpace(fileName)
+                || !string.Equals(Path.GetFileName(fileName), fileName, StringComparison.Ordinal)
+                || Path.IsPathRooted(fileName)
+            )
+            {
+                throw new ScriptSetInstallationException($"素材文件名无效：{fileName}");
+            }
+            if (Path.IsPathRooted(relativeDirectory ?? string.Empty))
+            {
+                throw new ScriptSetInstallationException(
+                    $"素材部署路径必须是相对路径：{relativeDirectory}"
+                );
+            }
+
+            string patchRoot = Path.GetFullPath(
+                Path.Combine(serverDirectory, LauncherDirectoryName, PatchDirectoryName)
+            ).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            string resourceRoot = ResolveContainedDirectory(
+                patchRoot,
+                resourcesDirectory,
+                "Resource 目录"
+            );
+            string targetDirectory = ResolveContainedDirectory(
+                resourceRoot,
+                relativeDirectory ?? string.Empty,
+                "素材部署路径"
+            );
+            string targetPath = Path.GetFullPath(Path.Combine(targetDirectory, fileName));
+            string requiredPrefix = resourceRoot + Path.DirectorySeparatorChar;
+            if (!targetPath.StartsWith(requiredPrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ScriptSetInstallationException(
+                    $"素材目标路径超出了 Resource 目录：{targetPath}"
+                );
+            }
+            return targetPath;
+        }
+
+        private static string ResolveContainedDirectory(
+            string rootDirectory,
+            string relativeDirectory,
+            string displayName
+        )
+        {
+            string rootPath = Path.GetFullPath(rootDirectory)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            string targetPath = Path.GetFullPath(
+                Path.Combine(
+                    rootPath,
+                    relativeDirectory.Replace('/', Path.DirectorySeparatorChar)
+                )
+            ).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            if (
+                !string.Equals(targetPath, rootPath, StringComparison.OrdinalIgnoreCase)
+                && !targetPath.StartsWith(
+                    rootPath + Path.DirectorySeparatorChar,
+                    StringComparison.OrdinalIgnoreCase
+                )
+            )
+            {
+                throw new ScriptSetInstallationException(
+                    $"{displayName}超出了允许的目录：{relativeDirectory}"
+                );
+            }
+            return targetPath;
+        }
+
+        private string ResolvePakPath() => Path.Combine(
+            _configStore.ServerDirectory,
+            LauncherDirectoryName,
+            PakFileName
+        );
+
+        private static string CreateMaterialStagingDirectory()
+        {
+            string directory = Path.Combine(
+                Path.GetTempPath(),
+                "Legend2Tool",
+                "ScriptSetMaterials",
+                Guid.NewGuid().ToString("N")
+            );
+            Directory.CreateDirectory(directory);
+            return directory;
+        }
+
+        private async Task StageMaterialFilesAsync(
+            List<MaterialFilePlan> plans,
+            string stagingDirectory,
+            CancellationToken cancellationToken
+        )
+        {
+            for (int index = 0; index < plans.Count; index++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                MaterialFilePlan plan = plans[index];
+                string stagedPath = Path.Combine(
+                    stagingDirectory,
+                    $"{index:D4}-{plan.MaterialFile.Id:N}.download"
+                );
+                await using (
+                    var destination = new FileStream(
+                        stagedPath,
+                        FileMode.CreateNew,
+                        FileAccess.Write,
+                        FileShare.None,
+                        bufferSize: 81920,
+                        useAsync: true
+                    )
+                )
+                {
+                    await _scriptSetService.DownloadMaterialFileAsync(
+                        plan.MaterialFile.Id,
+                        destination,
+                        cancellationToken
+                    );
+                }
+
+                ValidateStagedMaterialFile(plan.MaterialFile, stagedPath);
+                plans[index] = plan with { StagedPath = stagedPath };
+            }
+        }
+
+        private static void AssignMaterialBackupPaths(
+            List<MaterialFilePlan> plans,
+            string stagingDirectory
+        )
+        {
+            for (int index = 0; index < plans.Count; index++)
+            {
+                MaterialFilePlan plan = plans[index];
+                plans[index] = plan with
+                {
+                    StagedPath = Path.Combine(
+                        stagingDirectory,
+                        $"{index:D4}-{plan.MaterialFile.Id:N}.removal"
+                    )
+                };
+            }
+        }
+
+        private static void ValidateStagedMaterialFile(
+            MaterialFileInfo materialFile,
+            string stagedPath
+        )
+        {
+            long actualSize = new FileInfo(stagedPath).Length;
+            if (actualSize != materialFile.FileSize)
+            {
+                throw new ScriptSetInstallationException(
+                    $"素材文件“{materialFile.FileName}”大小校验失败：期望 {materialFile.FileSize} 字节，实际 {actualSize} 字节。"
+                );
+            }
+            if (string.IsNullOrWhiteSpace(materialFile.Sha256))
+            {
+                return;
+            }
+
+            using FileStream stream = File.OpenRead(stagedPath);
+            string actualSha256 = Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant();
+            if (!actualSha256.Equals(materialFile.Sha256, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ScriptSetInstallationException(
+                    $"素材文件“{materialFile.FileName}”的 SHA-256 校验失败。"
+                );
+            }
+        }
+
+        private void DeleteMaterialStagingDirectory(string? stagingDirectory)
+        {
+            if (string.IsNullOrWhiteSpace(stagingDirectory))
+            {
+                return;
+            }
+            try
+            {
+                if (Directory.Exists(stagingDirectory))
+                {
+                    Directory.Delete(stagingDirectory, recursive: true);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(
+                    ex,
+                    "清理脚本套素材临时目录失败：{StagingDirectory}",
+                    stagingDirectory
+                );
+            }
         }
 
         internal static string ResolveScriptPath(
@@ -474,6 +864,24 @@ namespace Legend2Tool.WPF.Services
             return snapshots;
         }
 
+        private static List<MaterialFileSnapshot> CaptureMaterialFileSnapshots(
+            IReadOnlyList<MaterialFilePlan> plans
+        )
+        {
+            var snapshots = new List<MaterialFileSnapshot>(plans.Count);
+            foreach (MaterialFilePlan plan in plans)
+            {
+                string? backupPath = null;
+                if (File.Exists(plan.TargetPath))
+                {
+                    backupPath = plan.StagedPath + ".original";
+                    File.Copy(plan.TargetPath, backupPath, overwrite: false);
+                }
+                snapshots.Add(new MaterialFileSnapshot(plan.TargetPath, backupPath));
+            }
+            return snapshots;
+        }
+
         private List<ScriptFileRemovalPlan> CreateFileRemovalPlans(
             IEnumerable<ScriptFilePlan> scriptPlans,
             CancellationToken cancellationToken
@@ -523,6 +931,26 @@ namespace Legend2Tool.WPF.Services
             return removalPlans;
         }
 
+        private static List<MaterialFilePlan> CreateMaterialFileRemovalPlans(
+            IEnumerable<MaterialFilePlan> materialPlans,
+            CancellationToken cancellationToken
+        )
+        {
+            var removalPlans = new List<MaterialFilePlan>();
+            foreach (MaterialFilePlan plan in materialPlans)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!File.Exists(plan.TargetPath))
+                {
+                    continue;
+                }
+
+                ValidateStagedMaterialFile(plan.MaterialFile, plan.TargetPath);
+                removalPlans.Add(plan);
+            }
+            return removalPlans;
+        }
+
         private static void ApplyFileRemoval(ScriptFileRemovalPlan plan)
         {
             if (plan.OutputBytes is null)
@@ -558,6 +986,120 @@ namespace Legend2Tool.WPF.Services
                 _ => throw new ScriptSetInstallationException("不支持的脚本类型。")
             };
             WriteBytesAtomically(plan.TargetPath, outputBytes);
+        }
+
+        private static void ApplyMaterialFile(MaterialFilePlan plan)
+        {
+            CopyFileAtomically(plan.StagedPath, plan.TargetPath);
+        }
+
+        private void AppendPakEntries(
+            string pakPath,
+            IReadOnlyList<MaterialFilePlan> plans
+        )
+        {
+            TextFileState state = ReadTextFileState(pakPath);
+            Encoding strictEncoding = CreateStrictEncoding(state.Encoding);
+            string content = strictEncoding.GetString(
+                state.Bytes,
+                state.Preamble.Length,
+                state.Bytes.Length - state.Preamble.Length
+            );
+            string newLine = DetectNewLine(content);
+            var output = new StringBuilder(content);
+            if (output.Length > 0 && !EndsWithNewLine(content))
+            {
+                output.Append(newLine);
+            }
+            foreach (MaterialFilePlan plan in plans)
+            {
+                output.Append(plan.TargetPath);
+                output.Append('|');
+                output.Append(plan.MaterialFile.Password ?? string.Empty);
+                output.Append(newLine);
+            }
+
+            WriteBytesAtomically(
+                pakPath,
+                EncodeWholeContent(output.ToString(), state.Encoding, state.Preamble)
+            );
+        }
+
+        private void RemovePakEntries(
+            string pakPath,
+            IReadOnlyList<MaterialFilePlan> plans
+        )
+        {
+            TextFileState state = ReadTextFileState(pakPath);
+            Encoding strictEncoding = CreateStrictEncoding(state.Encoding);
+            string content = strictEncoding.GetString(
+                state.Bytes,
+                state.Preamble.Length,
+                state.Bytes.Length - state.Preamble.Length
+            );
+            var targetPaths = new HashSet<string>(
+                plans.Select(plan => plan.TargetPath),
+                StringComparer.OrdinalIgnoreCase
+            );
+            string output = RemovePakEntryLines(content, targetPaths);
+            if (string.Equals(output, content, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            WriteBytesAtomically(
+                pakPath,
+                EncodeWholeContent(output, state.Encoding, state.Preamble)
+            );
+        }
+
+        private static string RemovePakEntryLines(
+            string content,
+            IReadOnlySet<string> targetPaths
+        )
+        {
+            var output = new StringBuilder(content.Length);
+            int position = 0;
+            while (position < content.Length)
+            {
+                int lineEnd = position;
+                while (
+                    lineEnd < content.Length
+                    && content[lineEnd] != '\r'
+                    && content[lineEnd] != '\n'
+                )
+                {
+                    lineEnd++;
+                }
+
+                int nextLine = lineEnd;
+                if (nextLine < content.Length)
+                {
+                    if (
+                        content[nextLine] == '\r'
+                        && nextLine + 1 < content.Length
+                        && content[nextLine + 1] == '\n'
+                    )
+                    {
+                        nextLine += 2;
+                    }
+                    else
+                    {
+                        nextLine++;
+                    }
+                }
+
+                ReadOnlySpan<char> line = content.AsSpan(position, lineEnd - position);
+                int separatorIndex = line.IndexOf('|');
+                bool remove = separatorIndex >= 0
+                    && targetPaths.Contains(line[..separatorIndex].ToString());
+                if (!remove)
+                {
+                    output.Append(content, position, nextLine - position);
+                }
+                position = nextLine;
+            }
+            return output.ToString();
         }
 
         private TextFileState ReadTextFileState(string path)
@@ -1029,6 +1571,76 @@ namespace Legend2Tool.WPF.Services
                 {
                     File.Delete(tempPath);
                 }
+            }
+        }
+
+        private static void CopyFileAtomically(string sourcePath, string targetPath)
+        {
+            string directory = Path.GetDirectoryName(targetPath)
+                ?? throw new ScriptSetInstallationException("素材目标目录无效。");
+            Directory.CreateDirectory(directory);
+            string tempPath = Path.Combine(
+                directory,
+                $".{Path.GetFileName(targetPath)}.{Guid.NewGuid():N}.tmp"
+            );
+            try
+            {
+                File.Copy(sourcePath, tempPath, overwrite: false);
+                File.Move(tempPath, targetPath, overwrite: true);
+            }
+            finally
+            {
+                if (File.Exists(tempPath))
+                {
+                    File.Delete(tempPath);
+                }
+            }
+        }
+
+        private static void RestoreInstallationSnapshots(
+            IReadOnlyDictionary<string, byte[]?> fileSnapshots,
+            IReadOnlyList<MaterialFileSnapshot> materialSnapshots
+        )
+        {
+            var failures = new List<Exception>();
+            foreach (MaterialFileSnapshot snapshot in materialSnapshots)
+            {
+                try
+                {
+                    if (snapshot.BackupPath is null)
+                    {
+                        if (File.Exists(snapshot.TargetPath))
+                        {
+                            File.Delete(snapshot.TargetPath);
+                        }
+                    }
+                    else
+                    {
+                        CopyFileAtomically(snapshot.BackupPath, snapshot.TargetPath);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    failures.Add(ex);
+                }
+            }
+
+            try
+            {
+                RestoreFileSnapshots(fileSnapshots);
+            }
+            catch (Exception ex)
+            {
+                failures.Add(ex);
+            }
+
+            if (failures.Count == 1)
+            {
+                throw failures[0];
+            }
+            if (failures.Count > 1)
+            {
+                throw new AggregateException(failures);
             }
         }
 
@@ -1636,6 +2248,17 @@ namespace Legend2Tool.WPF.Services
         private sealed record ScriptFileRemovalPlan(
             string TargetPath,
             byte[]? OutputBytes
+        );
+
+        private sealed record MaterialFilePlan(
+            MaterialFileInfo MaterialFile,
+            string TargetPath,
+            string StagedPath
+        );
+
+        private sealed record MaterialFileSnapshot(
+            string TargetPath,
+            string? BackupPath
         );
 
         private sealed record TextFileState(
