@@ -2,7 +2,7 @@
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Legend2Tool.WPF.Messages;
-using Legend2Tool.WPF.Services;
+using Legend2Tool.WPF.Services.Presentation;
 
 namespace Legend2Tool.WPF.ViewModels
 {

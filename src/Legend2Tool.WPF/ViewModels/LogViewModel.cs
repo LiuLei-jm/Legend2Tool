@@ -1,6 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Legend2Tool.WPF.Services;
+using Legend2Tool.WPF.Services.Infrastructure.Logging;
 using Serilog;
 
 namespace Legend2Tool.WPF.ViewModels

@@ -4,7 +4,11 @@ using Legend2Tool.WPF.Models;
 using Legend2Tool.WPF.Models.Launcher;
 using Legend2Tool.WPF.Models.M2Config;
 using Legend2Tool.WPF.Models.ScriptSets;
-using Legend2Tool.WPF.Services;
+using Legend2Tool.WPF.Services.Infrastructure.Text;
+using Legend2Tool.WPF.Services.ScriptSets;
+using Legend2Tool.WPF.Services.ScriptSets.Installation;
+using Legend2Tool.WPF.Services.ScriptSets.Installation.Database;
+using Legend2Tool.WPF.Services.ServerConfiguration;
 using Legend2Tool.WPF.State;
 using Microsoft.Data.Sqlite;
 using Serilog;
@@ -41,14 +45,14 @@ public sealed class ScriptSetInstallationServiceTests
         Encoding encoding = new UTF8Encoding(false);
         byte[] original = encoding.GetBytes("原始内容\r\n[@TeSt]\r\n原触发内容");
 
-        byte[] inserted = ScriptSetInstallationService.InjectSegments(
+        byte[] inserted = ScriptSegmentEditor.InjectSegments(
             original,
             encoding,
             0,
             scriptSetId,
             scriptFile
         );
-        byte[] insertedAgain = ScriptSetInstallationService.InjectSegments(
+        byte[] insertedAgain = ScriptSegmentEditor.InjectSegments(
             inserted,
             encoding,
             0,
@@ -91,7 +95,7 @@ public sealed class ScriptSetInstallationServiceTests
         );
         Encoding encoding = new UTF8Encoding(false);
 
-        byte[] output = ScriptSetInstallationService.InjectSegments(
+        byte[] output = ScriptSegmentEditor.InjectSegments(
             encoding.GetBytes("原文件内容"),
             encoding,
             0,
@@ -133,7 +137,7 @@ public sealed class ScriptSetInstallationServiceTests
         );
         Encoding encoding = new UTF8Encoding(false);
 
-        byte[] output = ScriptSetInstallationService.InjectSegments(
+        byte[] output = ScriptSegmentEditor.InjectSegments(
             encoding.GetBytes("第一行\r\n第二行\r\n[@LateTrigger]"),
             encoding,
             0,
@@ -173,7 +177,7 @@ public sealed class ScriptSetInstallationServiceTests
         );
         Encoding encoding = new UTF8Encoding(false);
         const string original = "原始头部\r\n[@Test]\r\n原始尾部";
-        byte[] inserted = ScriptSetInstallationService.InjectSegments(
+        byte[] inserted = ScriptSegmentEditor.InjectSegments(
             encoding.GetBytes(original),
             encoding,
             0,
@@ -181,7 +185,7 @@ public sealed class ScriptSetInstallationServiceTests
             scriptFile
         );
 
-        byte[] removed = ScriptSetInstallationService.RemoveInsertedSegments(
+        byte[] removed = ScriptSegmentEditor.RemoveInsertedSegments(
             inserted,
             encoding,
             0,
@@ -207,7 +211,7 @@ public sealed class ScriptSetInstallationServiceTests
         byte[] snapshot = source.ToArray();
 
         Assert.Throws<ScriptSetInstallationException>(() =>
-            ScriptSetInstallationService.RemoveInsertedSegments(
+            ScriptSegmentEditor.RemoveInsertedSegments(
                 source,
                 encoding,
                 0,
@@ -225,7 +229,7 @@ public sealed class ScriptSetInstallationServiceTests
     [InlineData("#Bottom", "#bottom")]
     public void NormalizeTrigger_ValidValue_ReturnsExpected(string input, string expected)
     {
-        Assert.Equal(expected, ScriptSetInstallationService.NormalizeTrigger(input));
+        Assert.Equal(expected, ScriptSegmentEditor.NormalizeTrigger(input));
     }
 
     [Fact]
@@ -234,7 +238,7 @@ public sealed class ScriptSetInstallationServiceTests
         string serverDirectory = Path.Combine(Path.GetTempPath(), "server");
 
         Assert.Throws<ScriptSetInstallationException>(() =>
-            ScriptSetInstallationService.ResolveScriptPath(
+            DeploymentPathResolver.ResolveScriptPath(
                 serverDirectory,
                 "../outside",
                 "script.txt"
@@ -248,7 +252,7 @@ public sealed class ScriptSetInstallationServiceTests
         string serverDirectory = Path.Combine(Path.GetTempPath(), "server");
 
         Assert.Throws<ScriptSetInstallationException>(() =>
-            ScriptSetInstallationService.ResolveMaterialPath(
+            DeploymentPathResolver.ResolveMaterialPath(
                 serverDirectory,
                 "TestResource",
                 "../../outside",
@@ -261,7 +265,7 @@ public sealed class ScriptSetInstallationServiceTests
     public void ParseDatabaseValues_JsonObject_PreservesValueTypes()
     {
         Dictionary<string, object?> values =
-            ScriptSetInstallationService.ParseDatabaseValues(
+            ScriptSetDatabaseDeployment.ParseDatabaseValues(
                 """{"Idx":100,"Name":"测试物品","Enabled":true,"Memo":null}""",
                 "测试数据"
             );
@@ -292,12 +296,12 @@ public sealed class ScriptSetInstallationServiceTests
                 command.ExecuteNonQuery();
             }
 
-            var target = new ScriptSetInstallationService.DatabaseTarget(
+            var target = new DatabaseTarget(
                 databasePath,
-                ScriptSetInstallationService.DatabaseProvider.Sqlite,
+                DatabaseProvider.Sqlite,
                 EngineType.GEE
             );
-            ScriptSetInstallationService.DatabaseRowPlan[] plans =
+            DatabaseRowPlan[] plans =
             [
                 new(
                     GameDatabaseTableType.StdItems,
@@ -315,7 +319,7 @@ public sealed class ScriptSetInstallationServiceTests
                 )
             ];
 
-            ScriptSetInstallationService.InsertSqliteRows(
+            new SqliteScriptSetDatabase().Insert(
                 target,
                 plans,
                 CancellationToken.None

@@ -1,7 +1,7 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
 using Legend2Tool.WPF.Messages;
-using Legend2Tool.WPF.Services;
+using Legend2Tool.WPF.Services.Presentation;
 using Legend2Tool.WPF.State;
 using System.Collections.ObjectModel;
 

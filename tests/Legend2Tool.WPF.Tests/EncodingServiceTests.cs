@@ -1,5 +1,5 @@
 using System.Text;
-using Legend2Tool.WPF.Services;
+using Legend2Tool.WPF.Services.Infrastructure.Text;
 using Xunit;
 
 namespace Legend2Tool.WPF.Tests;

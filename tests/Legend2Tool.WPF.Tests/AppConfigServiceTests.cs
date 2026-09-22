@@ -1,4 +1,4 @@
-using Legend2Tool.WPF.Services;
+using Legend2Tool.WPF.Services.ApplicationSettings;
 using Xunit;
 
 namespace Legend2Tool.WPF.Tests;

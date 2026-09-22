@@ -1,6 +1,7 @@
 using Legend2Tool.WPF.Models.Authentication;
 using Legend2Tool.WPF.Models.ScriptSets;
-using Legend2Tool.WPF.Services;
+using Legend2Tool.WPF.Services.Authentication;
+using Legend2Tool.WPF.Services.ScriptSets;
 using System.Net;
 using System.Net.Http;
 using System.Text;

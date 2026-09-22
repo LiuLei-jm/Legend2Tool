@@ -5,7 +5,7 @@ using Legend2Tool.WPF.Models.BackList;
 using Legend2Tool.WPF.Models;
 using Legend2Tool.WPF.Models.Launcher;
 using Legend2Tool.WPF.Models.M2Config;
-using Legend2Tool.WPF.Services;
+using Legend2Tool.WPF.Services.ServerConfiguration;
 using Serilog;
 using System.Windows;
 using MessageBox = HandyControl.Controls.MessageBox;

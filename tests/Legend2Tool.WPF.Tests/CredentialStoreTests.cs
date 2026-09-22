@@ -1,5 +1,5 @@
 using Legend2Tool.WPF.Models.Authentication;
-using Legend2Tool.WPF.Services;
+using Legend2Tool.WPF.Services.Authentication;
 using Serilog;
 using System.Text;
 using Xunit;

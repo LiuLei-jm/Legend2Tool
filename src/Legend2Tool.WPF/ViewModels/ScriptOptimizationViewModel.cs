@@ -4,7 +4,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using HandyControl.Controls;
 using Legend2Tool.WPF.Messages;
 using Legend2Tool.WPF.Models.ScriptOptimizations;
-using Legend2Tool.WPF.Services;
+using Legend2Tool.WPF.Services.ScriptOptimization;
 using Legend2Tool.WPF.State;
 using Serilog;
 using System.Collections.ObjectModel;

@@ -3,7 +3,7 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using Legend2Tool.WPF.Models.Authentication;
-using Legend2Tool.WPF.Services;
+using Legend2Tool.WPF.Services.Authentication;
 using Serilog;
 using Xunit;
 

@@ -1,6 +1,7 @@
 using System.Text;
 using Legend2Tool.WPF.Models.M2Config.M2Config;
-using Legend2Tool.WPF.Services;
+using Legend2Tool.WPF.Services.Infrastructure.Text;
+using Legend2Tool.WPF.Services.ServerConfiguration;
 using Serilog;
 using Xunit;
 
