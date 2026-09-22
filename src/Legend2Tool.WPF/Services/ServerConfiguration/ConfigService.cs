@@ -1,5 +1,8 @@
 ﻿using Legend2Tool.WPF.Services.Infrastructure.Files;
 using Legend2Tool.WPF.Services.Infrastructure.Text;
+using Legend2Tool.WPF.Services.ServerConfiguration.Engine;
+using Legend2Tool.WPF.Services.ServerConfiguration.Launcher;
+using Legend2Tool.WPF.Services.ServerConfiguration.Network;
 using CommunityToolkit.Mvvm.Messaging;
 using IniFileParser.Model;
 using Legend2Tool.WPF.Attributes;
@@ -32,6 +35,9 @@ namespace Legend2Tool.WPF.Services.ServerConfiguration
         private readonly ILogger _logger;
         private readonly IEncodingService _encodingService;
         private readonly IFileService _fileService;
+        private readonly EngineTypeDetector _engineTypeDetector = new();
+        private readonly PortAvailabilityChecker _portAvailabilityChecker = new();
+        private readonly LauncherNameResolver _launcherNameResolver;
 
         private readonly List<string> _apiUrls =
         [
@@ -55,47 +61,12 @@ namespace Legend2Tool.WPF.Services.ServerConfiguration
             _logger = logger;
             _encodingService = encodingService;
             _fileService = fileService;
+            _launcherNameResolver = new LauncherNameResolver(logger);
         }
 
         public EngineType CheckEngineType(string serverDirectory)
         {
-            string primaryPath = Path.Combine(serverDirectory, "GameOfMir引擎控制器.exe");
-            string filePath = File.Exists(primaryPath)
-                ? primaryPath
-                : Path.Combine(serverDirectory, "GameCenter.exe");
-            if (!File.Exists(filePath))
-            {
-                throw new FileNotFoundException("指定的文件不存在", filePath);
-            }
-            FileVersionInfo fileVersionInfo = FileVersionInfo.GetVersionInfo(filePath);
-
-            if (fileVersionInfo != null)
-            {
-                var indicators = new (string Keyword, EngineType EngineType)[]
-                {
-                    ("gameofmir", EngineType.GOM),
-                    ("gee", EngineType.GEE),
-                    ("gxx", EngineType.GXX),
-                    ("hao", EngineType.LF),
-                    ("v8", EngineType.V8),
-                    ("blue", EngineType.BLUE),
-                    ("hge", EngineType.HGE),
-                    ("gamecenter", EngineType.NEWGOM),
-                };
-                string companyName = fileVersionInfo.CompanyName ?? string.Empty;
-                string fileDescription = fileVersionInfo.FileDescription ?? string.Empty;
-                foreach (var (keyword, engineType) in indicators)
-                {
-                    if (
-                        companyName.Contains(keyword, StringComparison.OrdinalIgnoreCase)
-                        || fileDescription.Contains(keyword, StringComparison.OrdinalIgnoreCase)
-                    )
-                    {
-                        return engineType;
-                    }
-                }
-            }
-            return EngineType.Unknown;
+            return _engineTypeDetector.Detect(serverDirectory);
         }
 
         public async Task<string> GetExternalIpAddressAsync()
@@ -369,25 +340,7 @@ namespace Legend2Tool.WPF.Services.ServerConfiguration
 
         public bool CheckPorts(int[] portsToCheck)
         {
-            var results = portsToCheck
-                .AsParallel()
-                .Select(port => new { Port = port, InUse = IsPortInUse(port) })
-                .ToList();
-
-            foreach (var result in results)
-            {
-                if (result.InUse)
-                {
-                    MessageBox.Show(
-                        $"端口 {result.Port} 已经被使用.",
-                        "警告",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Warning
-                    );
-                    return false;
-                }
-            }
-            return true;
+            return _portAvailabilityChecker.Check(portsToCheck);
         }
 
         private bool IsPortInUse(int port)
@@ -406,14 +359,7 @@ namespace Legend2Tool.WPF.Services.ServerConfiguration
 
         public string GetResourcesDirByGamePinyin(string launcherName)
         {
-            if (String.IsNullOrEmpty(launcherName))
-            {
-                _logger.Warning("GetResourcesDirByGamePinyin 被调用，但 launcherName 为空。");
-                return string.Empty;
-            }
-            var resourcesDir = PinyinHelper.GetPinyin(launcherName);
-            resourcesDir = CaptalizeFirstLetters(resourcesDir.ToLower());
-            return resourcesDir;
+            return _launcherNameResolver.GetResourcesDirectory(launcherName);
         }
 
         private string CaptalizeFirstLetters(string v)
@@ -431,14 +377,7 @@ namespace Legend2Tool.WPF.Services.ServerConfiguration
 
         public string GetLauncherName(ConfigStore configStore)
         {
-            string pattern = @"^(.*?)[\d一二三四五六七八九十]+区";
-            if (string.IsNullOrEmpty(configStore.M2Config.GameName))
-                configStore.M2Config.GameName = "热血传奇";
-            var match = Regex.Match(configStore.M2Config.GameName, pattern);
-            var launcherName = match.Groups[1].Value;
-            if (string.IsNullOrEmpty(launcherName))
-                configStore.M2Config.GameName = "热血传奇";
-            return launcherName;
+            return _launcherNameResolver.GetLauncherName(configStore);
         }
 
         private void RenamePatchDirectory(string resourcesDir, ConfigStore configStore)

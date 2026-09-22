@@ -3,6 +3,10 @@ using Legend2Tool.WPF.Commons;
 using Legend2Tool.WPF.Enums;
 using Legend2Tool.WPF.Models.ScriptOptimizations;
 using Legend2Tool.WPF.State;
+using Legend2Tool.WPF.Services.DynamicMonsterSpawning.Infrastructure;
+using Legend2Tool.WPF.Services.DynamicMonsterSpawning.Processing;
+using Legend2Tool.WPF.Services.DynamicMonsterSpawning.Reading;
+using Legend2Tool.WPF.Services.DynamicMonsterSpawning.Writing;
 using System.IO;
 using System.Text;
 using System.Windows;
@@ -17,6 +21,11 @@ namespace Legend2Tool.WPF.Services.DynamicMonsterSpawning
         private const string BackupRestoredMarkerName = "restore.completed";
         private readonly ConfigStore _configStore;
         private readonly IEncodingService _encodingService;
+        private readonly DynamicMonsterEncodingResolver _encodingResolver = new();
+        private readonly MapNameReader _mapNameReader = new();
+        private readonly SpawnGenerationResultBuilder _resultBuilder = new();
+        private readonly MonsterCountLimiter _countLimiter = new();
+        private readonly AtomicTextFileWriter _atomicWriter = new();
         public DynamicMonsterSpawningService(ConfigStore configStore, IEncodingService encodingService)
         {
             _configStore = configStore;
@@ -34,7 +43,7 @@ namespace Legend2Tool.WPF.Services.DynamicMonsterSpawning
                 return [];
             }
             Encoding legacyEncoding = _encodingService.GetEncodingByName("GB18030");
-            Encoding mongenEncoding = ResolveEncodingForWrite(
+            Encoding mongenEncoding = _encodingResolver.Resolve(
                 _encodingService.DetectFileEncodingResult(mongenPath), legacyEncoding
             );
             var robotManagePath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "Robot_def", "RobotManage.txt");
@@ -43,7 +52,7 @@ namespace Legend2Tool.WPF.Services.DynamicMonsterSpawning
                 MessageBox.Show("RobotManage.txt 文件不存在，请检查服务器目录设置。");
                 return [];
             }
-            Encoding robotManageEncoding = ResolveEncodingForWrite(
+            Encoding robotManageEncoding = _encodingResolver.Resolve(
                 _encodingService.DetectFileEncodingResult(robotManagePath), mongenEncoding
             );
             var generateScriptTrigger = $@"@{options.RefreshMonTrigger}";
@@ -64,13 +73,13 @@ namespace Legend2Tool.WPF.Services.DynamicMonsterSpawning
                 MessageBox.Show("AutoRunRobot.txt 文件不存在，请检查服务器目录设置。");
                 return [];
             }
-            Encoding autoRunRobotEncoding = ResolveEncodingForWrite(
+            Encoding autoRunRobotEncoding = _encodingResolver.Resolve(
                 _encodingService.DetectFileEncodingResult(autoRunRobotPath), mongenEncoding
             );
 
             var noClearMonListPath = Path.Combine(_configStore.ServerDirectory, "Mir200", "Envir", "NoClearMonList.txt");
             Encoding noClearMonListEncoding = File.Exists(noClearMonListPath)
-                ? ResolveEncodingForWrite(
+                ? _encodingResolver.Resolve(
                     _encodingService.DetectFileEncodingResult(noClearMonListPath), mongenEncoding
                 )
                 : mongenEncoding;
@@ -144,13 +153,13 @@ namespace Legend2Tool.WPF.Services.DynamicMonsterSpawning
             }
 
             IReadOnlyList<DynamicMonsterSpawningResult> generationResults =
-                CreateGenerationResults(
+                _resultBuilder.Build(
                     mapMonsterCounts,
                     LoadMapNames(legacyEncoding),
                     options.MaxMonstersPerMap
                 );
 
-            LimitMapMonsterCounts(
+            _countLimiter.Limit(
                 mapMonsters,
                 mapMonsterCounts,
                 options.MaxMonstersPerMap
@@ -167,7 +176,7 @@ namespace Legend2Tool.WPF.Services.DynamicMonsterSpawning
                         in referencedFileUpdates
                     )
                     {
-                        await WriteAllLinesAtomicallyAsync(
+                        await _atomicWriter.WriteAllLinesAsync(
                             update.Key,
                             update.Value.Lines,
                             update.Value.Encoding
@@ -578,27 +587,13 @@ namespace Legend2Tool.WPF.Services.DynamicMonsterSpawning
                 "Envir",
                 "MapInfo.txt"
             );
-            if (!File.Exists(mapInfoPath))
-            {
-                return new Dictionary<string, string>();
-            }
-
-            try
-            {
-                Encoding encoding = ResolveEncodingForWrite(
-                    _encodingService.DetectFileEncodingResult(mapInfoPath),
-                    fallback
-                );
-                return ParseMapNames(File.ReadLines(mapInfoPath, encoding));
-            }
-            catch (IOException)
-            {
-                return new Dictionary<string, string>();
-            }
-            catch (UnauthorizedAccessException)
-            {
-                return new Dictionary<string, string>();
-            }
+            return _mapNameReader.Read(
+                mapInfoPath,
+                fallback,
+                path => _encodingResolver.Resolve(
+                    _encodingService.DetectFileEncodingResult(path), fallback
+                )
+            );
         }
 
         internal static IReadOnlyDictionary<string, string> ParseMapNames(
