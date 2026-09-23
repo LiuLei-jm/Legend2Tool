@@ -6,367 +6,404 @@
     xmlns:cv="clr-namespace:Legend2Tool.WPF.Converters"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:hc="https://handyorg.github.io/handycontrol"
-    xmlns:local="clr-namespace:Legend2Tool.WPF.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="clr-namespace:Legend2Tool.WPF.ViewModels"
-    MinWidth="1050"
+    MinWidth="1000"
     d:DataContext="{d:DesignInstance vm:PortConfViewModel}"
-    d:DesignHeight="400"
+    d:DesignHeight="800"
+    d:DesignWidth="1200"
     mc:Ignorable="d">
     <UserControl.Resources>
         <cv:EnumDescriptionConverter x:Key="EnumDescriptionConverter" />
+        <Style BasedOn="{StaticResource {x:Type TextBlock}}" TargetType="TextBlock">
+            <Setter Property="Margin" Value="2,1" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style BasedOn="{StaticResource {x:Type TextBox}}" TargetType="TextBox">
+            <Setter Property="Margin" Value="2,1" />
+            <Setter Property="Height" Value="26" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style BasedOn="{StaticResource {x:Type CheckBox}}" TargetType="CheckBox">
+            <Setter Property="Margin" Value="2,1" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style BasedOn="{StaticResource {x:Type Button}}" TargetType="Button">
+            <Setter Property="Margin" Value="2,1" />
+            <Setter Property="MinWidth" Value="82" />
+            <Setter Property="Height" Value="26" />
+            <Setter Property="Padding" Value="8,0" />
+        </Style>
+        <Style BasedOn="{StaticResource {x:Type hc:NumericUpDown}}" TargetType="hc:NumericUpDown">
+            <Setter Property="Margin" Value="2,1" />
+            <Setter Property="MinWidth" Value="60" />
+            <Setter Property="Height" Value="26" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style
+            x:Key="SectionStyle"
+            BasedOn="{StaticResource GroupBoxTab}"
+            TargetType="GroupBox">
+            <Setter Property="Margin" Value="2" />
+            <Setter Property="Padding" Value="4" />
+        </Style>
+        <Style
+            x:Key="PortCardStyle"
+            BasedOn="{StaticResource GroupBoxTab}"
+            TargetType="GroupBox">
+            <Setter Property="Margin" Value="2" />
+            <Setter Property="Padding" Value="3" />
+        </Style>
+        <Style
+            x:Key="SubheadingStyle"
+            BasedOn="{StaticResource {x:Type TextBlock}}"
+            TargetType="TextBlock">
+            <Setter Property="Margin" Value="2,1,2,3" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
     </UserControl.Resources>
-    <Grid>
+
+    <Grid Margin="8">
         <Grid.RowDefinitions>
-            <RowDefinition Height="auto" />
-            <RowDefinition Height="auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
-        <Grid>
 
-            <autogrid:AutoGrid ColumnCount="7" ColumnWidth="*">
-                <autogrid:AutoGrid.Resources>
-                    <Style BasedOn="{StaticResource {x:Type CheckBox}}" TargetType="CheckBox">
-                        <Setter Property="Margin" Value="5,0,0,0" />
-                    </Style>
-                    <Style BasedOn="{StaticResource {x:Type TextBlock}}" TargetType="TextBlock">
-                        <Setter Property="Margin" Value="5,0,0,0" />
-                        <Setter Property="VerticalAlignment" Value="Center" />
-                        <Setter Property="FontWeight" Value="Bold" />
-                    </Style>
-                    <Style BasedOn="{StaticResource {x:Type TextBox}}" TargetType="TextBox">
-                        <Setter Property="Margin" Value="5,2,5,2" />
-                        <Setter Property="Width" Value="65" />
-                        <Setter Property="Height" Value="28" />
-                    </Style>
-                </autogrid:AutoGrid.Resources>
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="3*" />
+                <ColumnDefinition Width="2*" />
+            </Grid.ColumnDefinitions>
 
-                <GroupBox Header="登录网关" Style="{StaticResource GroupBoxTab}">
-                    <autogrid:AutoGrid Columns="auto,auto" RowCount="2">
-                        <StackPanel Orientation="Horizontal">
-                            <CheckBox IsChecked="{Binding LoginGateGetStart}" />
-                            <TextBlock Text="端口" />
-                        </StackPanel>
-                        <TextBox Text="{Binding LoginGateGatePort, UpdateSourceTrigger=PropertyChanged, ValidatesOnDataErrors=true}" />
-                    </autogrid:AutoGrid>
-                </GroupBox>
-
-                <GroupBox
-                    Grid.Column="1"
-                    Header="数据库服务器"
-                    Style="{StaticResource GroupBoxTab}">
-                    <autogrid:AutoGrid Columns="auto,auto" RowCount="2">
-                        <StackPanel Orientation="Horizontal">
-                            <CheckBox IsChecked="{Binding DBServerGetStart}" />
-                            <TextBlock Text="端口" />
-                        </StackPanel>
-                        <TextBox Text="{Binding DBServerGatePort, UpdateSourceTrigger=PropertyChanged, ValidatesOnDataErrors=true}" />
-                        <TextBlock Text="通讯端口" />
-                        <TextBox Text="{Binding DBServerServerPort, UpdateSourceTrigger=PropertyChanged, ValidatesOnDataErrors=true}" />
-                    </autogrid:AutoGrid>
-                </GroupBox>
-
-                <GroupBox
-                    Grid.Column="2"
-                    Header="M2主服务器"
-                    Style="{StaticResource GroupBoxTab}">
-                    <autogrid:AutoGrid Columns="auto,auto" RowCount="2">
-                        <StackPanel Orientation="Horizontal">
-                            <CheckBox IsChecked="{Binding M2ServerGetStart}" />
-                            <TextBlock Text="端口" />
-                        </StackPanel>
-                        <TextBox Text="{Binding M2ServerGatePort}" />
-                        <TextBlock Text="通讯端口" />
-                        <TextBox Text="{Binding M2ServerMsgSrvPort}" />
-                    </autogrid:AutoGrid>
-                </GroupBox>
-                <GroupBox
-                    Grid.Column="3"
-                    Header="角色网关"
-                    Style="{StaticResource GroupBoxTab}">
-                    <autogrid:AutoGrid Columns="auto,auto" RowCount="2">
-                        <StackPanel Orientation="Horizontal">
-                            <CheckBox IsChecked="{Binding SelGateGetStart}" />
-                            <TextBlock Text="端口1" />
-                        </StackPanel>
-                        <TextBox Text="{Binding SelGateGatePort}" />
-                        <StackPanel Orientation="Horizontal">
-                            <CheckBox IsChecked="{Binding SelGateGetStart1}" />
-                            <TextBlock Text="端口2" />
-                        </StackPanel>
-                        <TextBox Text="{Binding SelGateGatePort1}" />
-                    </autogrid:AutoGrid>
-                </GroupBox>
-                <GroupBox
-                    Grid.Column="4"
-                    Header="账号服务器"
-                    Style="{StaticResource GroupBoxTab}">
-                    <autogrid:AutoGrid Columns="auto,auto" RowCount="2">
-                        <StackPanel Orientation="Horizontal">
-
-                            <CheckBox IsChecked="{Binding LoginServerGetStart}" />
-                            <TextBlock Text="端口" />
-                        </StackPanel>
-                        <TextBox Text="{Binding LoginServerGatePort}" />
-                        <TextBlock Text="通讯端口" />
-                        <TextBox Text="{Binding LoginServerServerPort}" />
-                    </autogrid:AutoGrid>
-                </GroupBox>
-                <GroupBox
-                    Grid.Column="5"
-                    Header="日志服务器"
-                    Style="{StaticResource GroupBoxTab}">
-                    <autogrid:AutoGrid Columns="auto,auto" RowCount="2">
-                        <StackPanel Orientation="Horizontal">
-                            <CheckBox IsChecked="{Binding LogServerGetStart}" />
-                            <TextBlock Text="端口" />
-                        </StackPanel>
-                        <TextBox Text="{Binding LogServerPort}" />
-                    </autogrid:AutoGrid>
-                </GroupBox>
-
-                <GroupBox
-                    Grid.Column="6"
-                    Header="游戏网关"
-                    Style="{StaticResource GroupBoxTab}">
-                    <autogrid:AutoGrid Columns="auto,auto" RowCount="2">
-                        <TextBlock Text="端口1" />
-                        <TextBox Text="{Binding RunGateGatePort1}" />
-
-                        <TextBlock Text="网关数量" />
-                        <hc:NumericUpDown
-                            Width="65"
-                            Maximum="8"
-                            Minimum="0"
-                            Value="{Binding RunGateCount, UpdateSourceTrigger=PropertyChanged}" />
-                    </autogrid:AutoGrid>
-                </GroupBox>
-            </autogrid:AutoGrid>
-        </Grid>
-
-        <Grid Grid.Row="1">
-            <GroupBox Header="登陆器配置" Style="{StaticResource GroupBoxTab}">
-                <Grid>
+            <GroupBox
+                Grid.Column="0"
+                Margin="0,0,3,3"
+                Header="服务端基础设置"
+                Style="{StaticResource SectionStyle}">
+                <Grid Grid.IsSharedSizeScope="True">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="auto" />
-                        <ColumnDefinition Width="auto" />
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="FieldLabel" />
                         <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-
-                    <GroupBox Header="网站列表" Style="{StaticResource GroupBoxTab}">
-                        <autogrid:AutoGrid Columns="auto,auto" RowCount="2">
-                            <autogrid:AutoGrid.Resources>
-                                <Style BasedOn="{StaticResource {x:Type TextBlock}}" TargetType="TextBlock">
-                                    <Setter Property="Margin" Value="5,0,5,0" />
-                                    <Setter Property="VerticalAlignment" Value="Center" />
-                                    <Setter Property="FontWeight" Value="Bold" />
-                                </Style>
-                                <Style BasedOn="{StaticResource {x:Type TextBox}}" TargetType="TextBox">
-                                    <Setter Property="Margin" Value="5" />
-                                    <Setter Property="Width" Value="140" />
-                                </Style>
-                            </autogrid:AutoGrid.Resources>
-                            <TextBlock Text="配置地址" />
-                            <TextBox Text="{Binding MainAddress}" />
-                            <TextBlock Text="备用地址" />
-                            <TextBox Text="{Binding BackupAddress}" />
-                        </autogrid:AutoGrid>
-                    </GroupBox>
-
-                    <GroupBox
-                        Grid.Column="1"
-                        Header="TCP列表"
-                        Style="{StaticResource GroupBoxTab}">
-                        <autogrid:AutoGrid ColumnCount="6" RowCount="2">
-                            <autogrid:AutoGrid.Resources>
-                                <Style BasedOn="{StaticResource {x:Type TextBlock}}" TargetType="TextBlock">
-                                    <Setter Property="Margin" Value="5,0,5,0" />
-                                    <Setter Property="VerticalAlignment" Value="Center" />
-                                    <Setter Property="FontWeight" Value="Bold" />
-                                </Style>
-                                <Style BasedOn="{StaticResource {x:Type TextBox}}" TargetType="TextBox">
-                                    <Setter Property="Margin" Value="5" />
-                                </Style>
-                            </autogrid:AutoGrid.Resources>
-
-                            <TextBlock Text="主TCP" />
-                            <TextBox Width="120" Text="{Binding MainTcpListServer}" />
-
-                            <TextBlock Text="端口号" />
-                            <TextBox Width="50" Text="{Binding MainTcpPort}" />
-
-                            <TextBlock Text="文件" />
-                            <TextBox MinWidth="70" Text="{Binding MainTcpConfigFile}" />
-
-                            <TextBlock Text="备TCP" />
-                            <TextBox Width="120" Text="{Binding BackupTcpListServer}" />
-
-                            <TextBlock Text="端口号" />
-                            <TextBox Width="50" Text="{Binding BackupTcpPort}" />
-
-                            <TextBlock Text="文件" />
-                            <TextBox MinWidth="70" Text="{Binding BackupTcpConfigFile}" />
-                        </autogrid:AutoGrid>
-                    </GroupBox>
-                    <autogrid:AutoGrid
-                        Grid.Column="2"
-                        ColumnCount="4"
-                        RowCount="4">
-                        <autogrid:AutoGrid.Resources>
-                            <Style BasedOn="{StaticResource {x:Type TextBlock}}" TargetType="TextBlock">
-                                <Setter Property="Margin" Value="5,0,5,0" />
-                                <Setter Property="VerticalAlignment" Value="Center" />
-                                <Setter Property="FontWeight" Value="Bold" />
-                            </Style>
-                            <Style BasedOn="{StaticResource {x:Type TextBox}}" TargetType="TextBox">
-                                <Setter Property="Margin" Value="0,5,0,5" />
-                                <Setter Property="Width" Value="100" />
-                            </Style>
-                            <Style BasedOn="{StaticResource {x:Type Button}}" TargetType="Button">
-                                <Setter Property="Margin" Value="5,0,0,0" />
-                                <Setter Property="Width" Value="110" />
-                            </Style>
-                        </autogrid:AutoGrid.Resources>
-
-                        <TextBlock Text="快捷方式名" />
-                        <TextBox Text="{Binding LauncherName}" />
-
-                        <Button Command="{Binding SetByServerNameCommand}" Content="按服务器名设置" />
-
-                        <Grid />
-
-                        <TextBlock Text="Resource目录" />
-                        <TextBox Text="{Binding ResourcesDir}" />
-                        <Grid>
-                            <Button Command="{Binding GenerateByGamePinyinCommand}" Content="按游戏名生成" />
-                            <Grid.ToolTip>
-                                <ToolTip Content="打开补丁目录方可设置" />
-                            </Grid.ToolTip>
-                        </Grid>
-                        <Grid />
-
-                        <TextBlock Text="微端更新密码" />
-                        <TextBox Text="{Binding UpdatePassword}" />
-
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="多开数量" />
-                            <hc:NumericUpDown
-                                Width="60"
-                                Margin="0,5,0,0"
-                                Maximum="8"
-                                Minimum="0"
-                                Value="{Binding MultiInstanceCount, UpdateSourceTrigger=PropertyChanged}" />
-                        </StackPanel>
-                    </autogrid:AutoGrid>
-                </Grid>
-            </GroupBox>
-        </Grid>
-
-        <Grid Grid.Row="2">
-            <GroupBox Header="服务端设置" Style="{StaticResource GroupBoxTab}">
-                <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
-
+                    <TextBlock Text="游戏服务器名称" />
+                    <TextBox Grid.Column="1" Text="{Binding GameName}" />
                     <StackPanel
-                        Margin="5,0,5,2"
-                        IsEnabled="{Binding IsDatabasePathEditable}"
+                        Grid.Column="2"
+                        Margin="16,0,4,0"
                         Orientation="Horizontal">
-
+                        <TextBlock Text="引擎类型：" />
                         <TextBlock
-                            Margin="5"
-                            VerticalAlignment="Center"
-                            FontWeight="Bold"
-                            Text="DB路径" />
+                            MinWidth="100"
+                            d:Text="领风引擎"
+                            FontWeight="SemiBold"
+                            Text="{Binding EngineType, Converter={StaticResource EnumDescriptionConverter}}" />
+                    </StackPanel>
+                    <TextBlock Grid.Row="1" Text="游戏外网IP地址" />
+                    <TextBox
+                        Grid.Row="1"
+                        Grid.Column="1"
+                        Text="{Binding ExtIPAddr}" />
+                    <StackPanel
+                        Grid.Row="1"
+                        Grid.Column="2"
+                        Orientation="Horizontal">
+                        <CheckBox Content="动态IP地址" IsChecked="{Binding DynamicIPMode}" />
+                        <Button Command="{Binding GetExtIpAddrCommand}" Content="获取外网IP" />
+                        <Button Command="{Binding SetLocalIpCommand}" Content="设置本地IP" />
+                    </StackPanel>
+                    <Grid
+                        Grid.Row="2"
+                        Grid.ColumnSpan="3"
+                        IsEnabled="{Binding IsDatabasePathEditable}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="FieldLabel" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="DB路径" />
                         <TextBox
-                            Height="28"
-                            MinWidth="260"
-                            Margin="5"
+                            Grid.Column="1"
                             Text="{Binding DatabasePath, UpdateSourceTrigger=PropertyChanged}"
                             ToolTip="{Binding ResolvedDatabasePath}" />
                         <Button
-                            Width="90"
-                            Margin="5"
+                            Grid.Column="2"
                             Command="{Binding SelectDatabaseFileCommand}"
                             Content="浏览选择" />
                         <TextBlock
-                            Margin="5"
+                            Grid.Row="1"
+                            Grid.Column="1"
+                            Grid.ColumnSpan="2"
                             Foreground="OrangeRed"
-                            Text="{Binding DatabasePathWarning}" />
+                            Text="{Binding DatabasePathWarning}"
+                            TextWrapping="Wrap" />
+                    </Grid>
+                </Grid>
+            </GroupBox>
+
+
+            <GroupBox
+                Grid.Column="1"
+                Margin="3,0,0,3"
+                Header="维护工具"
+                Style="{StaticResource SectionStyle}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource SubheadingStyle}" Text="备份与清理" />
+                        <WrapPanel>
+                            <Button Command="{Binding ApplyDefaultAuxiliarySettingsCommand}" Content="默认备份设置" />
+                            <Button Command="{Binding GenerateCleanupScriptCommand}" Content="生成清理脚本" />
+                        </WrapPanel>
                     </StackPanel>
-
-                    <autogrid:AutoGrid
-                        Grid.Row="1"
-                        ColumnCount="10"
-                        RowCount="2">
-                        <autogrid:AutoGrid.Resources>
-                            <Style BasedOn="{StaticResource {x:Type TextBlock}}" TargetType="TextBlock">
-                                <Setter Property="Margin" Value="5" />
-                                <Setter Property="VerticalAlignment" Value="Center" />
-                                <Setter Property="FontWeight" Value="Bold" />
-                            </Style>
-                            <Style BasedOn="{StaticResource {x:Type TextBox}}" TargetType="TextBox">
-                                <Setter Property="Margin" Value="5" />
-                                <Setter Property="Width" Value="120" />
-                                <Setter Property="Height" Value="28" />
-                            </Style>
-                            <Style BasedOn="{StaticResource {x:Type Button}}" TargetType="Button">
-                                <Setter Property="Margin" Value="5" />
-                                <Setter Property="Width" Value="110" />
-                            </Style>
-                            <Style BasedOn="{StaticResource {x:Type CheckBox}}" TargetType="CheckBox">
-                                <Setter Property="HorizontalAlignment" Value="Center" />
-                            </Style>
-                        </autogrid:AutoGrid.Resources>
-
-                        <TextBlock Text="引擎类型：" />
-                        <TextBlock d:Text="领风引擎" Text="{Binding EngineType, Converter={StaticResource EnumDescriptionConverter}}" />
-                        <TextBlock Text="游戏服务器名称" />
-                        <TextBox Text="{Binding GameName}" />
-                        <Button Command="{Binding SetDefaultPortConfCommand}" Content="默认设置" />
-                        <Button Command="{Binding ApplyDefaultAuxiliarySettingsCommand}" Content="默认备份设置" />
-                        <TextBlock FontWeight="Bold" Text="所有端口增加：" />
-
-                        <hc:NumericUpDown
-                            Width="60"
-                            Height="28"
-                            Margin="0,5,0,2"
-                            Maximum="99"
-                            Minimum="-99"
-                            Value="{Binding ModifyNumberOfPort, UpdateSourceTrigger=PropertyChanged}" />
-                        <Button Command="{Binding BatchEditCommand}" Content="批量修改" />
-                        <Button Command="{Binding GenerateCleanupScriptCommand}" Content="生成清理脚本" />
-                        <TextBlock Text="动态IP地址" />
-                        <CheckBox IsChecked="{Binding DynamicIPMode}" />
-                        <TextBlock Text="游戏外网IP地址" />
-                        <TextBox Text="{Binding ExtIPAddr}" />
-                        <Button Command="{Binding GetExtIpAddrCommand}" Content="获取外网IP" />
-                        <Button Command="{Binding SetLocalIpCommand}" Content="设置本地IP" />
-
-                        <ComboBox
-                            Height="28"
-                            MinWidth="80"
-                            SelectedValue="{Binding SelectedEncoding, Mode=TwoWay}"
-                            SelectedValuePath="Content">
-                            <ComboBoxItem Content="GB18030" />
-                            <ComboBoxItem Content="UTF-8" />
-                        </ComboBox>
-                        <Button Command="{Binding ConvertEncodingCommand}" Content="转换编码">
-                            <Button.ToolTip>
-                                <ToolTip Content="转换Envir下的所有文件" />
-                            </Button.ToolTip>
-                        </Button>
-                        <Button
-                            Command="{Binding SaveConfigToFileCommand}"
-                            Content="配置完成请保存"
-                            Style="{StaticResource ButtonPrimary}" />
-                    </autogrid:AutoGrid>
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Style="{StaticResource SubheadingStyle}" Text="Envir文件编码" />
+                        <WrapPanel>
+                            <TextBlock Text="目标编码" />
+                            <ComboBox
+                                Height="30"
+                                MinWidth="110"
+                                Margin="4,3"
+                                SelectedValue="{Binding SelectedEncoding, Mode=TwoWay}"
+                                SelectedValuePath="Content">
+                                <ComboBoxItem Content="GB18030" />
+                                <ComboBoxItem Content="UTF-8" />
+                            </ComboBox>
+                            <Button
+                                Command="{Binding ConvertEncodingCommand}"
+                                Content="转换编码"
+                                ToolTip="转换Envir下的所有文件" />
+                        </WrapPanel>
+                    </StackPanel>
                 </Grid>
             </GroupBox>
         </Grid>
 
+        <GroupBox
+            Grid.Row="1"
+            Margin="0,0,0,3"
+            Header="网关与端口"
+            Style="{StaticResource SectionStyle}">
+            <StackPanel>
+                <UniformGrid Columns="7">
+                    <GroupBox Header="登录网关" Style="{StaticResource PortCardStyle}">
+                        <autogrid:AutoGrid Columns="Auto,*" RowCount="2">
+                            <CheckBox Content="启动 / 端口" IsChecked="{Binding LoginGateGetStart}" />
+                            <TextBox Text="{Binding LoginGateGatePort, UpdateSourceTrigger=PropertyChanged, ValidatesOnDataErrors=true}" />
+                        </autogrid:AutoGrid>
+                    </GroupBox>
+                    <GroupBox Header="角色网关" Style="{StaticResource PortCardStyle}">
+                        <autogrid:AutoGrid Columns="Auto,*" RowCount="2">
+                            <CheckBox Content="启动 / 端口1" IsChecked="{Binding SelGateGetStart}" />
+                            <TextBox Text="{Binding SelGateGatePort}" />
+                            <CheckBox Content="启动 / 端口2" IsChecked="{Binding SelGateGetStart1}" />
+                            <TextBox Text="{Binding SelGateGatePort1}" />
+                        </autogrid:AutoGrid>
+                    </GroupBox>
+                    <GroupBox Header="游戏网关" Style="{StaticResource PortCardStyle}">
+                        <autogrid:AutoGrid Columns="Auto,*" RowCount="2">
+                            <TextBlock Text="端口1" />
+                            <TextBox Text="{Binding RunGateGatePort1}" />
+                            <TextBlock Text="网关数量" />
+                            <hc:NumericUpDown
+                                Maximum="8"
+                                Minimum="0"
+                                Value="{Binding RunGateCount, UpdateSourceTrigger=PropertyChanged}" />
+                        </autogrid:AutoGrid>
+                    </GroupBox>
+                    <GroupBox Header="数据库服务器" Style="{StaticResource PortCardStyle}">
+                        <autogrid:AutoGrid Columns="Auto,*" RowCount="2">
+                            <CheckBox Content="启动 / 端口" IsChecked="{Binding DBServerGetStart}" />
+                            <TextBox Text="{Binding DBServerGatePort, UpdateSourceTrigger=PropertyChanged, ValidatesOnDataErrors=true}" />
+                            <TextBlock Text="通讯端口" />
+                            <TextBox Text="{Binding DBServerServerPort, UpdateSourceTrigger=PropertyChanged, ValidatesOnDataErrors=true}" />
+                        </autogrid:AutoGrid>
+                    </GroupBox>
+                    <GroupBox Header="M2主服务器" Style="{StaticResource PortCardStyle}">
+                        <autogrid:AutoGrid Columns="Auto,*" RowCount="2">
+                            <CheckBox Content="启动 / 端口" IsChecked="{Binding M2ServerGetStart}" />
+                            <TextBox Text="{Binding M2ServerGatePort}" />
+                            <TextBlock Text="通讯端口" />
+                            <TextBox Text="{Binding M2ServerMsgSrvPort}" />
+                        </autogrid:AutoGrid>
+                    </GroupBox>
+                    <GroupBox Header="账号服务器" Style="{StaticResource PortCardStyle}">
+                        <autogrid:AutoGrid Columns="Auto,*" RowCount="2">
+                            <CheckBox Content="启动 / 端口" IsChecked="{Binding LoginServerGetStart}" />
+                            <TextBox Text="{Binding LoginServerGatePort}" />
+                            <TextBlock Text="通讯端口" />
+                            <TextBox Text="{Binding LoginServerServerPort}" />
+                        </autogrid:AutoGrid>
+                    </GroupBox>
+                    <GroupBox Header="日志服务器" Style="{StaticResource PortCardStyle}">
+                        <autogrid:AutoGrid Columns="Auto,*" RowCount="2">
+                            <CheckBox Content="启动 / 端口" IsChecked="{Binding LogServerGetStart}" />
+                            <TextBox Text="{Binding LogServerPort}" />
+                        </autogrid:AutoGrid>
+                    </GroupBox>
+                </UniformGrid>
+                <WrapPanel Margin="0,8,0,0">
+                    <Button Command="{Binding SetDefaultPortConfCommand}" Content="默认设置" />
+                    <TextBlock Margin="16,3,4,3" Text="所有端口增加：" />
+                    <hc:NumericUpDown
+                        Width="90"
+                        Maximum="99"
+                        Minimum="-99"
+                        Value="{Binding ModifyNumberOfPort, UpdateSourceTrigger=PropertyChanged}" />
+                    <Button Command="{Binding BatchEditCommand}" Content="批量修改" />
+                </WrapPanel>
+            </StackPanel>
+        </GroupBox>
+
+        <GroupBox
+            Grid.Row="2"
+            Header="登录器配置"
+            Style="{StaticResource SectionStyle}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2*" />
+                    <ColumnDefinition Width="3*" />
+                    <ColumnDefinition Width="2*" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Margin="0,0,10,0">
+                    <TextBlock Style="{StaticResource SubheadingStyle}" Text="网站列表" />
+                    <autogrid:AutoGrid Columns="Auto,*" RowCount="2">
+                        <TextBlock Text="配置地址" />
+                        <TextBox Text="{Binding MainAddress}" />
+                        <TextBlock Text="备用地址" />
+                        <TextBox Text="{Binding BackupAddress}" />
+                    </autogrid:AutoGrid>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Margin="0,0,10,0">
+                    <TextBlock
+                        Margin="4,10,4,7"
+                        Style="{StaticResource SubheadingStyle}"
+                        Text="TCP列表" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="80" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Column="1" Text="服务器地址" />
+                        <TextBlock Grid.Column="2" Text="端口号" />
+                        <TextBlock Grid.Column="3" Text="配置文件" />
+                        <TextBlock Grid.Row="1" Text="主TCP" />
+                        <TextBox
+                            Grid.Row="1"
+                            Grid.Column="1"
+                            Text="{Binding MainTcpListServer}" />
+                        <TextBox
+                            Grid.Row="1"
+                            Grid.Column="2"
+                            Text="{Binding MainTcpPort}" />
+                        <TextBox
+                            Grid.Row="1"
+                            Grid.Column="3"
+                            Text="{Binding MainTcpConfigFile}" />
+                        <TextBlock Grid.Row="2" Text="备TCP" />
+                        <TextBox
+                            Grid.Row="2"
+                            Grid.Column="1"
+                            Text="{Binding BackupTcpListServer}" />
+                        <TextBox
+                            Grid.Row="2"
+                            Grid.Column="2"
+                            Text="{Binding BackupTcpPort}" />
+                        <TextBox
+                            Grid.Row="2"
+                            Grid.Column="3"
+                            Text="{Binding BackupTcpConfigFile}" />
+                    </Grid>
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="快捷方式名" />
+                        <TextBox Grid.Column="1" Text="{Binding LauncherName}" />
+                        <Button
+                            Grid.Column="2"
+                            Command="{Binding SetByServerNameCommand}"
+                            Content="按服务器名设置" />
+                        <TextBlock Grid.Row="1" Text="Resource目录" />
+                        <TextBox
+                            Grid.Row="1"
+                            Grid.Column="1"
+                            Text="{Binding ResourcesDir}" />
+                        <Grid
+                            Grid.Row="1"
+                            Grid.Column="2"
+                            ToolTip="打开补丁目录方可设置">
+                            <Button Command="{Binding GenerateByGamePinyinCommand}" Content="按游戏名生成" />
+                        </Grid>
+                        <TextBlock Grid.Row="2" Text="微端更新密码" />
+                        <TextBox
+                            Grid.Row="2"
+                            Grid.Column="1"
+                            Grid.ColumnSpan="2"
+                            Text="{Binding UpdatePassword}" />
+                        <TextBlock Grid.Row="3" Text="多开数量" />
+                        <hc:NumericUpDown
+                            Grid.Row="3"
+                            Grid.Column="1"
+                            Width="90"
+                            HorizontalAlignment="Left"
+                            Maximum="8"
+                            Minimum="0"
+                            Value="{Binding MultiInstanceCount, UpdateSourceTrigger=PropertyChanged}" />
+                    </Grid>
+                </StackPanel>
+            </Grid>
+        </GroupBox>
+
+        <Border
+            Grid.Row="3"
+            Margin="0,4,0,0"
+            Padding="0,4,0,0"
+            BorderBrush="{DynamicResource BorderBrush}"
+            BorderThickness="0,1,0,0">
+            <DockPanel LastChildFill="False">
+                <TextBlock DockPanel.Dock="Left" Text="配置调整完成后，请保存配置。" />
+                <Button
+                    Height="34"
+                    MinWidth="140"
+                    Margin="4,0"
+                    Command="{Binding SaveConfigToFileCommand}"
+                    Content="保存配置"
+                    DockPanel.Dock="Right"
+                    Style="{StaticResource ButtonPrimary}" />
+            </DockPanel>
+        </Border>
 
     </Grid>
 </UserControl>

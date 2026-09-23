@@ -6,7 +6,6 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="clr-namespace:Legend2Tool.WPF.ViewModels"
-    MinWidth="1000"
     d:Background="LightGray"
     d:DataContext="{d:DesignInstance Type=vm:InsertScriptViewModel}"
     d:DesignHeight="560"

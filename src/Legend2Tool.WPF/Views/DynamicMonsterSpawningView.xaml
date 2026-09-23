@@ -12,7 +12,7 @@
     d:Background="LightGray"
     d:DataContext="{d:DesignInstance Type=vm:DynamicMonsterSpawningViewModel}"
     d:DesignHeight="600"
-    d:DesignWidth="1050"
+    d:DesignWidth="1000"
     mc:Ignorable="d">
     <UserControl.Resources>
         <cv:MonsterCountToRedBrushConverter x:Key="MonsterCountToRedBrushConverter" />

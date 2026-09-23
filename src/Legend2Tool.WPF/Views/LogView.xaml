@@ -7,8 +7,8 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="clr-namespace:Legend2Tool.WPF.ViewModels"
     d:DataContext="{d:DesignInstance vm:LogViewModel}"
-    d:DesignHeight="450"
-    d:DesignWidth="800"
+    d:DesignHeight="650"
+    d:DesignWidth="1000"
     mc:Ignorable="d">
     <Grid>
         <Grid.RowDefinitions>
