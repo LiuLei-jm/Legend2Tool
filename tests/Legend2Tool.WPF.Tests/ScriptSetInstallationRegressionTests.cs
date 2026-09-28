@@ -58,8 +58,7 @@ public sealed class ScriptSetInstallationRegressionTests
         Assert.Contains("新增中文内容" + newLine, installedText);
         await service.RemoveAsync(fixture.ScriptSet);
         byte[] removed = File.ReadAllBytes(fixture.ScriptPath);
-        Assert.True(removed.AsSpan().StartsWith([.. preamble, .. encoding.GetBytes(prefix)]));
-        Assert.True(removed.AsSpan().EndsWith(encoding.GetBytes("原始尾部")));
+        Assert.Equal(original, removed);
         Assert.DoesNotContain("新增中文内容", encoding.GetString(removed));
     }
 

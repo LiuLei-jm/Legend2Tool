@@ -247,7 +247,14 @@ internal sealed class VersionListDocument
                     else if (next == '\r') { if (i < text.Length && text[i] == '\n') i++; }
                     else if (next != '\n') value.Append(next switch
                     {
-                        'n' => '\n', 'r' => '\r', 't' => '\t', 'b' => '\b', 'f' => '\f', 'v' => '\v', '0' => '\0', _ => next
+                        'n' => '\n',
+                        'r' => '\r',
+                        't' => '\t',
+                        'b' => '\b',
+                        'f' => '\f',
+                        'v' => '\v',
+                        '0' => '\0',
+                        _ => next
                     });
                 }
                 if (!closed) throw Invalid("字符串未闭合");

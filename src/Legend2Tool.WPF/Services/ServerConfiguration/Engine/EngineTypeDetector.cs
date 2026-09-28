@@ -1,6 +1,6 @@
+using Legend2Tool.WPF.Enums;
 using System.Diagnostics;
 using System.IO;
-using Legend2Tool.WPF.Enums;
 
 namespace Legend2Tool.WPF.Services.ServerConfiguration.Engine;
 

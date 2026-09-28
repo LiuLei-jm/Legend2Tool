@@ -1,5 +1,5 @@
-using System.Text;
 using System.IO;
+using System.Text;
 
 namespace Legend2Tool.WPF.Services.DynamicMonsterSpawning.Writing;
 

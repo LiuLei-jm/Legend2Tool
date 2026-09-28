@@ -1,11 +1,11 @@
-using Legend2Tool.WPF.Services.Authentication;
 using Legend2Tool.WPF.Models.Authentication;
 using Legend2Tool.WPF.Models.ScriptSets;
+using Legend2Tool.WPF.Services.Authentication;
+using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using System.IO;
 using System.Text.Json;
 
 namespace Legend2Tool.WPF.Services.ScriptSets

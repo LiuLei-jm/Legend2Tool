@@ -1,8 +1,8 @@
 ﻿using CommunityToolkit.Mvvm.Messaging;
 using Legend2Tool.WPF.Enums;
 using Legend2Tool.WPF.Messages;
-using Legend2Tool.WPF.Models.BackList;
 using Legend2Tool.WPF.Models;
+using Legend2Tool.WPF.Models.BackList;
 using Legend2Tool.WPF.Models.Launcher;
 using Legend2Tool.WPF.Models.M2Config;
 using Legend2Tool.WPF.Services.ServerConfiguration;

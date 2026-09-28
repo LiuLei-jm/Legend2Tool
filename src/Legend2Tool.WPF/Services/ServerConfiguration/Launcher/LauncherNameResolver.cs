@@ -1,6 +1,6 @@
-using System.Text.RegularExpressions;
 using Legend2Tool.WPF.State;
 using Serilog;
+using System.Text.RegularExpressions;
 using TinyPinyin;
 
 namespace Legend2Tool.WPF.Services.ServerConfiguration.Launcher;

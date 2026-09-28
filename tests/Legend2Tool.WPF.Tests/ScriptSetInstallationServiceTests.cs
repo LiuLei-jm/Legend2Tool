@@ -30,7 +30,7 @@ public sealed class ScriptSetInstallationServiceTests
     }
 
     [Fact]
-    public void InjectSegments_ExistingTrigger_InsertsMarkedBlockAndIsIdempotent()
+    public void InjectSegments_EnvirFile_InsertsPlainBlockAndIsIdempotent()
     {
         Guid scriptSetId = Guid.Parse("11111111-1111-1111-1111-111111111111");
         Guid segmentId = Guid.Parse("22222222-2222-2222-2222-222222222222");
@@ -62,11 +62,12 @@ public sealed class ScriptSetInstallationServiceTests
 
         string content = encoding.GetString(inserted);
         Assert.Contains(
-            "[@TeSt]\r\n;---脚本插入--- ScriptSet=11111111111111111111111111111111;Segment=22222222222222222222222222222222\r\n",
+            "[@TeSt]\r\nSENDMSG 6 测试\r\n",
             content,
             StringComparison.Ordinal
         );
-        Assert.Contains("SENDMSG 6 测试\r\n;---插入结束---", content);
+        Assert.DoesNotContain("脚本插入", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("插入结束", content, StringComparison.Ordinal);
         Assert.EndsWith("原触发内容", content, StringComparison.Ordinal);
         byte[] originalPrefix = encoding.GetBytes("原始内容\r\n[@TeSt]\r\n");
         byte[] originalSuffix = encoding.GetBytes("原触发内容");
@@ -104,14 +105,14 @@ public sealed class ScriptSetInstallationServiceTests
         );
 
         string content = encoding.GetString(output);
-        Assert.StartsWith(";---脚本插入---", content, StringComparison.Ordinal);
+        Assert.StartsWith(";------小疙瘩制作QQ14699396，脚本插入", content, StringComparison.Ordinal);
         Assert.True(content.IndexOf("TOP-A", StringComparison.Ordinal)
             < content.IndexOf("TOP-B", StringComparison.Ordinal));
         Assert.Contains("[newTrigger]", content, StringComparison.Ordinal);
         Assert.True(content.IndexOf("BOTTOM-A", StringComparison.Ordinal)
             < content.IndexOf("BOTTOM-B", StringComparison.Ordinal));
         Assert.EndsWith(
-            ";---插入结束--- ScriptSet=11111111111111111111111111111111;Segment=33333333333333333333333333333333-4",
+            ";------小疙瘩制作QQ14699396，插入结束 ScriptSet=11111111111111111111111111111111;Segment=33333333333333333333333333333333-4",
             content,
             StringComparison.Ordinal
         );
@@ -151,10 +152,11 @@ public sealed class ScriptSetInstallationServiceTests
             CountOccurrences(content, "[@LateTrigger]", StringComparison.OrdinalIgnoreCase)
         );
         Assert.Contains(
-            "[@LateTrigger]\r\n;---脚本插入---",
+            "[@LateTrigger]\r\nSENDMSG 6 末尾触发",
             content,
             StringComparison.Ordinal
         );
+        Assert.DoesNotContain("脚本插入", content, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -190,14 +192,14 @@ public sealed class ScriptSetInstallationServiceTests
             encoding,
             0,
             scriptSetId,
-            scriptFile.FileName
+            scriptFile
         );
 
         string content = encoding.GetString(removed);
-        Assert.Equal("原始头部\r\n[@Test]\r\n\r\n原始尾部", content);
+        Assert.Equal(original, content);
         Assert.DoesNotContain("SENDMSG 6 测试", content, StringComparison.Ordinal);
-        Assert.DoesNotContain(";---脚本插入---", content, StringComparison.Ordinal);
-        Assert.DoesNotContain(";---插入结束---", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("脚本插入", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("插入结束", content, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -206,7 +208,15 @@ public sealed class ScriptSetInstallationServiceTests
         Guid scriptSetId = Guid.Parse("11111111-1111-1111-1111-111111111111");
         Encoding encoding = new UTF8Encoding(false);
         byte[] source = encoding.GetBytes(
-            "原始内容\r\n;---脚本插入--- ScriptSet=11111111111111111111111111111111;Segment=broken\r\n插入内容"
+            "原始内容\r\n;------小疙瘩制作QQ14699396，脚本插入 ScriptSet=11111111111111111111111111111111;Segment=broken\r\n插入内容"
+        );
+        var scriptFile = new ScriptFileInfo(
+            Guid.NewGuid(),
+            "QFunction-0.txt",
+            "Mir200/Envir",
+            ScriptFileType.Partial,
+            null,
+            [new ScriptSegmentInfo(Guid.NewGuid(), "@test", "插入内容")]
         );
         byte[] snapshot = source.ToArray();
 
@@ -216,7 +226,7 @@ public sealed class ScriptSetInstallationServiceTests
                 encoding,
                 0,
                 scriptSetId,
-                "QFunction-0.txt"
+                scriptFile
             )
         );
         Assert.Equal(snapshot, source);
@@ -411,8 +421,10 @@ public sealed class ScriptSetInstallationServiceTests
                 )
             );
             string partialContent = File.ReadAllText(partialPath, gb18030);
-            Assert.Contains("[@Login]\r\n;---脚本插入---", partialContent);
+            Assert.Contains("[@Login]\r\n片段内容", partialContent);
             Assert.Contains("片段内容", partialContent);
+            Assert.DoesNotContain("脚本插入", partialContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("插入结束", partialContent, StringComparison.Ordinal);
             Assert.EndsWith("原触发内容", partialContent, StringComparison.Ordinal);
             Assert.Equal("测试物品", ReadDatabaseName(databasePath, 42));
             Assert.Equal(2, result.ScriptFileCount);
@@ -706,12 +718,10 @@ public sealed class ScriptSetInstallationServiceTests
                 partialPath,
                 Encoding.GetEncoding("GB18030")
             );
-            Assert.Contains("原始头部", partialContent, StringComparison.Ordinal);
-            Assert.Contains("[@Login]", partialContent, StringComparison.Ordinal);
-            Assert.Contains("原始尾部", partialContent, StringComparison.Ordinal);
+            Assert.Equal("原始头部\r\n[@Login]\r\n原始尾部", partialContent);
             Assert.DoesNotContain("片段内容", partialContent, StringComparison.Ordinal);
-            Assert.DoesNotContain(";---脚本插入---", partialContent, StringComparison.Ordinal);
-            Assert.DoesNotContain(";---插入结束---", partialContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("脚本插入", partialContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("插入结束", partialContent, StringComparison.Ordinal);
             Assert.Equal("已有数据", ReadDatabaseName(databasePath, 41));
             Assert.Null(ReadDatabaseName(databasePath, 42));
             Assert.Equal(2, result.ScriptFileCount);

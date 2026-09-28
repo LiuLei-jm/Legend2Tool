@@ -1,12 +1,12 @@
-﻿using Legend2Tool.WPF.Services.Infrastructure.Text;
-using Legend2Tool.WPF.Commons;
+﻿using Legend2Tool.WPF.Commons;
 using Legend2Tool.WPF.Enums;
 using Legend2Tool.WPF.Models.ScriptOptimizations;
-using Legend2Tool.WPF.State;
 using Legend2Tool.WPF.Services.DynamicMonsterSpawning.Infrastructure;
 using Legend2Tool.WPF.Services.DynamicMonsterSpawning.Processing;
 using Legend2Tool.WPF.Services.DynamicMonsterSpawning.Reading;
 using Legend2Tool.WPF.Services.DynamicMonsterSpawning.Writing;
+using Legend2Tool.WPF.Services.Infrastructure.Text;
+using Legend2Tool.WPF.State;
 using System.IO;
 using System.Text;
 using System.Windows;
@@ -15,7 +15,7 @@ namespace Legend2Tool.WPF.Services.DynamicMonsterSpawning
 {
     public class DynamicMonsterSpawningService : IDynamicMonsterSpawningService
     {
-        private const string BackupRootDirectoryName = "Legend2ToolBackups";
+        private const string BackupRootDirectoryName = "MongenBackups";
         private const string MongenBackupDirectoryName = "Mongen";
         private const string BackupIncompleteMarkerName = "backup.incomplete";
         private const string BackupRestoredMarkerName = "restore.completed";

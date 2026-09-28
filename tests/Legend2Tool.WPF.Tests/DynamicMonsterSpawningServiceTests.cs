@@ -296,7 +296,7 @@ public class DynamicMonsterSpawningServiceTests
 
             string backupRoot = Path.Combine(
                 serverDirectory,
-                "Legend2ToolBackups",
+                "MongenBackups",
                 "Mongen"
             );
             string backupDirectory = Assert.Single(Directory.GetDirectories(backupRoot));

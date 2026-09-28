@@ -5,8 +5,8 @@ namespace Legend2Tool.WPF.Services.ScriptSets.Installation
 {
     internal static class ScriptSegmentEditor
     {
-        private const string ScriptStartMarker = ";---脚本插入---";
-        private const string ScriptEndMarker = ";---插入结束---";
+        private const string ScriptStartMarker = ";------小疙瘩制作QQ14699396，脚本插入";
+        private const string ScriptEndMarker = ";------小疙瘩制作QQ14699396，插入结束";
 
         internal static byte[] InjectSegments(
             byte[] originalBytes,
@@ -18,6 +18,7 @@ namespace Legend2Tool.WPF.Services.ScriptSets.Installation
         {
             byte[] output = originalBytes;
             Encoding strictEncoding = DeploymentFileStore.CreateStrictEncoding(encoding);
+            bool useMarkers = !IsMir200EnvirPath(scriptFile.FilePath);
             IReadOnlyList<ScriptSegmentInfo> segments = scriptFile.Segments ?? [];
             List<IndexedSegment> indexedSegments = segments
                 .Select((segment, index) => new IndexedSegment(
@@ -51,38 +52,48 @@ namespace Legend2Tool.WPF.Services.ScriptSets.Installation
                     $"{ScriptStartMarker} ScriptSet={scriptSetId:N};Segment={markerKey}";
                 string endMarker =
                     $"{ScriptEndMarker} ScriptSet={scriptSetId:N};Segment={markerKey}";
-                bool containsStartMarker = content.Contains(
-                    startMarker,
-                    StringComparison.Ordinal
-                );
-                bool containsEndMarker = content.Contains(
-                    endMarker,
-                    StringComparison.Ordinal
-                );
-                if (containsStartMarker && containsEndMarker)
+                if (useMarkers)
                 {
-                    continue;
-                }
-                if (containsStartMarker || containsEndMarker)
-                {
-                    throw new ScriptSetInstallationException(
-                        $"脚本“{scriptFile.FileName}”中存在不完整的插入标识，已停止写入。"
+                    bool containsStartMarker = content.Contains(
+                        startMarker,
+                        StringComparison.Ordinal
                     );
+                    bool containsEndMarker = content.Contains(
+                        endMarker,
+                        StringComparison.Ordinal
+                    );
+                    if (containsStartMarker && containsEndMarker)
+                    {
+                        continue;
+                    }
+                    if (containsStartMarker || containsEndMarker)
+                    {
+                        throw new ScriptSetInstallationException(
+                            $"脚本“{scriptFile.FileName}”中存在不完整的插入标识，已停止写入。"
+                        );
+                    }
                 }
 
                 string newLine = DeploymentFileStore.DetectNewLine(content);
-                string block = CreateSegmentBlock(
-                    startMarker,
-                    endMarker,
-                    segment.Content ?? string.Empty,
-                    newLine
-                );
+                string block = useMarkers
+                    ? CreateMarkedSegmentBlock(
+                        startMarker,
+                        endMarker,
+                        segment.Content ?? string.Empty,
+                        newLine
+                    )
+                    : CreatePlainSegmentBlock(segment.Content ?? string.Empty, newLine);
                 TextInsertion insertion = CreateTextInsertion(
                     content,
                     indexedSegment.Trigger,
                     block,
                     newLine
                 );
+                if (ContainsInsertedTextAtPosition(content, insertion))
+                {
+                    continue;
+                }
+
                 int byteIndex = preambleLength + strictEncoding.GetByteCount(
                     content.AsSpan(0, insertion.CharacterIndex)
                 );
@@ -98,7 +109,7 @@ namespace Legend2Tool.WPF.Services.ScriptSets.Installation
             Encoding encoding,
             int preambleLength,
             Guid scriptSetId,
-            string fileName
+            ScriptFileInfo scriptFile
         )
         {
             if (preambleLength < 0 || preambleLength > sourceBytes.Length)
@@ -120,8 +131,12 @@ namespace Legend2Tool.WPF.Services.ScriptSets.Installation
                 content,
                 startPrefix,
                 endPrefix,
-                fileName
+                scriptFile.FileName
             );
+            if (IsMir200EnvirPath(scriptFile.FilePath))
+            {
+                AddPlainSegmentRanges(content, scriptFile, ranges);
+            }
 
             byte[] output = sourceBytes;
             foreach (TextRange range in ranges.OrderByDescending(range => range.Start))
@@ -135,6 +150,85 @@ namespace Legend2Tool.WPF.Services.ScriptSets.Installation
                 output = RemoveBytes(output, byteStart, byteEnd - byteStart);
             }
             return output;
+        }
+
+        private static void AddPlainSegmentRanges(
+            string content,
+            ScriptFileInfo scriptFile,
+            List<TextRange> ranges
+        )
+        {
+            string newLine = DeploymentFileStore.DetectNewLine(content);
+            IReadOnlyList<ScriptSegmentInfo> segments = scriptFile.Segments ?? [];
+            List<IndexedSegment> indexedSegments = segments
+                .Select((segment, index) => new IndexedSegment(
+                    segment,
+                    index,
+                    NormalizeTrigger(segment.TriggerField)
+                ))
+                .ToList();
+            IEnumerable<IndexedSegment> removalOrder = indexedSegments
+                .Where(item => item.Trigger == "#bottom")
+                .Reverse()
+                .Concat(
+                    indexedSegments
+                        .Where(item => item.Trigger is not ("#top" or "#bottom"))
+                        .GroupBy(item => item.Trigger, StringComparer.OrdinalIgnoreCase)
+                        .SelectMany(group => group)
+                )
+                .Concat(indexedSegments.Where(item => item.Trigger == "#top"));
+
+            foreach (IndexedSegment indexedSegment in removalOrder)
+            {
+                string block = CreatePlainSegmentBlock(
+                    indexedSegment.Segment.Content ?? string.Empty,
+                    newLine
+                );
+                if (block.Length == 0)
+                {
+                    continue;
+                }
+
+                int start = FindAvailableRangeStart(content, block, ranges);
+                if (start < 0)
+                {
+                    continue;
+                }
+
+                ranges.Add(ExpandRangeToInsertedLineBreaks(content, start, block.Length));
+            }
+        }
+
+        private static int FindAvailableRangeStart(
+            string content,
+            string value,
+            List<TextRange> ranges
+        )
+        {
+            int searchStart = 0;
+            while (searchStart < content.Length)
+            {
+                int start = content.IndexOf(value, searchStart, StringComparison.Ordinal);
+                if (start < 0)
+                {
+                    return -1;
+                }
+                if (!ranges.Any(range => Overlaps(range, start, value.Length)))
+                {
+                    return start;
+                }
+
+                searchStart = start + 1;
+            }
+
+            return -1;
+        }
+
+        private static bool Overlaps(TextRange range, int start, int length)
+        {
+            int end = start + length;
+            int rangeEnd = range.Start + range.Length;
+            return start < rangeEnd && range.Start < end;
         }
 
         private static List<TextRange> FindInsertedSegmentRanges(
@@ -184,7 +278,11 @@ namespace Legend2Tool.WPF.Services.ScriptSets.Installation
                         throw CreateIncompleteMarkerException(fileName);
                     }
 
-                    ranges.Add(new TextRange(blockStart.Value, lineEnd - blockStart.Value));
+                    ranges.Add(ExpandRangeToInsertedLineBreaks(
+                        content,
+                        blockStart.Value,
+                        lineEnd - blockStart.Value
+                    ));
                     blockStart = null;
                     markerKey = null;
                 }
@@ -214,6 +312,83 @@ namespace Legend2Tool.WPF.Services.ScriptSets.Installation
         ) => new(
             $"脚本“{fileName}”中存在不完整的插入标识，为避免删除原文件内容，已停止删除。"
         );
+
+        private static TextRange ExpandRangeToInsertedLineBreaks(
+            string content,
+            int start,
+            int length
+        )
+        {
+            int end = start + length;
+            if (end < content.Length && TryGetNewLineLength(content, end, out int nextNewLineLength))
+            {
+                return new TextRange(start, length + nextNewLineLength);
+            }
+
+            if (start > 0 && TryGetPreviousNewLineLength(content, start, out int previousNewLineLength))
+            {
+                return new TextRange(start - previousNewLineLength, length + previousNewLineLength);
+            }
+
+            return new TextRange(start, length);
+        }
+
+        private static bool TryGetNewLineLength(
+            string content,
+            int index,
+            out int length
+        )
+        {
+            length = 0;
+            if (index >= content.Length)
+            {
+                return false;
+            }
+
+            if (content[index] == '\r')
+            {
+                length = index + 1 < content.Length && content[index + 1] == '\n'
+                    ? 2
+                    : 1;
+                return true;
+            }
+            if (content[index] == '\n')
+            {
+                length = 1;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool TryGetPreviousNewLineLength(
+            string content,
+            int index,
+            out int length
+        )
+        {
+            length = 0;
+            int previousIndex = index - 1;
+            if (previousIndex < 0)
+            {
+                return false;
+            }
+
+            if (content[previousIndex] == '\n')
+            {
+                length = previousIndex > 0 && content[previousIndex - 1] == '\r'
+                    ? 2
+                    : 1;
+                return true;
+            }
+            if (content[previousIndex] == '\r')
+            {
+                length = 1;
+                return true;
+            }
+
+            return false;
+        }
 
         internal static string NormalizeTrigger(string triggerField)
         {
@@ -329,7 +504,7 @@ namespace Legend2Tool.WPF.Services.ScriptSets.Installation
             return true;
         }
 
-        private static string CreateSegmentBlock(
+        private static string CreateMarkedSegmentBlock(
             string startMarker,
             string endMarker,
             string segmentContent,
@@ -349,6 +524,58 @@ namespace Legend2Tool.WPF.Services.ScriptSets.Installation
                 + normalizedContent
                 + contentSeparator
                 + endMarker;
+        }
+
+        private static string CreatePlainSegmentBlock(string segmentContent, string newLine)
+        {
+            return segmentContent
+                .Replace("\r\n", "\n", StringComparison.Ordinal)
+                .Replace('\r', '\n')
+                .Replace("\n", newLine, StringComparison.Ordinal);
+        }
+
+        private static bool ContainsInsertedTextAtPosition(
+            string content,
+            TextInsertion insertion
+        )
+        {
+            if (insertion.Text.Length == 0)
+            {
+                return true;
+            }
+
+            string insertedText = TrimLeadingNewLine(insertion.Text);
+            if (insertion.CharacterIndex == content.Length)
+            {
+                return content.EndsWith(insertedText, StringComparison.Ordinal);
+            }
+
+            return content.AsSpan(insertion.CharacterIndex).StartsWith(
+                insertedText,
+                StringComparison.Ordinal
+            );
+        }
+
+        private static string TrimLeadingNewLine(string value)
+        {
+            int index = 0;
+            while (index < value.Length && value[index] is '\r' or '\n')
+            {
+                index++;
+            }
+
+            return value[index..];
+        }
+
+        private static bool IsMir200EnvirPath(string? filePath)
+        {
+            if (string.IsNullOrWhiteSpace(filePath))
+            {
+                return false;
+            }
+
+            string normalizedPath = filePath.Replace('\\', '/').Trim('/');
+            return normalizedPath.Equals("Mir200/Envir", StringComparison.OrdinalIgnoreCase);
         }
 
         private static byte[] InsertBytes(byte[] source, int index, byte[] insertedBytes)

@@ -1,11 +1,11 @@
-﻿using Legend2Tool.WPF.Services.Infrastructure.Files;
-using Legend2Tool.WPF.Services.Infrastructure.Text;
-using Legend2Tool.WPF.Services.ServerConfiguration;
-using Legend2Tool.WPF.Commons;
+﻿using Legend2Tool.WPF.Commons;
 using Legend2Tool.WPF.Enums;
 using Legend2Tool.WPF.Models.M2Config;
 using Legend2Tool.WPF.Models.M2Config.M2Config;
 using Legend2Tool.WPF.Models.ScriptOptimizations;
+using Legend2Tool.WPF.Services.Infrastructure.Files;
+using Legend2Tool.WPF.Services.Infrastructure.Text;
+using Legend2Tool.WPF.Services.ServerConfiguration;
 using Legend2Tool.WPF.State;
 using Microsoft.Data.Sqlite;
 using Serilog;

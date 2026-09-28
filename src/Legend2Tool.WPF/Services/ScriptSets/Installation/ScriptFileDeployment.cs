@@ -101,7 +101,7 @@ namespace Legend2Tool.WPF.Services.ScriptSets.Installation
                     state.Encoding,
                     state.Preamble.Length,
                     plan.ScriptSetId,
-                    plan.ScriptFile.FileName
+                    plan.ScriptFile
                 );
                 if (!state.Bytes.AsSpan().SequenceEqual(outputBytes))
                 {
