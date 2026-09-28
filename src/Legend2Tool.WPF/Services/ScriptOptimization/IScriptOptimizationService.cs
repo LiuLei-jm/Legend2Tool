@@ -7,7 +7,7 @@ namespace Legend2Tool.WPF.Services.ScriptOptimization
         void UpdateMainCityLists(string mainCityLists);
         Task<List<DuplicatedTriggerEntry>> DetectDuplicatedTriggerAsync();
         Task OptimizingCallsAsync();
-        Task DropRateCalculatorAsync();
+        Task DropRateCalculatorAsync(string? outputDirectory = null);
         void OpenFile(DuplicatedTriggerEntry entry);
         Task OptimizingMinMonBurstRateAsync(int minMonBurstRate);
     }

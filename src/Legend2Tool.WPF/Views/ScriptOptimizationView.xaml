@@ -2,109 +2,214 @@
     x:Class="Legend2Tool.WPF.Views.ScriptOptimizationView"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:autogrid="clr-namespace:WpfAutoGrid;assembly=WpfAutoGrid.Core"
     xmlns:cv="clr-namespace:Legend2Tool.WPF.Converters"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:hc="https://handyorg.github.io/handycontrol"
-    xmlns:local="clr-namespace:Legend2Tool.WPF.Views"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="clr-namespace:Legend2Tool.WPF.ViewModels"
-    d:Background="LightGray"
+    MinWidth="1000"
+    MinHeight="500"
     d:DataContext="{d:DesignInstance Type=vm:ScriptOptimizationViewModel}"
-    d:DesignHeight="600"
-    d:DesignWidth="1000"
+    d:DesignHeight="540"
+    d:DesignWidth="1070"
     mc:Ignorable="d">
     <UserControl.Resources>
         <cv:BoolToTextConverter x:Key="BoolToTextConverter" />
+        <Style
+            x:Key="SectionStyle"
+            BasedOn="{StaticResource GroupBoxTab}"
+            TargetType="GroupBox">
+            <Setter Property="Padding" Value="12" />
+        </Style>
+        <Style BasedOn="{StaticResource {x:Type Button}}" TargetType="Button">
+            <Setter Property="MinHeight" Value="30" />
+            <Setter Property="Padding" Value="12,4" />
+        </Style>
+        <Style
+            x:Key="HintStyle"
+            BasedOn="{StaticResource {x:Type TextBlock}}"
+            TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
     </UserControl.Resources>
-    <Grid>
 
-        <StackPanel>
-            <StackPanel Orientation="Horizontal">
-                <Grid>
-                    <ListView Height="450" ItemsSource="{Binding DuplicatedTriggersView}">
-                        <ListView.View>
-                            <GridView>
-                                <GridViewColumn Width="150" DisplayMemberBinding="{Binding TriggerField}">
-                                    <GridViewColumn.Header>
-                                        <GridViewColumnHeader
-                                            Command="{Binding SortDuplicatedTriggersCommand}"
-                                            CommandParameter="TriggerField"
-                                            Content="触发字段" />
-                                    </GridViewColumn.Header>
-                                </GridViewColumn>
-                                <GridViewColumn Width="500" DisplayMemberBinding="{Binding FilePath}">
-                                    <GridViewColumn.Header>
-                                        <GridViewColumnHeader
-                                            Command="{Binding SortDuplicatedTriggersCommand}"
-                                            CommandParameter="FilePath"
-                                            Content="文件名" />
-                                    </GridViewColumn.Header>
-                                </GridViewColumn>
-                                <GridViewColumn Width="50" DisplayMemberBinding="{Binding LineNumber}">
-                                    <GridViewColumn.Header>
-                                        <GridViewColumnHeader
-                                            Command="{Binding SortDuplicatedTriggersCommand}"
-                                            CommandParameter="LineNumber"
-                                            Content="行号" />
-                                    </GridViewColumn.Header>
-                                </GridViewColumn>
-                                <GridViewColumn Width="60" DisplayMemberBinding="{Binding IsRecursion, Converter={StaticResource BoolToTextConverter}}">
-                                    <GridViewColumn.Header>
-                                        <GridViewColumnHeader
-                                            Command="{Binding SortDuplicatedTriggersCommand}"
-                                            CommandParameter="IsRecursion"
-                                            Content="死循环" />
-                                    </GridViewColumn.Header>
-                                </GridViewColumn>
-                            </GridView>
-                        </ListView.View>
-                        <ListView.ContextMenu>
-                            <ContextMenu>
-                                <MenuItem
-                                    Command="{Binding OpenFileCommand}"
-                                    CommandParameter="{Binding Path=PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                    Header="打开文件" />
-                                <MenuItem
-                                    Command="{Binding CopyTriggerFieldCommand}"
-                                    CommandParameter="{Binding Path=PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                    Header="复制触发字段" />
-                            </ContextMenu>
-                        </ListView.ContextMenu>
-                    </ListView>
+    <Grid Margin="10">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="310" />
+            <ColumnDefinition Width="12" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="12" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <GroupBox Grid.RowSpan="3" Header="爆率查询" Style="{StaticResource SectionStyle}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <TextBlock Margin="0,0,0,6" Text="网站目录" />
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox
+                        Margin="0,0,8,0"
+                        VerticalContentAlignment="Center"
+                        IsReadOnly="True"
+                        Text="{Binding DropRateDirectory, Mode=OneWay}"
+                        ToolTip="{Binding DropRateDirectory}" />
+                    <Button
+                        Grid.Column="1"
+                        Command="{Binding SelectDropRateDirectoryCommand}"
+                        Content="选择目录" />
                 </Grid>
-
-                <StackPanel>
-                    <StackPanel.Resources>
-                        <Style BasedOn="{StaticResource {x:Type Button}}" TargetType="Button">
-                            <Setter Property="Margin" Value="5" />
-                            <Setter Property="Width" Value="100" />
-                            <Setter Property="Height" Value="28" />
+                <TextBlock
+                    Grid.Row="2"
+                    Margin="0,8,0,14"
+                    Style="{StaticResource HintStyle}"
+                    Text="{Binding DropRateStatus}" />
+                <DockPanel Grid.Row="3" Margin="0,0,0,6">
+                    <TextBlock
+                        DockPanel.Dock="Right"
+                        Style="{StaticResource HintStyle}"
+                        Text="{Binding DropRateVersions.Count, StringFormat={}{0} 个版本}" />
+                    <TextBlock Text="版本列表" />
+                </DockPanel>
+                <ListBox
+                    Grid.Row="4"
+                    MinHeight="140"
+                    DisplayMemberPath="Name"
+                    ItemsSource="{Binding DropRateVersions}">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Padding" Value="8,6" />
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListBox}}" />
+                            <Setter Property="ContextMenu">
+                                <Setter.Value>
+                                    <ContextMenu DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}">
+                                        <MenuItem Command="{Binding DropRateCalculatorCommand}" Header="生成爆率查询" />
+                                        <MenuItem
+                                            Command="{Binding DeleteDropRateVersionCommand}"
+                                            CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                            Header="删除" />
+                                    </ContextMenu>
+                                </Setter.Value>
+                            </Setter>
                         </Style>
+                    </ListBox.ItemContainerStyle>
+                </ListBox>
+                <TextBlock
+                    Grid.Row="5"
+                    Margin="0,8,0,12"
+                    Style="{StaticResource HintStyle}"
+                    Text="右键版本名称，可生成查询或删除版本。" />
+                <Button
+                    Grid.Row="6"
+                    HorizontalAlignment="Stretch"
+                    Command="{Binding DropRateCalculatorCommand}"
+                    Content="生成爆率查询" />
+            </Grid>
+        </GroupBox>
 
-                    </StackPanel.Resources>
-                    <Button Command="{Binding DetectDuplicatedTriggerCommand}" Content="查询重复调用" />
-                    <Button Command="{Binding DropRateCalculatorCommand}" Content="生成爆率查询" />
-                    <Button Command="{Binding OptimizingCallsCommand}" Content="优化CALL调用" />
-                    <StackPanel Orientation="Horizontal">
-                        <StackPanel.Resources>
-                            <Style BasedOn="{StaticResource {x:Type TextBlock}}" TargetType="TextBlock">
-                                <Setter Property="VerticalAlignment" Value="Center" />
-                                <Setter Property="Margin" Value="5" />
-                                <Setter Property="Foreground" Value="Black"/>
-                            </Style>
-                            <Style BasedOn="{StaticResource {x:Type hc:NumericUpDown}}" TargetType="hc:NumericUpDown">
-                                <Setter Property="Margin" Value="2" />
-                            </Style>
-                        </StackPanel.Resources>
+        <GroupBox Grid.Column="2" Header="重复调用检测" Style="{StaticResource SectionStyle}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <DockPanel Margin="0,0,0,10">
+                    <Button
+                        Margin="12,0,0,0"
+                        Command="{Binding DetectDuplicatedTriggerCommand}"
+                        Content="查询重复调用"
+                        DockPanel.Dock="Right" />
+                    <TextBlock Style="{StaticResource HintStyle}" Text="查看重复触发字段及所在脚本。" />
+                </DockPanel>
+                <ListView Grid.Row="1" MinHeight="180" ItemsSource="{Binding DuplicatedTriggersView}">
+                    <ListView.View>
+                        <GridView>
+                            <GridViewColumn Width="120" DisplayMemberBinding="{Binding TriggerField}">
+                                <GridViewColumn.Header>
+                                    <GridViewColumnHeader
+                                        Command="{Binding SortDuplicatedTriggersCommand}"
+                                        CommandParameter="TriggerField"
+                                        Content="触发字段" />
+                                </GridViewColumn.Header>
+                            </GridViewColumn>
+                            <GridViewColumn Width="360" DisplayMemberBinding="{Binding FilePath}">
+                                <GridViewColumn.Header>
+                                    <GridViewColumnHeader
+                                        Command="{Binding SortDuplicatedTriggersCommand}"
+                                        CommandParameter="FilePath"
+                                        Content="文件名" />
+                                </GridViewColumn.Header>
+                            </GridViewColumn>
+                            <GridViewColumn Width="50" DisplayMemberBinding="{Binding LineNumber}">
+                                <GridViewColumn.Header>
+                                    <GridViewColumnHeader
+                                        Command="{Binding SortDuplicatedTriggersCommand}"
+                                        CommandParameter="LineNumber"
+                                        Content="行号" />
+                                </GridViewColumn.Header>
+                            </GridViewColumn>
+                            <GridViewColumn Width="60" DisplayMemberBinding="{Binding IsRecursion, Converter={StaticResource BoolToTextConverter}}">
+                                <GridViewColumn.Header>
+                                    <GridViewColumnHeader
+                                        Command="{Binding SortDuplicatedTriggersCommand}"
+                                        CommandParameter="IsRecursion"
+                                        Content="死循环" />
+                                </GridViewColumn.Header>
+                            </GridViewColumn>
+                        </GridView>
+                    </ListView.View>
+                    <ListView.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem
+                                Command="{Binding OpenFileCommand}"
+                                CommandParameter="{Binding Path=PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                Header="打开文件" />
+                            <MenuItem
+                                Command="{Binding CopyTriggerFieldCommand}"
+                                CommandParameter="{Binding Path=PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                Header="复制触发字段" />
+                        </ContextMenu>
+                    </ListView.ContextMenu>
+                </ListView>
+                <TextBlock
+                    Grid.Row="2"
+                    Margin="0,8,0,0"
+                    Style="{StaticResource HintStyle}"
+                    Text="点击表头排序；右键结果可打开文件或复制触发字段。" />
+            </Grid>
+        </GroupBox>
 
-                        <TextBlock Text="最小爆率" />
-                        <hc:NumericUpDown Minimum="0" Value="{Binding MinMonBurstRate}" />
-                    </StackPanel>
-                    <Button Command="{Binding OptimizingMinMonBurstRateCommand}" Content="优化最小爆率" />
-                </StackPanel>
-            </StackPanel>
-        </StackPanel>
-
+        <GroupBox
+            Grid.Row="2"
+            Grid.Column="2"
+            Header="CALL 调用优化"
+            Style="{StaticResource SectionStyle}">
+            <DockPanel>
+                <Button
+                    Margin="12,0,0,0"
+                    VerticalAlignment="Center"
+                    Command="{Binding OptimizingCallsCommand}"
+                    Content="优化 CALL 调用"
+                    DockPanel.Dock="Right" />
+                <TextBlock Style="{StaticResource HintStyle}" Text="优化当前服务器脚本中的 CALL 调用。" />
+            </DockPanel>
+        </GroupBox>
     </Grid>
 </UserControl>

@@ -2,7 +2,13 @@ namespace Legend2Tool.WPF.Models
 {
     public sealed class AppConfig
     {
+        public ScriptOptimizationConfig ScriptOptimization { get; set; } = new();
         public DynamicMonsterSpawningConfig DynamicMonsterSpawning { get; set; } = new();
+    }
+
+    public sealed class ScriptOptimizationConfig
+    {
+        public string DropRateDirectory { get; set; } = string.Empty;
     }
 
     public sealed class DynamicMonsterSpawningConfig

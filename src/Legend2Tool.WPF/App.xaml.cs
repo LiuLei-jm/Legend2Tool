@@ -55,6 +55,7 @@ namespace Legend2Tool.WPF
                         services.AddSingleton<IDialogService, DialogService>();
                         services.AddSingleton<IConfigService, ConfigService>();
                         services.AddSingleton<IEncodingService, EncodingService>();
+                        services.AddSingleton<IDropRateSiteService, DropRateSiteService>();
                         services.AddSingleton<ICredentialStore, CredentialStore>();
                         services.AddSingleton<IAuthenticationService, AuthenticationService>();
                         services.AddSingleton<IScriptSetService, ScriptSetService>();

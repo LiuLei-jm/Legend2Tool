@@ -31,6 +31,7 @@ namespace Legend2Tool.WPF.Services.ScriptOptimization.Modular
         private readonly IFileService _fileService;
         private readonly ProgressStore _progressStore;
         private readonly ILogger _logger;
+        private readonly IDropRateSiteService _dropRateSiteService;
         private readonly ScriptFileCatalog _fileCatalog;
         private readonly CallReferenceParser _callReferenceParser = new();
         private HashSet<string> _mainCityLists = [];
@@ -61,7 +62,8 @@ namespace Legend2Tool.WPF.Services.ScriptOptimization.Modular
             IEncodingService encodingService,
             IFileService fileService,
             ProgressStore progressStore,
-            ILogger logger
+            ILogger logger,
+            IDropRateSiteService dropRateSiteService
         )
         {
             _configStore = configStore;
@@ -69,6 +71,7 @@ namespace Legend2Tool.WPF.Services.ScriptOptimization.Modular
             _fileService = fileService;
             _progressStore = progressStore;
             _logger = logger;
+            _dropRateSiteService = dropRateSiteService;
             _fileCatalog = new ScriptFileCatalog(configStore, fileService);
         }
 
@@ -423,8 +426,11 @@ namespace Legend2Tool.WPF.Services.ScriptOptimization.Modular
 
         private List<string> GetScriptFiles() => _fileCatalog.GetScriptFiles();
 
-        public async Task DropRateCalculatorAsync()
+        public async Task DropRateCalculatorAsync(string? outputDirectory = null)
         {
+            // Resolve the destination once so a missing file later cannot silently change modes.
+            string? siteDirectory = _dropRateSiteService.HasCustomFile(outputDirectory) ? outputDirectory : null;
+            if (siteDirectory is not null) _dropRateSiteService.Load(siteDirectory);
             _stdModes.Clear();
             _mapDatas.Clear();
             _monsters.Clear();
@@ -467,18 +473,18 @@ namespace Legend2Tool.WPF.Services.ScriptOptimization.Modular
             _progressStore.ProgressPercentage = (int)((6 / 7.0) * 100);
             _progressStore.ProgressText = $"写入文件";
             progress.Report(_progressStore);
-            await ProcessDataWriteFileAsync();
+            await ProcessDataWriteFileAsync(siteDirectory);
             _progressStore.ProgressPercentage = (int)((7 / 7.0) * 100);
             _progressStore.ProgressText = $"处理完成";
             progress.Report(_progressStore);
         }
 
-        private async Task ProcessDataWriteFileAsync()
+        private async Task ProcessDataWriteFileAsync(string? siteDirectory)
         {
             if (string.IsNullOrEmpty(_configStore.LauncherConfig.LauncherName))
                 _configStore.LauncherConfig.LauncherName = "热血传奇";
-            var versionName = _configStore.LauncherConfig.LauncherName;
-            var versionNamePinYin = _configStore.LauncherConfig.ResourcesDir;
+            var versionName = Regex.Replace(_configStore.LauncherConfig.LauncherName, @"【[^】]*】", string.Empty);
+            var versionNamePinYin = _configStore.LauncherConfig.ResourcesDir ?? string.Empty;
 
             StringBuilder customBuilder = new StringBuilder();
             customBuilder.AppendLine("{");
@@ -491,7 +497,8 @@ namespace Legend2Tool.WPF.Services.ScriptOptimization.Modular
             if (!Directory.Exists(folderPath))
                 Directory.CreateDirectory(folderPath);
             string filePath = Path.Combine(folderPath, "custom.js");
-            await File.WriteAllTextAsync(filePath, customBuilder.ToString());
+            if (siteDirectory is null)
+                await File.WriteAllTextAsync(filePath, customBuilder.ToString());
 
             filePath = Path.Combine(folderPath, $"{versionNamePinYin}.js");
             var dataBuilder = new StringBuilder();
@@ -543,7 +550,8 @@ namespace Legend2Tool.WPF.Services.ScriptOptimization.Modular
                 dataBuilder.AppendLine(line);
             }
             dataBuilder.AppendLine("];");
-            await File.WriteAllTextAsync(filePath, dataBuilder.ToString());
+            if (siteDirectory is null)
+                await File.WriteAllTextAsync(filePath, dataBuilder.ToString());
 
             filePath = Path.Combine(folderPath, "MapDesc1.dat");
             var mapDescBuilder = new StringBuilder();
@@ -558,6 +566,8 @@ namespace Legend2Tool.WPF.Services.ScriptOptimization.Modular
                 mapDescBuilder.ToString(),
                 Encoding.GetEncoding("GB18030")
             );
+            if (siteDirectory is not null)
+                _dropRateSiteService.Append(siteDirectory, versionName, versionNamePinYin, dataBuilder.ToString());
         }
 
         private async Task ProcessMapEventAsync()

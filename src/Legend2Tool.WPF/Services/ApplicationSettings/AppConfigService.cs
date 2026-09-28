@@ -41,6 +41,8 @@ namespace Legend2Tool.WPF.Services.ApplicationSettings
             AppConfig config = JsonSerializer.Deserialize<AppConfig>(json, SerializerOptions)
                 ?? new AppConfig();
             config.DynamicMonsterSpawning = Normalize(config.DynamicMonsterSpawning);
+            config.ScriptOptimization ??= new();
+            config.ScriptOptimization.DropRateDirectory ??= string.Empty;
             return config;
         }
 

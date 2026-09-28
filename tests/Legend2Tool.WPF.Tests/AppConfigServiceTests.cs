@@ -5,6 +5,40 @@ namespace Legend2Tool.WPF.Tests;
 
 public sealed class AppConfigServiceTests
 {
+    [Theory]
+    [InlineData("{}")]
+    [InlineData("{\"ScriptOptimization\":null}")]
+    [InlineData("{\"ScriptOptimization\":{\"DropRateDirectory\":null}}")]
+    public void LoadOrCreate_MissingDropRateSettings_UsesEmptyDirectory(string json)
+    {
+        string directory = CreateTempDirectory();
+        try
+        {
+            string path = Path.Combine(directory, "config.json");
+            File.WriteAllText(path, json);
+            Assert.Equal(string.Empty, new AppConfigService(path).LoadOrCreate().ScriptOptimization.DropRateDirectory);
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
+    [Fact]
+    public void Save_DropRateDirectory_RestoresPathAndPreservesOtherSettings()
+    {
+        string directory = CreateTempDirectory();
+        try
+        {
+            var service = new AppConfigService(Path.Combine(directory, "config.json"));
+            var config = service.LoadOrCreate();
+            config.DynamicMonsterSpawning.RefreshMonInterval = 12;
+            config.ScriptOptimization.DropRateDirectory = @"D:\爆率查询";
+            service.Save(config);
+            var restored = service.LoadOrCreate();
+            Assert.Equal(@"D:\爆率查询", restored.ScriptOptimization.DropRateDirectory);
+            Assert.Equal(12, restored.DynamicMonsterSpawning.RefreshMonInterval);
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
     [Fact]
     public void LoadOrCreate_MissingFile_CreatesConfigWithDefaults()
     {
