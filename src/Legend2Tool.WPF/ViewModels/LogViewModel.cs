@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Legend2Tool.WPF.Services.Infrastructure.Logging;
 using Serilog;
+using System.Windows;
 
 namespace Legend2Tool.WPF.ViewModels
 {
@@ -27,8 +28,7 @@ namespace Legend2Tool.WPF.ViewModels
 
         private void OnLogReceived(string logMessage)
         {
-            // Update the LogText property to trigger UI update
-            LogText = LogManager.GetLogText();
+            UpdateLogText();
         }
 
         [RelayCommand]
@@ -37,12 +37,27 @@ namespace Legend2Tool.WPF.ViewModels
             try
             {
                 LogManager.ClearLogs();
-                LogText = string.Empty;
+                UpdateLogText();
             }
             catch (Exception ex)
             {
                 _logger.Error(ex, "清空日志时出错");
             }
+        }
+
+        private void UpdateLogText()
+        {
+            var dispatcher = Application.Current?.Dispatcher;
+            if (dispatcher == null || dispatcher.CheckAccess())
+            {
+                LogText = LogManager.GetLogText();
+                return;
+            }
+
+            dispatcher.BeginInvoke(() =>
+            {
+                LogText = LogManager.GetLogText();
+            });
         }
     }
 }

@@ -1,4 +1,6 @@
+using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 
 namespace Legend2Tool.WPF.Views
 {
@@ -16,11 +18,38 @@ namespace Legend2Tool.WPF.Views
         {
             if (e.OriginalSource is TextBox textBox)
             {
+                var scrollViewer = GetScrollViewer(textBox);
+                var shouldScrollToEnd = scrollViewer == null
+                    || scrollViewer.ScrollableHeight - scrollViewer.VerticalOffset < 20;
+
                 textBox.Dispatcher.BeginInvoke(() =>
                 {
-                    textBox.ScrollToEnd();
+                    if (shouldScrollToEnd)
+                    {
+                        textBox.ScrollToEnd();
+                    }
                 });
             }
+        }
+
+        private static ScrollViewer? GetScrollViewer(DependencyObject parent)
+        {
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+            {
+                var child = VisualTreeHelper.GetChild(parent, i);
+                if (child is ScrollViewer scrollViewer)
+                {
+                    return scrollViewer;
+                }
+
+                var result = GetScrollViewer(child);
+                if (result != null)
+                {
+                    return result;
+                }
+            }
+
+            return null;
         }
     }
 }
