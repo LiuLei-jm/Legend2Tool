@@ -54,13 +54,13 @@
                 <TextBlock Margin="0,0,0,5" Text="密码" />
                 <PasswordBox
                     Height="32"
-                    Margin="0,0,0,10"
+                    Margin="0,0,0,15"
                     VerticalContentAlignment="Center"
                     behaviors:PasswordBoxBinding.BindPassword="True"
                     behaviors:PasswordBoxBinding.BoundPassword="{Binding Password, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
                 <CheckBox
-                    Margin="0,0,0,14"
+                    Margin="0,5,0,14"
                     Foreground="#212121"
                     IsChecked="{Binding RememberCredentials}"
                     ToolTip="账号密码使用 Windows 当前用户加密保存">
