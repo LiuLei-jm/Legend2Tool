@@ -145,6 +145,97 @@ public sealed class ScriptSetDatabaseDeploymentTests
     }
 
     [AccessTheory]
+    [InlineData(EngineType.GOM, "accdb")]
+    [InlineData(EngineType.GOM, "mdb")]
+    [InlineData(EngineType.NEWGOM, "accdb")]
+    [InlineData(EngineType.NEWGOM, "mdb")]
+    public void DatabaseDeployment_AccessNumericColumns_InstallsAndRemovesRows(
+        EngineType engine, string extension)
+    {
+        RunAccess(() =>
+        {
+            using var directory = new TestDirectory();
+            DatabaseTarget target = CreateAccessDatabase(directory, engine, extension);
+            using var connection = OpenAccess(target.Path);
+            string columns = string.Join(", ", Enumerable.Range(1, 8).Select(
+                index => $"[Number{index}] " + ((index % 3) switch
+                {
+                    0 => "BYTE",
+                    1 => "INTEGER",
+                    _ => "SMALLINT"
+                })
+            ));
+            ExecuteAccess(connection,
+                $"CREATE TABLE [StdItems] ([Idx] INTEGER NOT NULL, [Name] TEXT(255) NOT NULL, {columns}, [Note] TEXT(255))");
+            ExecuteAccess(connection,
+                "INSERT INTO [StdItems] ([Idx], [Name]) VALUES (41, 'original')");
+            connection.Close();
+
+            string dataJson = "{\"Name\":\"numeric\","
+                + string.Join(",", Enumerable.Range(1, 8).Select(
+                    index => $"\"Number{index}\":{index}"
+                ))
+                + ",\"Note\":null,\"Idx\":999}";
+            DatabaseRowPlan[] plans = ScriptSetDatabaseDeployment.CreateDatabasePlans([
+                new ScriptSetDatabaseDataInfo(Guid.NewGuid(), Guid.NewGuid(),
+                    GameDatabaseTableType.StdItems, "numeric", dataJson)
+            ]).ToArray();
+
+            ScriptSetDatabaseDeployment.ValidateDatabasePlans(target, plans);
+            ScriptSetDatabaseDeployment.InsertDatabaseRows(target, plans, CancellationToken.None);
+
+            connection.Open();
+            Assert.Equal("numeric", ScalarAccess(connection,
+                "SELECT [Name] FROM [StdItems] WHERE [Idx] = 42 AND [Number8] = 8"));
+            connection.Close();
+
+            ScriptSetDatabaseDeployment.ValidateDatabaseRemovalPlans(plans);
+            Assert.Equal(1, ScriptSetDatabaseDeployment.RemoveDatabaseRows(
+                target, plans, CancellationToken.None));
+            connection.Open();
+            Assert.Equal(1, Convert.ToInt32(ScalarAccess(connection,
+                "SELECT COUNT(*) FROM [StdItems]")));
+            Assert.Equal("original", ScalarAccess(connection,
+                "SELECT [Name] FROM [StdItems] WHERE [Idx] = 41"));
+        });
+    }
+
+    [AccessTheory]
+    [InlineData(EngineType.GOM)]
+    [InlineData(EngineType.NEWGOM)]
+    public void Insert_AccessNumberExceedsColumnRange_RollsBack(EngineType engine)
+    {
+        RunAccess(() =>
+        {
+            using var directory = new TestDirectory();
+            DatabaseTarget target = CreateAccessDatabase(directory, engine);
+            using var connection = OpenAccess(target.Path);
+            ExecuteAccess(connection,
+                "CREATE TABLE [StdItems] ([Idx] INTEGER NOT NULL, [Name] TEXT(255), [Count] SMALLINT)");
+            ExecuteAccess(connection,
+                "INSERT INTO [StdItems] ([Idx], [Name]) VALUES (41, 'original')");
+            connection.Close();
+
+            DatabaseRowPlan[] plans = ScriptSetDatabaseDeployment.CreateDatabasePlans([
+                new ScriptSetDatabaseDataInfo(Guid.NewGuid(), Guid.NewGuid(),
+                    GameDatabaseTableType.StdItems, "overflow",
+                    "{\"Name\":\"overflow\",\"Count\":40000}")
+            ]).ToArray();
+            ScriptSetDatabaseDeployment.ValidateDatabasePlans(target, plans);
+
+            ScriptSetInstallationException exception = Assert.Throws<ScriptSetInstallationException>(
+                () => ScriptSetDatabaseDeployment.InsertDatabaseRows(
+                    target, plans, CancellationToken.None
+                )
+            );
+            Assert.Contains("StdItems.Count", exception.Message);
+            connection.Open();
+            Assert.Equal(1, Convert.ToInt32(ScalarAccess(connection,
+                "SELECT COUNT(*) FROM [StdItems]")));
+        });
+    }
+
+    [AccessTheory]
     [InlineData(EngineType.GOM)]
     [InlineData(EngineType.NEWGOM)]
     public void Insert_AccessSecondRowFails_RollsBackFirstRow(EngineType engine)
@@ -259,13 +350,18 @@ public sealed class ScriptSetDatabaseDeploymentTests
         }
     }
 
-    private static DatabaseTarget CreateAccessDatabase(TestDirectory directory, EngineType engine)
+    private static DatabaseTarget CreateAccessDatabase(
+        TestDirectory directory,
+        EngineType engine,
+        string extension = "accdb")
     {
-        string path = Path.Combine(directory.Path, "game.accdb");
+        string path = Path.Combine(directory.Path, $"game.{extension}");
         // Create the fixture outside the test host so ADOX's native COM lifetime is isolated.
         string scriptPath = Path.Combine(directory.Path, "create.vbs");
         File.WriteAllText(scriptPath, "Set catalog = CreateObject(\"ADOX.Catalog\")\r\n"
-            + "catalog.Create \"Provider=Microsoft.ACE.OLEDB.12.0;Data Source=\" & WScript.Arguments(0)\r\n"
+            + "connectionString = \"Provider=Microsoft.ACE.OLEDB.12.0;Data Source=\" & WScript.Arguments(0)\r\n"
+            + "If LCase(Right(WScript.Arguments(0), 4)) = \".mdb\" Then connectionString = connectionString & \";Jet OLEDB:Engine Type=5\"\r\n"
+            + "catalog.Create connectionString\r\n"
             + "catalog.ActiveConnection.Close\r\nSet catalog = Nothing\r\n");
         var start = new ProcessStartInfo(Path.Combine(Environment.SystemDirectory, "cscript.exe"))
         {

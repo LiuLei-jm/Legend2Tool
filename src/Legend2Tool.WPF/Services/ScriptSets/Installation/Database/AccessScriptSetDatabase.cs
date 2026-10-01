@@ -1,4 +1,5 @@
 using Legend2Tool.WPF.Enums;
+using System.Data;
 using System.Data.OleDb;
 
 namespace Legend2Tool.WPF.Services.ScriptSets.Installation.Database
@@ -23,27 +24,16 @@ namespace Legend2Tool.WPF.Services.ScriptSets.Installation.Database
                 StringComparer.OrdinalIgnoreCase
             ))
             {
-                HashSet<string> columns;
-                try
-                {
-                    using OleDbCommand command = connection.CreateCommand();
-                    command.CommandText =
-                        $"SELECT * FROM {QuoteAccessIdentifier(group.Key)} WHERE 1 = 0";
-                    using OleDbDataReader reader = command.ExecuteReader();
-                    columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                    for (int index = 0; index < reader.FieldCount; index++)
-                    {
-                        columns.Add(reader.GetName(index));
-                    }
-                }
-                catch (OleDbException ex)
-                {
-                    throw new ScriptSetInstallationException(
-                        $"无法读取 Access 数据表：{group.Key}",
-                        ex
-                    );
-                }
-                ScriptSetDatabaseRules.ValidateColumns(group, group.Key, columns);
+                IReadOnlyDictionary<string, OleDbType> columns = GetAccessColumns(
+                    connection,
+                    null,
+                    group.Key
+                );
+                ScriptSetDatabaseRules.ValidateColumns(
+                    group,
+                    group.Key,
+                    columns.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase)
+                );
             }
         }
 
@@ -61,10 +51,18 @@ namespace Legend2Tool.WPF.Services.ScriptSets.Installation.Database
                 var nextIndexes = new Dictionary<string, long>(
                     StringComparer.OrdinalIgnoreCase
                 );
+                var tableColumns = new Dictionary<string, IReadOnlyDictionary<string, OleDbType>>(
+                    StringComparer.OrdinalIgnoreCase
+                );
                 foreach (DatabaseRowPlan plan in plans)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     string tableName = ScriptSetDatabaseRules.GetTableName(target.EngineType, plan.TableType);
+                    if (!tableColumns.TryGetValue(tableName, out IReadOnlyDictionary<string, OleDbType>? columnsByName))
+                    {
+                        columnsByName = GetAccessColumns(connection, transaction, tableName);
+                        tableColumns.Add(tableName, columnsByName);
+                    }
                     AssignNextAccessIndex(
                         connection,
                         transaction,
@@ -72,21 +70,24 @@ namespace Legend2Tool.WPF.Services.ScriptSets.Installation.Database
                         plan,
                         nextIndexes
                     );
+                    KeyValuePair<string, object?>[] values = plan.Values.ToArray();
                     string columns = string.Join(
                         ", ",
-                        plan.Values.Keys.Select(QuoteAccessIdentifier)
+                        values.Select(value => QuoteAccessIdentifier(value.Key))
                     );
-                    string parameters = string.Join(", ", plan.Values.Keys.Select(_ => "?"));
+                    string parameters = string.Join(", ", values.Select(_ => "?"));
                     using OleDbCommand command = connection.CreateCommand();
                     command.Transaction = transaction;
                     command.CommandText =
                         $"INSERT INTO {QuoteAccessIdentifier(tableName)} ({columns}) VALUES ({parameters})";
-                    foreach (object? value in plan.Values.Values)
+                    foreach (KeyValuePair<string, object?> value in values)
                     {
-                        command.Parameters.Add(new OleDbParameter
-                        {
-                            Value = value ?? DBNull.Value
-                        });
+                        command.Parameters.Add(CreateAccessParameter(
+                            tableName,
+                            value.Key,
+                            value.Value,
+                            columnsByName
+                        ));
                     }
                     command.ExecuteNonQuery();
                 }
@@ -111,10 +112,18 @@ namespace Legend2Tool.WPF.Services.ScriptSets.Installation.Database
             try
             {
                 int removedCount = 0;
+                var tableColumns = new Dictionary<string, IReadOnlyDictionary<string, OleDbType>>(
+                    StringComparer.OrdinalIgnoreCase
+                );
                 foreach (DatabaseRowPlan plan in plans)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     string tableName = ScriptSetDatabaseRules.GetTableName(target.EngineType, plan.TableType);
+                    if (!tableColumns.TryGetValue(tableName, out IReadOnlyDictionary<string, OleDbType>? columnsByName))
+                    {
+                        columnsByName = GetAccessColumns(connection, transaction, tableName);
+                        tableColumns.Add(tableName, columnsByName);
+                    }
                     KeyValuePair<string, object?>[] matchValues = ScriptSetDatabaseRules.GetDatabaseMatchValues(
                         plan
                     );
@@ -123,7 +132,9 @@ namespace Legend2Tool.WPF.Services.ScriptSets.Installation.Database
                     findCommand.Transaction = transaction;
                     string whereClause = AddAccessMatchParameters(
                         findCommand,
-                        matchValues
+                        matchValues,
+                        tableName,
+                        columnsByName
                     );
                     findCommand.CommandText =
                         $"SELECT TOP 1 {QuoteAccessIdentifier(ScriptSetDatabaseRules.DatabaseIndexColumn)}"
@@ -141,7 +152,12 @@ namespace Legend2Tool.WPF.Services.ScriptSets.Installation.Database
                     deleteCommand.CommandText =
                         $"DELETE FROM {QuoteAccessIdentifier(tableName)}"
                         + $" WHERE {QuoteAccessIdentifier(ScriptSetDatabaseRules.DatabaseIndexColumn)} = ?";
-                    deleteCommand.Parameters.Add(new OleDbParameter { Value = index });
+                    deleteCommand.Parameters.Add(CreateAccessParameter(
+                        tableName,
+                        ScriptSetDatabaseRules.DatabaseIndexColumn,
+                        index,
+                        columnsByName
+                    ));
                     removedCount += deleteCommand.ExecuteNonQuery();
                 }
 
@@ -157,7 +173,9 @@ namespace Legend2Tool.WPF.Services.ScriptSets.Installation.Database
 
         private static string AddAccessMatchParameters(
             OleDbCommand command,
-            IReadOnlyList<KeyValuePair<string, object?>> matchValues
+            IReadOnlyList<KeyValuePair<string, object?>> matchValues,
+            string tableName,
+            IReadOnlyDictionary<string, OleDbType> columnsByName
         )
         {
             var conditions = new List<string>(matchValues.Count);
@@ -171,9 +189,103 @@ namespace Legend2Tool.WPF.Services.ScriptSets.Installation.Database
                 }
 
                 conditions.Add($"{column} = ?");
-                command.Parameters.Add(new OleDbParameter { Value = matchValue.Value });
+                command.Parameters.Add(CreateAccessParameter(
+                    tableName,
+                    matchValue.Key,
+                    matchValue.Value,
+                    columnsByName
+                ));
             }
             return string.Join(" AND ", conditions);
+        }
+
+        private static IReadOnlyDictionary<string, OleDbType> GetAccessColumns(
+            OleDbConnection connection,
+            OleDbTransaction? transaction,
+            string tableName
+        )
+        {
+            try
+            {
+                using OleDbCommand command = connection.CreateCommand();
+                command.Transaction = transaction;
+                command.CommandText =
+                    $"SELECT * FROM {QuoteAccessIdentifier(tableName)} WHERE 1 = 0";
+                using OleDbDataReader reader = command.ExecuteReader();
+                using DataTable? schema = reader.GetSchemaTable();
+                if (schema is null
+                    || !schema.Columns.Contains("ColumnName")
+                    || !schema.Columns.Contains("ProviderType"))
+                {
+                    throw new ScriptSetInstallationException(
+                        $"无法获取 Access 数据表 {tableName} 的字段类型。"
+                    );
+                }
+
+                var columns = new Dictionary<string, OleDbType>(
+                    StringComparer.OrdinalIgnoreCase
+                );
+                foreach (DataRow row in schema.Rows)
+                {
+                    string name = (string)row["ColumnName"];
+                    columns.Add(name, (OleDbType)Convert.ToInt32(row["ProviderType"]));
+                }
+                return columns;
+            }
+            catch (OleDbException ex)
+            {
+                throw new ScriptSetInstallationException(
+                    $"无法读取 Access 数据表：{tableName}",
+                    ex
+                );
+            }
+        }
+
+        private static OleDbParameter CreateAccessParameter(
+            string tableName,
+            string columnName,
+            object? value,
+            IReadOnlyDictionary<string, OleDbType> columnsByName
+        )
+        {
+            if (!columnsByName.TryGetValue(columnName, out OleDbType columnType))
+            {
+                throw new ScriptSetInstallationException(
+                    $"数据库表 {tableName} 不存在字段 {columnName}。"
+                );
+            }
+
+            object parameterValue = value ?? DBNull.Value;
+            if (value is long integer)
+            {
+                try
+                {
+                    parameterValue = columnType switch
+                    {
+                        OleDbType.Integer => checked((int)integer),
+                        OleDbType.SmallInt => checked((short)integer),
+                        OleDbType.TinyInt => checked((sbyte)integer),
+                        OleDbType.UnsignedTinyInt => checked((byte)integer),
+                        OleDbType.UnsignedSmallInt => checked((ushort)integer),
+                        OleDbType.UnsignedInt => checked((uint)integer),
+                        OleDbType.UnsignedBigInt => checked((ulong)integer),
+                        _ => integer
+                    };
+                }
+                catch (OverflowException ex)
+                {
+                    throw new ScriptSetInstallationException(
+                        $"数据库字段 {tableName}.{columnName} 的值 {integer} 超出字段范围。",
+                        ex
+                    );
+                }
+            }
+
+            return new OleDbParameter
+            {
+                OleDbType = columnType,
+                Value = parameterValue
+            };
         }
 
         private static void AssignNextAccessIndex(
