@@ -25,7 +25,14 @@ public sealed class DropRateGenerationTests
     [InlineData(EngineType.HGE, "site")]
     [InlineData(EngineType.GEE, "none")]
     [InlineData(EngineType.GEE, "missing")]
-    public async Task Generate_UsesSelectedSiteOrOriginalOutputAndKeepsMapDesc(EngineType engine, string destination)
+    public Task Generate_UsesSelectedSiteOrOriginalOutputAndKeepsMapDesc(EngineType engine, string destination)
+        => GenerateAsync(engine, destination, includeGb18030Npc: false);
+
+    [Fact]
+    public Task Generate_Gb18030NpcCall_ResolvesQuestDiaryAndAssociatesItem()
+        => GenerateAsync(EngineType.GEE, "none", includeGb18030Npc: true);
+
+    private static async Task GenerateAsync(EngineType engine, string destination, bool includeGb18030Npc)
     {
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         SQLitePCL.Batteries_V2.Init();
@@ -56,6 +63,22 @@ public sealed class DropRateGenerationTests
             }
             foreach (string file in new[] { "MapInfo.txt", "MerChant.txt", "Mongen.txt", "MapEvent.txt" })
                 File.WriteAllText(Path.Combine(envir, file), string.Empty);
+            if (includeGb18030Npc)
+            {
+                File.WriteAllText(Path.Combine(envir, "MapInfo.txt"), "[3s 盟重]");
+                File.WriteAllText(Path.Combine(envir, "MerChant.txt"), "盟重NPC/4综合炼炉 3s 189 181 综合炼炉");
+                string npcDirectory = Path.Combine(envir, "Market_Def", "盟重NPC");
+                string callDirectory = Path.Combine(envir, "QuestDiary", "9登录触发");
+                Directory.CreateDirectory(npcDirectory);
+                Directory.CreateDirectory(callDirectory);
+                Encoding gb18030 = Encoding.GetEncoding("GB18030");
+                string asciiComment = ";" + new string('A', 200) + "\r\n";
+                string npcScript = "[@main]\r\n" + asciiComment
+                    + "#CALL [9登录触发\\01坐骑炼炉.txt] @坐骑显示a\r\n";
+                string callScript = "[@坐骑显示a]\r\n" + asciiComment + "GIVE 测试装备 1\r\n";
+                File.WriteAllText(Path.Combine(npcDirectory, "4综合炼炉-3s.txt"), npcScript, gb18030);
+                File.WriteAllText(Path.Combine(callDirectory, "01坐骑炼炉.txt"), callScript, gb18030);
+            }
             Directory.CreateDirectory(Path.Combine(site, "js"));
             string customPath = Path.Combine(site, "js", "custom.js");
             if (destination == "site") File.WriteAllText(customPath, "var version_list = [];\nvar keep = true;");
@@ -95,6 +118,12 @@ public sealed class DropRateGenerationTests
                 Assert.Contains("name: \"测试版本\"", File.ReadAllText(Path.Combine(originalDirectory, "custom.js")));
                 Assert.Contains("测试装备", File.ReadAllText(Path.Combine(originalDirectory, "test-version.js")));
                 Assert.False(Directory.Exists(Path.Combine(site, "data")));
+            }
+            if (includeGb18030Npc)
+            {
+                string data = File.ReadAllText(Path.Combine(originalDirectory, "test-version.js"));
+                Assert.Contains("name: \"综合炼炉\"", data);
+                Assert.Contains("give: \"0\"", data);
             }
         }
         finally

@@ -613,6 +613,7 @@ namespace Legend2Tool.WPF.Services.ScriptOptimization.Modular
             HashSet<string> processedField = [];
             string filePath;
             Encoding fileEncoding;
+            Encoding legacyEncoding = Encoding.GetEncoding("GB18030");
             foreach (var npcData in _npcDatas)
             {
                 if (string.IsNullOrEmpty(npcData.FilePath))
@@ -625,7 +626,7 @@ namespace Legend2Tool.WPF.Services.ScriptOptimization.Modular
                     "Market_Def",
                     $"{npcFilePath}-{npcData.Code}.txt"
                 );
-                fileEncoding = _encodingService.DetectFileEncoding(filePath);
+                fileEncoding = _encodingService.DetectFileEncoding(filePath, legacyEncoding);
                 await foreach (var line in File.ReadLinesAsync(filePath, fileEncoding))
                 {
                     var trimmedLine = line.Trim();
@@ -641,7 +642,7 @@ namespace Legend2Tool.WPF.Services.ScriptOptimization.Modular
                             "QuestDiary",
                             callPath
                         );
-                        var callFileEncoding = _encodingService.DetectFileEncoding(fullCallPath);
+                        var callFileEncoding = _encodingService.DetectFileEncoding(fullCallPath, legacyEncoding);
                         await foreach (
                             var callLine in File.ReadLinesAsync(fullCallPath, callFileEncoding)
                         )
